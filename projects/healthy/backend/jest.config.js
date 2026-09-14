@@ -45,8 +45,7 @@ module.exports = {
     '!<rootDir>/src/services/authService.js',
     '!<rootDir>/src/services/cacheService.js',
     '!<rootDir>/src/services/email.service.js',
-    '!<rootDir>/src/services/supabase.service.js',
-    // El cliente Prisma es un wrapper de tercero, siempre sustituido por el mock en tests
+// El cliente Prisma es un wrapper de tercero, siempre sustituido por el mock en tests
     '!<rootDir>/src/prisma/client.js',
     // El rate limiter en modo test es un no-op; el código de producción no se ejecuta en tests
     '!<rootDir>/src/middleware/rateLimiter.middleware.js',

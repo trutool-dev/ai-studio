@@ -45,16 +45,6 @@ Todas las variables necesarias para ejecutar el backend de Healthy.
 
 ---
 
-## Supabase
-
-| Variable | Descripción | Ejemplo/Formato | Cómo obtener |
-|----------|-------------|-----------------|--------------|
-| `SUPABASE_URL` | URL del proyecto Supabase | `https://abcdefghij.supabase.co` | Supabase Dashboard → Settings → API → Project URL |
-| `SUPABASE_KEY` | Clave anon (pública) del proyecto | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` | Supabase Dashboard → Settings → API → anon / public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio (privada, full access) | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` | Supabase Dashboard → Settings → API → service_role key — **solo backend** |
-
----
-
 ## Anthropic AI
 
 | Variable | Descripción | Ejemplo/Formato | Cómo obtener |
@@ -102,4 +92,4 @@ Todas las variables necesarias para ejecutar el backend de Healthy.
 2. **Staging / Producción**: los valores se inyectan como secretos de GitHub Actions — ver `GITHUB_SECRETS.md`.
 3. **Nunca** añadir `.env` al repositorio. El archivo ya está en `.gitignore`.
 4. `JWT_SECRET` y `JWT_REFRESH_SECRET` deben ser **distintos** y regenerarse si se sospecha de comprometimiento.
-5. `SUPABASE_SERVICE_ROLE_KEY` tiene permisos de administrador — **nunca** exponerla al frontend.
+5. `JWT_SECRET` y `JWT_REFRESH_SECRET` deben regenerarse si se sospecha de comprometimiento.

@@ -37,9 +37,6 @@
 |---------|--------|-------|
 | `JWT_SECRET` | ⚠️ | Valor pre-generado en GITHUB_SECRETS.md — cargar tal cual |
 | `JWT_REFRESH_SECRET` | ⚠️ | Valor pre-generado en GITHUB_SECRETS.md — cargar tal cual |
-| `SUPABASE_URL` | ⏳ | Crear proyecto en supabase.com; obtener de Settings → API |
-| `SUPABASE_KEY` | ⏳ | Clave anon/pública del proyecto Supabase staging |
-| `SUPABASE_SERVICE_ROLE_KEY` | ⏳ | Clave service_role del proyecto Supabase staging |
 | `SMTP_HOST` | ⏳ | `smtp.mailgun.org` o `smtp.gmail.com` |
 | `SMTP_PORT` | ⏳ | `587` (STARTTLS) |
 | `SMTP_USER` | ⏳ | Cuenta SMTP para envíos de verificación |
@@ -56,9 +53,6 @@
 |---------|--------|-------|
 | `JWT_SECRET` | ⚠️ | Valor pre-generado en GITHUB_SECRETS.md — **distinto** del de staging |
 | `JWT_REFRESH_SECRET` | ⚠️ | Valor pre-generado en GITHUB_SECRETS.md — **distinto** del de staging |
-| `SUPABASE_URL` | ⏳ | Proyecto Supabase separado para producción (recomendado) |
-| `SUPABASE_KEY` | ⏳ | Clave anon/pública del proyecto Supabase producción |
-| `SUPABASE_SERVICE_ROLE_KEY` | ⏳ | Clave service_role del proyecto Supabase producción |
 | `SMTP_HOST` | ⏳ | SMTP producción |
 | `SMTP_PORT` | ⏳ | `587` |
 | `SMTP_USER` | ⏳ | SMTP producción |
@@ -102,11 +96,7 @@ Paso 1 — Railway
   [ ] Añadir servicio Redis
   [ ] Obtener RAILWAY_TOKEN, RAILWAY_STAGING_DATABASE_URL
 
-Paso 2 — Supabase
-  [ ] Crear proyecto Supabase staging
-  [ ] Obtener SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_ROLE_KEY
-
-Paso 3 — AWS (solo landing)
+Paso 2 — AWS (solo landing)
   [ ] Crear IAM user ci-cd-user con política S3+CloudFront
   [ ] Obtener AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
   [ ] Tras aplicar Terraform: obtener CLOUDFRONT_DISTRIBUTION_ID

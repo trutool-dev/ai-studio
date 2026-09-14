@@ -42,9 +42,6 @@ Railway inyecta automáticamente `DATABASE_URL` y `REDIS_URL` en el servicio —
 |---------|-------------|----------------------|
 | `JWT_SECRET` | Clave de firma de access tokens (15 min) | `N3zWWgYKRdq/q8Fxpli4M0rSYToIaud12eJYb5VxNf5d3tcuFNv39KaMS4g4stJi7ZQQV5/MzQBJB3t0vzC6JA==` |
 | `JWT_REFRESH_SECRET` | Clave de firma de refresh tokens (30 días) | `i6AGImeOm95+ynaW0vHDQCauG/DRJRpGYCOJnL/WU9PiCMWn3z4SHkuJQqtCb6kCvyOx7r0LX18yYM8MVkVYzQ==` |
-| `SUPABASE_URL` | URL del proyecto Supabase | `https://xxxxxxxxxx.supabase.co` (en Supabase Dashboard → Settings → API → Project URL) |
-| `SUPABASE_KEY` | Clave anon/pública de Supabase (**nombre exacto que usa el backend**: `process.env.SUPABASE_KEY`) | `eyJ...` (en Supabase Dashboard → Settings → API → anon/public) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio con acceso completo — **solo backend, nunca frontend** | `eyJ...` (Supabase Dashboard → Settings → API → service_role) |
 | `SMTP_HOST` | Servidor SMTP | `smtp.mailgun.org` (Mailgun) o `smtp.gmail.com` |
 | `SMTP_PORT` | Puerto SMTP | `587` (STARTTLS recomendado) |
 | `SMTP_USER` | Usuario SMTP para emails de verificación | `postmaster@mg.healthy.app` (Mailgun) o cuenta Gmail |
@@ -63,9 +60,6 @@ Railway inyecta automáticamente `DATABASE_URL` y `REDIS_URL` en el servicio —
 |---------|-------------|----------------------|
 | `JWT_SECRET` | **Distinto del de staging** | `lkST4/zflJf+UPYjbRJRufIB7guMyoH/dtBzPFbhMFTfqukbOHoQj7YA5ALrQUD0RZ4BmiHqj9k2eYoDHgHYdQ==` |
 | `JWT_REFRESH_SECRET` | **Distinto del de staging** | `nKRX3jr+FuB7gjfjBby05alYwjIRk0GLJ4BO1mFC6MJhT7V8LbnmSnktwxaauRI0/+dOGHqoFtkMHUOuRxKrlg==` |
-| `SUPABASE_URL` | URL del proyecto Supabase de producción (proyecto separado recomendado) | Supabase Dashboard → Settings → API |
-| `SUPABASE_KEY` | Clave anon de producción | `eyJ...` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio de producción | `eyJ...` |
 | `SMTP_HOST` | Servidor SMTP producción | |
 | `SMTP_PORT` | Puerto SMTP producción | `587` |
 | `SMTP_USER` | SMTP producción | |
@@ -109,7 +103,7 @@ Solo necesarios para publicar en App Store / Google Play (`eas-build.yml`, `eas-
 
 | Cuándo | Secretos |
 |--------|----------|
-| **Ahora** (antes del primer deploy) | `RAILWAY_TOKEN`, `RAILWAY_PRODUCTION_SERVICE_ID`, `ANTHROPIC_API_KEY`, `JWT_SECRET` × 2, `JWT_REFRESH_SECRET` × 2, `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
+| **Ahora** (antes del primer deploy) | `RAILWAY_TOKEN`, `RAILWAY_PRODUCTION_SERVICE_ID`, `ANTHROPIC_API_KEY`, `JWT_SECRET` × 2, `JWT_REFRESH_SECRET` × 2 |
 | **Para backups DB** | `RAILWAY_STAGING_DATABASE_URL`, `RAILWAY_PRODUCTION_DATABASE_URL` |
 | **Para SMTP** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` |
 | **Para landing CI/CD** | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `CLOUDFRONT_DISTRIBUTION_ID` |
@@ -123,5 +117,4 @@ Solo necesarios para publicar en App Store / Google Play (`eas-build.yml`, `eas-
 2. Habilitar **revisión requerida** en el environment `production`: Settings → Environments → production → Required reviewers.
 3. Rotar las claves JWT cada 90 días.
 4. El `RAILWAY_TOKEN` da acceso completo a tu cuenta Railway — no lo compartas ni lo subas al repositorio.
-5. `SUPABASE_SERVICE_ROLE_KEY` tiene permisos de administrador — nunca la expongas al frontend.
-6. `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` contiene credenciales de acceso completo a Google Play — rotar si se sospecha de compromiso.
+5. `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` contiene credenciales de acceso completo a Google Play — rotar si se sospecha de compromiso.

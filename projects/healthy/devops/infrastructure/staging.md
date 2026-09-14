@@ -57,9 +57,6 @@ El resto de variables se configuran en el Dashboard del servicio:
 | `REDIS_URL` | Inyectado por plugin Redis |
 | `JWT_SECRET` | Secret de firma de access tokens |
 | `JWT_REFRESH_SECRET` | Secret de firma de refresh tokens |
-| `SUPABASE_URL` | URL del proyecto Supabase de staging |
-| `SUPABASE_KEY` | Clave anon de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio de Supabase |
 | `ANTHROPIC_API_KEY` | API key de Claude |
 | `SMTP_HOST` | Servidor SMTP |
 | `SMTP_PORT` | Puerto SMTP (`587`) |

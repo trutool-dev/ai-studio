@@ -10,7 +10,6 @@ base de datos y los servicios externos.
 - Prisma como ORM
 - JWT para autenticación
 - Nodemailer para envío de emails
-- Supabase para gestión de usuarios
 - Redis para caché y sesiones
 
 ## Endpoints principales a implementar
@@ -84,8 +83,6 @@ base de datos y los servicios externos.
 - REDIS_URL
 - JWT_SECRET
 - JWT_EXPIRES_IN
-- SUPABASE_URL
-- SUPABASE_KEY
 - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
 - FRONTEND_URL
 - NODE_ENV
