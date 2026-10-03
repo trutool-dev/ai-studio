@@ -5,8 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Healthy — Tu mejor versión empieza hoy</title>
   <meta name="description" content="IA personalizada para entrenamiento, nutrición y progreso. Diseñada para quienes se toman en serio su salud." />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://healthy.app" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="alternate icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://healthy.app" />
+  <meta property="og:title" content="Healthy — Tu mejor versión empieza hoy" />
+  <meta property="og:description" content="IA personalizada para entrenamiento, nutrición y progreso. Diseñada para quienes se toman en serio su salud." />
+  <meta property="og:image" content="https://healthy.app/og-image.png" />
+  <meta property="og:locale" content="es_ES" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Healthy — Tu mejor versión empieza hoy" />
+  <meta name="twitter:description" content="IA personalizada para entrenamiento, nutrición y progreso. Diseñada para quienes se toman en serio su salud." />
+  <meta name="twitter:image" content="https://healthy.app/og-image.png" />
 
   <style>
+    /* ── SKIP TO CONTENT ───────────────────────────────────────────────────── */
+    .skip-link {
+      position:    absolute;
+      top:         -100%;
+      left:        16px;
+      padding:     12px 24px;
+      background:  var(--green);
+      color:       #fff;
+      font-weight: 600;
+      font-size:   14px;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      z-index:     9999;
+      transition:  top 0.2s ease;
+    }
+    .skip-link:focus { top: 0; outline: 2px solid #fff; outline-offset: 2px; }
+
     /* ── RESET & CUSTOM PROPERTIES ────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1047,15 +1086,17 @@
 </head>
 <body>
 
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
+
   <!-- ── NAVEGACIÓN ─────────────────────────────────────────────────────────── -->
-  <nav class="nav" id="nav">
+  <nav class="nav" id="nav" aria-label="Navegación principal">
     <div class="container">
-      <a href="#" class="nav-logo">
-        <div class="nav-logo-icon">🌿</div>
+      <a href="#" class="nav-logo" aria-label="Healthy — inicio">
+        <div class="nav-logo-icon" aria-hidden="true">🌿</div>
         Healthy
       </a>
 
-      <ul class="nav-links">
+      <ul class="nav-links" role="list">
         <li><a href="#entrenamiento">Entrenamiento</a></li>
         <li><a href="#nutricion">Nutrición</a></li>
         <li><a href="#progreso">Progreso</a></li>
@@ -1064,14 +1105,14 @@
 
       <a href="#download" class="nav-cta">
         Descargar gratis
-        <span>↓</span>
+        <span aria-hidden="true">↓</span>
       </a>
     </div>
   </nav>
 
   <!-- ── HERO ───────────────────────────────────────────────────────────────── -->
-  <section class="hero">
-    <div class="hero-ambient"></div>
+  <section class="hero" id="main-content" aria-label="Presentación de Healthy">
+    <div class="hero-ambient" aria-hidden="true"></div>
 
     <p class="hero-eyebrow reveal">
       <span>NUEVO — IA de salud personalizada</span>
@@ -1091,7 +1132,7 @@
     <div class="hero-actions reveal reveal-delay-3">
       <a href="#download" class="btn-primary">
         Descargar Healthy
-        <span>→</span>
+        <span aria-hidden="true">→</span>
       </a>
       <a href="#entrenamiento" class="btn-outline">
         Ver cómo funciona
@@ -1170,14 +1211,14 @@
     </div>
 
     <!-- Scroll indicator -->
-    <div class="hero-scroll">
+    <div class="hero-scroll" aria-hidden="true">
       <div class="hero-scroll-line"></div>
       <span>scroll</span>
     </div>
   </section>
 
   <!-- ── ESTADÍSTICAS ────────────────────────────────────────────────────────── -->
-  <section class="stats-section">
+  <section class="stats-section" aria-label="Estadísticas de Healthy">
     <div class="container">
       <div class="stats-grid reveal">
         <div class="stat-item">
@@ -1406,7 +1447,7 @@
   </section>
 
   <!-- ── MANIFESTÓ ───────────────────────────────────────────────────────────── -->
-  <section class="manifesto-section">
+  <section class="manifesto-section" aria-label="Manifiesto">
     <div class="container">
       <blockquote class="manifesto-quote reveal">
         "La salud no es un <em>destino</em>.<br />
@@ -1428,15 +1469,15 @@
         Sin tarjeta de crédito.
       </p>
       <div class="store-buttons reveal reveal-delay-3">
-        <a href="#" class="store-btn">
-          <span class="store-btn-icon"></span>
+        <a href="#" class="store-btn" aria-label="Descargar Healthy en App Store">
+          <span class="store-btn-icon" aria-hidden="true"></span>
           <span class="store-btn-text">
             <span class="store-btn-pre">Descargar en</span>
             App Store
           </span>
         </a>
-        <a href="#" class="store-btn">
-          <span class="store-btn-icon">▶</span>
+        <a href="#" class="store-btn" aria-label="Descargar Healthy en Google Play">
+          <span class="store-btn-icon" aria-hidden="true">▶</span>
           <span class="store-btn-text">
             <span class="store-btn-pre">Disponible en</span>
             Google Play
@@ -1456,7 +1497,7 @@
 
         <div class="footer-brand">
           <div class="footer-logo">
-            <div class="footer-logo-icon">🌿</div>
+            <div class="footer-logo-icon" aria-hidden="true">🌿</div>
             Healthy
           </div>
           <p class="footer-tagline">
@@ -1492,7 +1533,7 @@
 
       <div class="footer-bottom">
         <p>© 2026 Healthy. Todos los derechos reservados.</p>
-        <nav class="footer-legal">
+        <nav class="footer-legal" aria-label="Avisos legales">
           <a href="#">Privacidad</a>
           <a href="#">Términos</a>
           <a href="#">Cookies</a>
