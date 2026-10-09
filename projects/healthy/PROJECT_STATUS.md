@@ -11,11 +11,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-09: M-11b completada (créditos Anthropic OK), CP-01..CP-10 re-ejecutados con IA activa (score 23/50 — 2 CPs con IA real, 7 con caché fallback) |
+| Fase actual | Sesión 2026-10-09: M-3 ✅ APK disponible, M-11b completada, CP-01..CP-10 re-ejecutados (score 23/50 — 2 CPs con IA real) |
 | Rama activa | develop |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
-| Siguiente accion inmediata | M-3: Verificar build Android (in progress desde 2026-09-10) |
+| Siguiente accion inmediata | M-7: Instalar APK en dispositivo Android real (APK listo en Expo) |
 
 ---
 
@@ -28,8 +28,8 @@
 | Redis | Railway Redis plugin | ✅ ACTIVO — redis:connected |
 | Landing page | AWS S3 + CloudFront | ✅ OK — produccion |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
-| ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado (sin créditos — M-11b pendiente) |
-| App Android | EAS Build (Expo) | Build ID 5befc66f — in progress desde 2026-09-10 |
+| ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
+| App Android | EAS Build (Expo) | ✅ APK disponible — Build 5befc66f (commit 9d8522a) |
 | App iOS | EAS Build (Expo) | Bloqueado — falta Bundle ID Apple |
 
 **IDs Railway:**
@@ -48,12 +48,12 @@
 |----|-------|-----------|--------|
 | M-1 | Actualizar Railway a plan Hobby en railway.app ($5/mes) | CRITICO | ✅ Completada |
 | M-1b | Despertar servicios Railway — redeploy staging | CRITICO | ✅ Completada |
-| M-2 | Verificar build Android: `eas build:list --limit 1 --platform android` | CRITICO | ✅ Verificado — build in progress (5befc66f) |
-| M-3 | Si build falló: `eas build --platform android --profile preview` | CRITICO | ⚠️ EN CURSO — Build 5befc66f in progress desde 2026-09-10; verificar si terminó |
+| M-2 | Verificar build Android: `eas build:list --limit 1 --platform android` | CRITICO | ✅ Completada |
+| M-3 | Build Android EAS con deps corregidas | CRITICO | ✅ Completada — APK en https://expo.dev/artifacts/eas/WqEK5PmpORXPgcL1DFnT-6hQ-YRAZlxsrVjqcU-Xo6c.apk |
 | M-4 | Ejecutar seed de ejercicios: `node projects/healthy/database/seedExercises.js` con DATABASE_URL de Railway | IMPORTANTE | Pendiente |
 | M-5 | Registrar Bundle ID `com.healthy.app` en developer.apple.com | APLAZADO | ❌ Sin publicación iOS por ahora |
 | M-6 | Crear app en App Store Connect para iOS | APLAZADO | ❌ Sin publicación iOS por ahora |
-| M-7 | Instalar y probar APK en dispositivo Android real | IMPORTANTE | Pendiente (depende M-2/M-3) |
+| M-7 | Instalar y probar APK en dispositivo Android real | IMPORTANTE | **DESBLOQUEADA** — APK disponible en Expo |
 | M-8 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-7) |
 | M-9 | Configurar dominio `api.healthy.app` → Railway en panel DNS | PRO FINAL | Pendiente |
 | M-10 | Lighthouse landing | PRO FINAL | ✅ Completada — analisis estatico (Perf 95-98, Acc 82-88, SEO 85-92). Lighthouse real pendiente de M-9 (DNS) |
@@ -83,7 +83,7 @@
 | Tests lineas | >= 80% | ✅ OK — 96.78% |
 | Tests branches | >= 80% | ✅ OK — 85.01% |
 | Lighthouse landing | >= 95 | ⚠️ PARCIAL — Perf 95-98 OK, Acc 82-88 y SEO 85-92 requieren correcciones (A-Landing) |
-| App Android Google Play Internal | Publicada | PENDIENTE |
+| App Android Google Play Internal | Publicada | ⚠️ APK listo — pendiente instalar (M-7) y publicar (M-8) |
 | App iOS TestFlight | Publicada | ❌ APLAZADO — sin publicación iOS por ahora |
 | Backend staging operativo | Activo | ✅ ACTIVO |
 | ANTHROPIC_API_KEY en staging | Configurado | ✅ Configurado |
