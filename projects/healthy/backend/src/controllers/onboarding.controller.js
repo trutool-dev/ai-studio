@@ -170,6 +170,35 @@ const complete = async (req, res, next) => {
       prisma.motivationProfile.findUnique({ where: { user_id: userId } }),
     ]);
 
+    // Guardar datos del body si los pasos individuales no se guardaron
+    if (!profile && req.body.profile) {
+      const p = req.body.profile;
+      const birthYear = new Date().getFullYear() - (p.age || 25);
+      const birthdate = new Date(birthYear, 6, 1);
+      profile = await prisma.profile.upsert({
+        where: { user_id: userId },
+        create: { user_id: userId, gender: p.gender || 'other', weight_kg: p.weight || p.weight_kg || 70, height_cm: p.height || p.height_cm || 170, body_type: p.bodyType || p.body_type || 'average', goal: req.body.goal || 'general_health', birthdate },
+        update: { gender: p.gender || 'other', weight_kg: p.weight || p.weight_kg || 70, height_cm: p.height || p.height_cm || 170, body_type: p.bodyType || p.body_type || 'average', goal: req.body.goal || 'general_health', birthdate },
+      });
+    }
+    if (!training && req.body.training) {
+      const t = req.body.training;
+      const equipArr = Array.isArray(t.equipment) ? t.equipment : [t.equipment].filter(Boolean);
+      training = await prisma.trainingPreferences.upsert({
+        where: { user_id: userId },
+        create: { user_id: userId, available_days_per_week: t.daysPerWeek || t.available_days_per_week || 3, has_gym_access: equipArr.includes('gym'), home_equipment: equipArr.filter(e => e !== 'gym').join(',') || 'none', experience_level: t.experience || t.experience_level || 'beginner', max_session_duration_minutes: 60 },
+        update: { available_days_per_week: t.daysPerWeek || t.available_days_per_week || 3, has_gym_access: equipArr.includes('gym'), home_equipment: equipArr.filter(e => e !== 'gym').join(',') || 'none', experience_level: t.experience || t.experience_level || 'beginner' },
+      });
+    }
+    if (!nutrition && req.body.nutrition) {
+      const n = req.body.nutrition;
+      nutrition = await prisma.nutritionPreferences.upsert({
+        where: { user_id: userId },
+        create: { user_id: userId, diet_type: n.dietType || n.diet_type || 'omnivore' },
+        update: { diet_type: n.dietType || n.diet_type || 'omnivore' },
+      });
+    }
+
     if (!profile) return sendError(res, 'PROFILE_REQUIRED', 'Debes completar tu perfil físico primero', 400);
     if (!training) return sendError(res, 'TRAINING_REQUIRED', 'Debes completar tus preferencias de entrenamiento primero', 400);
 
