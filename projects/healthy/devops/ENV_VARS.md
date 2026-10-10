@@ -93,3 +93,11 @@ Todas las variables necesarias para ejecutar el backend de Healthy.
 3. **Nunca** añadir `.env` al repositorio. El archivo ya está en `.gitignore`.
 4. `JWT_SECRET` y `JWT_REFRESH_SECRET` deben ser **distintos** y regenerarse si se sospecha de comprometimiento.
 5. `JWT_SECRET` y `JWT_REFRESH_SECRET` deben regenerarse si se sospecha de comprometimiento.
+
+---
+
+## Historial de cambios
+
+| Fecha | Cambio |
+|-------|--------|
+| 2026-10-10 | Verificado: sin referencias a Supabase (eliminado en commit `25f1359`). `deployment-guide.md` contiene referencias Supabase obsoletas pendientes de limpiar (deuda técnica). |
