@@ -11,11 +11,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-10 EN CURSO: M-3 ✅ APK listo (build 5befc66f), M-7 EN CURSO — Antonio probando APK en dispositivo Android real |
-| Rama activa | develop |
+| Fase actual | Sesión 2026-10-10 CERRADA — M-16 EN CURSO (seed foods ejecutándose), M-7 EN CURSO (pruebas APK) |
+| Rama activa | develop — commit e8924f1 (último push) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
-| Siguiente accion inmediata | M-7 EN CURSO → tras confirmar OK: M-8 (publicar APK en Google Play Internal Testing) |
+| Siguiente accion inmediata | Confirmar M-16 completada → probar búsqueda alimentos en app → continuar M-7 → M-8 |
 
 ---
 
@@ -63,7 +63,7 @@
 | M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | Pendiente |
 | M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
-| M-16 | Poblar tabla foods en Railway staging: ejecutar `node prisma/seed-foods.js` con DATABASE_URL de Railway (150 alimentos ya incluidos). Opcionalmente ejecutar `USDA_API_KEY=tu_clave node prisma/import-usda.js` para 200+ alimentos adicionales desde USDA (clave gratis en api.data.gov). | CRITICO | Pendiente — tabla foods vacía, búsqueda de alimentos no funciona |
+| M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | **EN CURSO** — Antonio ejecutando seeds con DATABASE_PUBLIC_URL de Railway |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
 
@@ -114,7 +114,7 @@
 | Sesion 2026-09-06 | Bug fix Claude API (SYSTEM_PROMPT mal posicionado). ANTHROPIC_API_KEY configurado en Railway. Endpoint /health/ai diagnóstico. Créditos Anthropic: "credit balance is too low" detectado. CP tests re-ejecutados con fallback (score 35/50). M-11b identificado como bloqueante crítico. | df455ac | 2026-09-06 |
 | Sesion 2026-10-09 | M-3: build Android 5befc66f in progress (EAS). M-11b confirmada: /health/ai → success:true, IA activa. M-12: CP-01..CP-10 re-ejecutados (score 23/50). IA real confirmada en CP-07 y CP-08. 7 CPs con caché Redis fallback (usuarios eval_20261009_XX heredaron planes del día de la sesión). Causa: cache Redis TTL 24h impide regenerar planes el mismo día. | pendiente | 2026-10-09 |
 | Sesion 2026-10-10a | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app. | pendiente | 2026-10-10 |
-| Sesion 2026-10-10b | Investigación base de datos alimentos: (1) `foods` vacía → búsqueda nutrición no funciona. (2) BEDCA API bloqueada para peticiones externas (solo funciona desde su web). (3) USDA FoodData Central API gratuita funciona ✅. Creado `seed-foods.js` (150 alimentos españoles, commit 61a3729) + `import-usda.js` (200+ alimentos con mapeo español→USDA, commit 93e470a). M-16 añadida: ejecutar seed en Railway. A-6 añadida: expansión micronutrientes completos (DB + backend + frontend). | 93e470a | 2026-10-10 |
+| Sesion 2026-10-10b | Investigación BD alimentos: BEDCA bloqueada, USDA ✅ gratuita. Creados `seed-foods.js` (128 alimentos ES, commit 61a3729), `import-usda.js` (200+ ES→USDA, commit 93e470a), `import-openfoodfacts.js` (20 categorías × 60 productos, commit e392cb5 + retry 503 en 1cc12b8). Fix Prisma client path en scripts seed. .gitignore actualizado. M-16 EN CURSO. A-6 planificada. | e8924f1 | 2026-10-10 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
 
