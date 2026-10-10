@@ -13,7 +13,8 @@
     "test:watch": "jest --config=jest.config.js --watch",
     "test:coverage": "jest --config=jest.config.js --coverage --runInBand --forceExit",
     "test:load": "node ../tests/load/planGeneration.js",
-    "lint": "eslint src/**/*.js"
+    "lint": "eslint src/**/*.js",
+    "seed:foods": "node prisma/seed-foods.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
