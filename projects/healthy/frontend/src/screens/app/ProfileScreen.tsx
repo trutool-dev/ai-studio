@@ -38,10 +38,12 @@ const DIET_LABELS: Record<string, string> = {
 export function ProfileScreen() {
   const { user, logout }                              = useAuthStore();
   const { todayWorkout, streak, progressStats,
-          isLoadingProgress, fetchProgress }          = usePlanStore();
+          isLoadingProgress, fetchProgress,
+          regeneratePlan }                            = usePlanStore();
   const { data: onboarding }                         = useOnboardingStore();
   const [notifications, setNotif]                    = useState(true);
   const [darkMode, setDarkMode]                      = useState(false);
+  const [regenerating, setRegenerating]              = useState(false);
 
   // Cargar estadísticas de progreso al montar la pantalla
   useEffect(() => {
@@ -55,6 +57,30 @@ export function ProfileScreen() {
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Salir',    style: 'destructive', onPress: () => logout() },
+      ],
+    );
+  };
+
+  const handleRegenerate = () => {
+    Alert.alert(
+      'Regenerar plan',
+      'La IA generará un nuevo plan de entrenamiento y nutrición basado en tu perfil actual. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Regenerar',
+          onPress: async () => {
+            setRegenerating(true);
+            try {
+              await regeneratePlan();
+              Alert.alert('¡Plan regenerado!', 'Tu nuevo plan personalizado está listo. Revisa el inicio para ver los cambios.');
+            } catch {
+              Alert.alert('Error', 'No se pudo regenerar el plan. Inténtalo de nuevo.');
+            } finally {
+              setRegenerating(false);
+            }
+          },
+        },
       ],
     );
   };
@@ -124,6 +150,15 @@ export function ProfileScreen() {
           <Divider />
           <PlanRow icon="🎯" label="Objetivo"           value={goalLabel} />
         </View>
+
+        {/* Botón regenerar plan */}
+        <Button
+          label={regenerating ? 'Generando plan…' : '✨ Regenerar mi plan'}
+          variant="secondary"
+          onPress={handleRegenerate}
+          disabled={regenerating}
+          style={styles.regenerateBtn}
+        />
 
         {/* Mis datos */}
         <SectionHeader title="Mis datos" />
@@ -263,6 +298,7 @@ const styles = StyleSheet.create({
     padding: spacing.md, ...shadows.card, marginBottom: spacing.sm, gap: spacing.sm,
   },
   version: { ...textStyles.caption, color: colors.neutral.midGray, textAlign: 'center', marginVertical: spacing.lg },
+  regenerateBtn: { marginBottom: spacing.md },
   logoutBtn: { marginBottom: spacing.md },
 });
 
