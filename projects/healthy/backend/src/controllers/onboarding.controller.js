@@ -315,6 +315,24 @@ const complete = async (req, res, next) => {
     }
     if (trainingSessions.length > 0) {
       await prisma.trainingSession.createMany({ data: trainingSessions });
+
+      // Vincular ejercicios del catálogo a cada sesión
+      if (catalogExercises.length > 0) {
+        const createdSessions = await prisma.trainingSession.findMany({
+          where: { plan_id: plan.id },
+          orderBy: { scheduled_date: 'asc' },
+          select: { id: true },
+        });
+        const EXERCISES_PER_SESSION = 4;
+        const sessionExercises = [];
+        createdSessions.forEach((session, idx) => {
+          for (let i = 0; i < EXERCISES_PER_SESSION; i++) {
+            const ex = catalogExercises[(idx * EXERCISES_PER_SESSION + i) % catalogExercises.length];
+            sessionExercises.push({ session_id: session.id, exercise_id: ex.id, sets: 3, reps: 12, rest_seconds: 60, order_index: i + 1 });
+          }
+        });
+        await prisma.sessionExercise.createMany({ data: sessionExercises });
+      }
     }
 
     // Crear comidas de la primera semana como referencia

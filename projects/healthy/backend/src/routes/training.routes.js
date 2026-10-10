@@ -11,11 +11,7 @@ const ctrl = require('../controllers/training.controller');
 router.use(authenticate);
 
 // GET /training/today — Sesión programada para hoy
-router.get('/today', (req, res, next) => {
-  // Delegar a getSessions con la fecha de hoy
-  req.query.date = new Date().toISOString().split('T')[0];
-  return ctrl.getSessions(req, res, next);
-});
+router.get('/today', ctrl.getTodaySession);
 
 router.get('/sessions', ctrl.getSessions);
 router.get('/sessions/:id', ctrl.getSessionById);
