@@ -62,6 +62,7 @@
 | M-12 | Re-ejecutar CP-01..CP-10 con IA activa | IMPORTANTE | ✅ Completada — score 23/50 (2 CPs con IA real: CP-07, CP-08; ver detalle sesión 2026-10-09) |
 | M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | Pendiente |
 | M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
+| M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
 
@@ -110,7 +111,7 @@
 | Sesion 2026-09-02b | Evaluacion CP-01..CP-10 contra staging. Endpoints debug auth (/dev/code, /dev/auto-verify). Informe EVALUATION_DELIVERABLES actualizado. Lighthouse M-10 completado. | 87d13f7 | 2026-09-02 |
 | Sesion 2026-09-06 | Bug fix Claude API (SYSTEM_PROMPT mal posicionado). ANTHROPIC_API_KEY configurado en Railway. Endpoint /health/ai diagnóstico. Créditos Anthropic: "credit balance is too low" detectado. CP tests re-ejecutados con fallback (score 35/50). M-11b identificado como bloqueante crítico. | df455ac | 2026-09-06 |
 | Sesion 2026-10-09 | M-3: build Android 5befc66f in progress (EAS). M-11b confirmada: /health/ai → success:true, IA activa. M-12: CP-01..CP-10 re-ejecutados (score 23/50). IA real confirmada en CP-07 y CP-08. 7 CPs con caché Redis fallback (usuarios eval_20261009_XX heredaron planes del día de la sesión). Causa: cache Redis TTL 24h impide regenerar planes el mismo día. | pendiente | 2026-10-09 |
-| Sesion 2026-10-10 | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — Antonio probando APK en dispositivo Android real. A-Landing ✅ completada — Acc/SEO corregidos. Documentación actualizada: PUBLISHING_GUIDE.md creado con instrucciones completas para Google Play Internal Testing (M-8). deployment-guide.md: referencias Supabase identificadas como deuda técnica (Supabase eliminado en commit 25f1359). | pendiente | 2026-10-10 |
+| Sesion 2026-10-10 | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app (assets/icon.png 1024×1024px + assets/adaptive-icon.png sin fondo). | pendiente | 2026-10-10 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
 
