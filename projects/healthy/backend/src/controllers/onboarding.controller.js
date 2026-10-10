@@ -171,23 +171,30 @@ const complete = async (req, res, next) => {
     ]);
 
     // Guardar datos del body si los pasos individuales no se guardaron
+    // Mapeo de valores frontend → enums Prisma
+    const bodyTypeMap = { slim: 'ectomorph', athletic: 'mesomorph', average: 'mesomorph', overweight: 'endomorph' };
+    const equipMap    = { gym: 'full', home: 'dumbbells', outdoors: 'none', none: 'none' };
+
     if (!profile && req.body.profile) {
       const p = req.body.profile;
       const birthYear = new Date().getFullYear() - (p.age || 25);
       const birthdate = new Date(birthYear, 6, 1);
+      const body_type = bodyTypeMap[p.bodyType] || bodyTypeMap[p.body_type] || 'mesomorph';
       profile = await prisma.profile.upsert({
         where: { user_id: userId },
-        create: { user_id: userId, gender: p.gender || 'other', weight_kg: p.weight || p.weight_kg || 70, height_cm: p.height || p.height_cm || 170, body_type: p.bodyType || p.body_type || 'average', goal: req.body.goal || 'general_health', birthdate },
-        update: { gender: p.gender || 'other', weight_kg: p.weight || p.weight_kg || 70, height_cm: p.height || p.height_cm || 170, body_type: p.bodyType || p.body_type || 'average', goal: req.body.goal || 'general_health', birthdate },
+        create: { user_id: userId, name: 'Usuario', gender: p.gender || 'other', weight_kg: p.weight || p.weight_kg || 70, height_cm: p.height || p.height_cm || 170, body_type, goal: req.body.goal || 'general_health', birthdate },
+        update: { gender: p.gender || 'other', weight_kg: p.weight || p.weight_kg || 70, height_cm: p.height || p.height_cm || 170, body_type, goal: req.body.goal || 'general_health', birthdate },
       });
     }
     if (!training && req.body.training) {
       const t = req.body.training;
       const equipArr = Array.isArray(t.equipment) ? t.equipment : [t.equipment].filter(Boolean);
+      const hasGym   = equipArr.includes('gym');
+      const homeEq   = hasGym ? 'full' : (equipMap[equipArr[0]] || 'none');
       training = await prisma.trainingPreferences.upsert({
         where: { user_id: userId },
-        create: { user_id: userId, available_days_per_week: t.daysPerWeek || t.available_days_per_week || 3, has_gym_access: equipArr.includes('gym'), home_equipment: equipArr.filter(e => e !== 'gym').join(',') || 'none', experience_level: t.experience || t.experience_level || 'beginner', max_session_duration_minutes: 60 },
-        update: { available_days_per_week: t.daysPerWeek || t.available_days_per_week || 3, has_gym_access: equipArr.includes('gym'), home_equipment: equipArr.filter(e => e !== 'gym').join(',') || 'none', experience_level: t.experience || t.experience_level || 'beginner' },
+        create: { user_id: userId, available_days_per_week: t.daysPerWeek || t.available_days_per_week || 3, has_gym_access: hasGym, home_equipment: homeEq, experience_level: t.experience || t.experience_level || 'beginner', max_session_duration_minutes: 60 },
+        update: { available_days_per_week: t.daysPerWeek || t.available_days_per_week || 3, has_gym_access: hasGym, home_equipment: homeEq, experience_level: t.experience || t.experience_level || 'beginner' },
       });
     }
     if (!nutrition && req.body.nutrition) {
