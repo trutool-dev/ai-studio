@@ -16,7 +16,8 @@
     "lint": "eslint src/**/*.js",
     "seed:foods": "node prisma/seed-foods.js",
     "import:bedca": "node prisma/import-bedca.js",
-    "import:usda": "node prisma/import-usda.js"
+    "import:usda": "node prisma/import-usda.js",
+    "import:openfoodfacts": "node prisma/import-openfoodfacts.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

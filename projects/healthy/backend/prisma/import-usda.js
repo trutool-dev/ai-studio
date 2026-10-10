@@ -11,9 +11,13 @@
 
 require('dotenv').config();
 const https = require('https');
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('../src/generated/prisma');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { Pool } = require('pg');
 
-const prisma = new PrismaClient();
+const pool   = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma  = new PrismaClient({ adapter });
 const API_KEY = process.env.USDA_API_KEY || 'DEMO_KEY';
 const BASE    = 'api.nal.usda.gov';
 
