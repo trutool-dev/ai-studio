@@ -63,6 +63,7 @@
 | M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | Pendiente |
 | M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
+| M-16 | Poblar tabla foods en Railway staging: ejecutar `node prisma/seed-foods.js` con DATABASE_URL de Railway (150 alimentos ya incluidos). Opcionalmente ejecutar `USDA_API_KEY=tu_clave node prisma/import-usda.js` para 200+ alimentos adicionales desde USDA (clave gratis en api.data.gov). | CRITICO | Pendiente — tabla foods vacía, búsqueda de alimentos no funciona |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
 
@@ -74,6 +75,7 @@
 | A-4 | Deploy a Railway tras merge a main | CI/CD GitHub Actions | Pendiente | M-13 |
 | A-5 | Generar documentacion API (Swagger/OpenAPI) con endpoint /exercises | Docs Agent | ✅ Completada — swagger.yaml 40 endpoints | Nada |
 | A-Landing | Corregir Accessibility y SEO landing (scores actuales 82-88 → 95+) | Frontend Agent | ✅ Completada — Acc/SEO corregidos (sesión 2026-10-10) | Nada |
+| A-6 | **Expansión de micronutrientes completos**: (1) Ampliar modelo Prisma `Food` con fiber, sugar, saturated_fat, sodium, potassium, calcium, iron, vitamin_c, vitamin_d, vitamin_b12 + migración; (2) Actualizar `import-usda.js` para capturar todos los nutrientes USDA disponibles; (3) Actualizar `foods.controller.js` para devolver nuevos campos; (4) Modificar frontend `NutritionScreen` y `FoodDetailScreen` para mostrar tabla de micronutrientes (calorías, macros, fibra, azúcares, grasas saturadas, sodio, calcio, hierro, vitaminas). Referencia commits: seed 61a3729, import 93e470a | Backend + Database + Frontend Agents | Pendiente — planificar con orquestador | M-16 |
 
 ---
 
@@ -111,7 +113,8 @@
 | Sesion 2026-09-02b | Evaluacion CP-01..CP-10 contra staging. Endpoints debug auth (/dev/code, /dev/auto-verify). Informe EVALUATION_DELIVERABLES actualizado. Lighthouse M-10 completado. | 87d13f7 | 2026-09-02 |
 | Sesion 2026-09-06 | Bug fix Claude API (SYSTEM_PROMPT mal posicionado). ANTHROPIC_API_KEY configurado en Railway. Endpoint /health/ai diagnóstico. Créditos Anthropic: "credit balance is too low" detectado. CP tests re-ejecutados con fallback (score 35/50). M-11b identificado como bloqueante crítico. | df455ac | 2026-09-06 |
 | Sesion 2026-10-09 | M-3: build Android 5befc66f in progress (EAS). M-11b confirmada: /health/ai → success:true, IA activa. M-12: CP-01..CP-10 re-ejecutados (score 23/50). IA real confirmada en CP-07 y CP-08. 7 CPs con caché Redis fallback (usuarios eval_20261009_XX heredaron planes del día de la sesión). Causa: cache Redis TTL 24h impide regenerar planes el mismo día. | pendiente | 2026-10-09 |
-| Sesion 2026-10-10 | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app (assets/icon.png 1024×1024px + assets/adaptive-icon.png sin fondo). | pendiente | 2026-10-10 |
+| Sesion 2026-10-10a | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app. | pendiente | 2026-10-10 |
+| Sesion 2026-10-10b | Investigación base de datos alimentos: (1) `foods` vacía → búsqueda nutrición no funciona. (2) BEDCA API bloqueada para peticiones externas (solo funciona desde su web). (3) USDA FoodData Central API gratuita funciona ✅. Creado `seed-foods.js` (150 alimentos españoles, commit 61a3729) + `import-usda.js` (200+ alimentos con mapeo español→USDA, commit 93e470a). M-16 añadida: ejecutar seed en Railway. A-6 añadida: expansión micronutrientes completos (DB + backend + frontend). | 93e470a | 2026-10-10 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
 
