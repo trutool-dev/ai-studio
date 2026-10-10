@@ -41,14 +41,31 @@ const CATEGORIES = [
 ];
 
 const PRODUCTS_PER_CATEGORY = 60; // 20 categorías × 60 = hasta 1200 productos
-const DELAY_MS = 500;
+const DELAY_MS   = 800;
+const MAX_RETRIES = 4;        // reintentos en caso de 503
+const RETRY_DELAY = 15000;    // 15 segundos entre reintentos
 
-function httpsGet(url) {
+function httpsGet(url, attempt = 1) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
       headers: { 'User-Agent': 'healthy-app-importer/1.0 (nutrition tracking app)' },
-      timeout: 20000,
+      timeout: 25000,
     }, res => {
+      // Seguir redirecciones 301/302
+      if (res.statusCode >= 301 && res.statusCode <= 302 && res.headers.location) {
+        const loc = res.headers.location.startsWith('http')
+          ? res.headers.location
+          : `https://world.openfoodfacts.org${res.headers.location}`;
+        return resolve(httpsGet(loc, attempt));
+      }
+      // Reintentar en 503 (servicio temporalmente no disponible)
+      if (res.statusCode === 503) {
+        if (attempt <= MAX_RETRIES) {
+          process.stdout.write(` ⏳ 503, reintentando en ${RETRY_DELAY / 1000}s (${attempt}/${MAX_RETRIES})...`);
+          return setTimeout(() => resolve(httpsGet(url, attempt + 1)), RETRY_DELAY);
+        }
+        return reject(new Error(`503 tras ${MAX_RETRIES} intentos — Open Food Facts no disponible`));
+      }
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
@@ -181,6 +198,13 @@ async function main() {
   console.log(`  ⏭  Ya existían      : ${stats.skipped}`);
   console.log(`  ❌ Errores           : ${stats.errors}`);
   console.log(`  📦 Total en DB ahora : ${total}`);
+
+  if (stats.errors === CATEGORIES.length) {
+    console.log('\n⚠️  Todas las categorías fallaron.');
+    console.log('   Open Food Facts está temporalmente no disponible (503).');
+    console.log('   Vuelve a ejecutar el script en unos minutos:');
+    console.log('   node prisma/import-openfoodfacts.js');
+  }
 }
 
 main()
