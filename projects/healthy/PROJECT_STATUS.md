@@ -16,7 +16,7 @@
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build 94110d29 disponible (preview staging) |
-| Siguiente accion inmediata | Confirmar M-16 completada → probar APK con nuevo diseño en dispositivo (M-7) → M-8 Google Play Internal |
+| Siguiente accion inmediata | **M-17** — Confirmar seed foods (`GET /foods/search?q=pollo`) → **M-18** — Probar nuevo APK con rediseño Apple Design → **M-19** — Google Play Internal Testing |
 
 ---
 
@@ -65,6 +65,9 @@
 | M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
 | M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | **EN CURSO** — Antonio ejecutando seeds con DATABASE_PUBLIC_URL de Railway |
+| M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | Pendiente — primera acción próxima sesión |
+| M-18 | Instalar nuevo APK (post rediseño Apple Design, build post-`7932a1b`) y probar: press feedback escala 0.97, tab bar sin bounce, bottom sheets drag-to-dismiss en Training y Progress, stagger onboarding, haptic feedback | IMPORTANTE | Pendiente (depende del nuevo EAS Build lanzado 2026-10-11) |
+| M-19 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-18) |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
 
