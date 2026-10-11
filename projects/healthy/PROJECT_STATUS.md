@@ -113,20 +113,102 @@ PASO 5 → DevOps Agent: nuevo build EAS con los cambios
 | AD-0b | Envolver app root con `GestureHandlerRootView` en `_layout.tsx` | Pendiente |
 | AD-0c | Añadir `CADisableMinimumFrameDurationOnPhone: true` en `app.json` (120fps ProMotion) | Pendiente |
 
-### Fases 1-5 — Pendientes de auditoría
+### Auditoría completada — 2026-10-11
 
-Las tareas AD-1xx a AD-5xx se generarán cuando el agente `apple-design`
-ejecute la auditoría completa en `src/screens/` y `src/components/`.
+Informe completo en: `projects/healthy/apple-design-audit.md`
+**10 hallazgos críticos · 13 hallazgos moderados · 6 oportunidades de delight · 39 tareas**
 
-El informe se guardará en: `projects/healthy/apple-design-audit.md`
+---
 
-### Cómo iniciar la auditoría
+### Fase 1 — Sistema de diseño (tokens + componentes base)
+
+| ID | Tarea | Archivo | Esfuerzo | Estado |
+|----|-------|---------|----------|--------|
+| AD-1a | Añadir letterSpacing a bodyLarge (0.15), bodyNormal (0.1), caption (0.25) | `src/theme/typography.ts` | S | Pendiente |
+| AD-1b | Migrar animación de label flotante de fontSize a transform+scale (sin layout pass) | `src/components/ui/Input.tsx` | M | Pendiente |
+| AD-1c | Migrar ProgressBar de animar `width` string a `scaleX` transform | `src/components/ui/ProgressBar.tsx` | S | Pendiente |
+
+---
+
+### Fase 2 — Interacción (press feedback, haptics)
+
+| ID | Tarea | Archivo | Esfuerzo | Estado |
+|----|-------|---------|----------|--------|
+| AD-2a | Migrar Button a Reanimated CSS transition (cubic-bezier 0.23,1,0.32,1 / 120ms) | `src/components/ui/Button.tsx` | M | Pendiente |
+| AD-2b | Migrar Card press feedback a Reanimated | `src/components/ui/Card.tsx` | S | Pendiente |
+| AD-2c | Migrar WorkoutCard press feedback a Reanimated | `src/components/ui/WorkoutCard.tsx` | S | Pendiente |
+| AD-2d | Migrar MetricCard press feedback a Reanimated | `src/components/ui/MetricCard.tsx` | S | Pendiente |
+| AD-2e | Añadir press feedback (scale 0.97) a SelectCard onboarding | `src/screens/onboarding/SelectCard.tsx` | S | Pendiente |
+| AD-2f | Añadir press feedback + haptic Light al botón +250ml de DailyLogWidget | `src/components/ui/DailyLogWidget.tsx` | S | Pendiente |
+| AD-2g | Añadir press feedback a tarjeta workout en HomeScreen | `src/screens/app/HomeScreen.tsx` | S | Pendiente |
+| AD-2h | Reemplazar TouchableOpacity → Pressable en LoginScreen | `src/screens/auth/LoginScreen.tsx` | S | Pendiente |
+| AD-2i | Reemplazar TouchableOpacity → Pressable en RegisterScreen | `src/screens/auth/RegisterScreen.tsx` | S | Pendiente |
+| AD-2j | Reemplazar TouchableOpacity → Pressable en SetPasswordScreen | `src/screens/auth/SetPasswordScreen.tsx` | S | Pendiente |
+| AD-2k | Reemplazar TouchableOpacity → Pressable en ForgotPasswordScreen | `src/screens/auth/ForgotPasswordScreen.tsx` | S | Pendiente |
+| AD-2l | Reemplazar TouchableOpacity → Pressable en ProfileScreen | `src/screens/app/ProfileScreen.tsx` | S | Pendiente |
+| AD-2m | Reemplazar TouchableOpacity → Pressable en ProgressScreen + añadir scale | `src/screens/app/ProgressScreen.tsx` | S | Pendiente |
+| AD-2n | Añadir haptic (notificationAsync.Success) al completar sesión de entrenamiento | `src/screens/app/TrainingScreen.tsx` | S | Pendiente |
+| AD-2o | Añadir haptic (impactAsync.Light) al marcar ejercicio completado (ExerciseRow) | `src/components/ui/WorkoutCard.tsx` | S | Pendiente |
+| AD-2p | Añadir haptic + press feedback a chips de motivación en OnboardingMotivation | `src/screens/onboarding/OnboardingMotivation.tsx` | S | Pendiente |
+| AD-2q | Corregir touch target backBtn de 36pt a 44pt en OnboardingLayout | `src/screens/onboarding/OnboardingLayout.tsx` | S | Pendiente |
+
+---
+
+### Fase 3 — Navegación (tab bar, modales, sheets)
+
+| ID | Tarea | Archivo | Esfuerzo | Estado |
+|----|-------|---------|----------|--------|
+| AD-3a | Eliminar bounce scale en tab press (C-03) — mantener solo icono + dot como feedback | `src/navigation/MainTabNavigator.tsx` | S | Pendiente |
+| AD-3b | Reemplazar SetModal (TrainingScreen) con bottom sheet Reanimated + drag-to-dismiss | `src/screens/app/TrainingScreen.tsx` | L | Pendiente |
+| AD-3c | Reemplazar ProgressModal con bottom sheet Reanimated + drag-to-dismiss | `src/screens/app/ProgressScreen.tsx` | L | Pendiente |
+| AD-3d | Reemplazar RegenModal con modal centered Reanimated (fade + scale spring) | `src/screens/app/ProgressScreen.tsx` | M | Pendiente |
+
+---
+
+### Fase 4 — Pantallas principales (Home, Training, Nutrition, Progress, Profile)
+
+| ID | Tarea | Archivo | Esfuerzo | Estado |
+|----|-------|---------|----------|--------|
+| AD-4a | Migrar SkeletonBlock de Core Animated a Reanimated (UI thread) | `src/screens/app/HomeScreen.tsx` | S | Pendiente |
+| AD-4b | Añadir crossfade skeleton→contenido con Reanimated FadeIn/FadeOut | `src/screens/app/HomeScreen.tsx` | M | Pendiente |
+| AD-4c | Migrar pulso de progreso (pct > 0.5) a Reanimated withRepeat | `src/screens/app/TrainingScreen.tsx` | S | Pendiente |
+| AD-4d | Migrar ProgressRing `strokeDashoffset` de Core Animated a Reanimated useAnimatedProps | `src/components/ui/ProgressRing.tsx` | M | Pendiente |
+| AD-4e | Eliminar dead-code `scoreAnim` en RecoveryScore (no se usa visualmente) | `src/components/ui/MetricCard.tsx` | S | Pendiente |
+| AD-4f | Migrar ExerciseRow color interpolation a Reanimated interpolateColor | `src/components/ui/WorkoutCard.tsx` | M | Pendiente |
+| AD-4g | Migrar ExerciseRow scale feedback de timing a Reanimated withSpring | `src/components/ui/WorkoutCard.tsx` | S | Pendiente |
+| AD-4h | Añadir Layout animation (LinearTransition) a MealCard expand/collapse | `src/components/ui/MealCard.tsx` | M | Pendiente |
+
+---
+
+### Fase 5 — Onboarding y Auth (flujos de entrada)
+
+| ID | Tarea | Archivo | Esfuerzo | Estado |
+|----|-------|---------|----------|--------|
+| AD-5a | Añadir FadeInDown stagger (50ms/card) a SelectCard en OnboardingGoal | `src/screens/onboarding/OnboardingGoal.tsx` | S | Pendiente |
+| AD-5b | Añadir FadeInDown stagger a opciones en OnboardingLifestyle | `src/screens/onboarding/OnboardingLifestyle.tsx` | S | Pendiente |
+| AD-5c | Añadir FadeInDown stagger a chips de motivación en OnboardingMotivation | `src/screens/onboarding/OnboardingMotivation.tsx` | S | Pendiente |
+| AD-5d | Migrar spinner de OnboardingComplete a Reanimated (mantiene useNativeDriver: true) | `src/screens/onboarding/OnboardingComplete.tsx` | S | Pendiente |
+| AD-5e | Añadir spring bounce al círculo de éxito en OnboardingComplete + haptic Success | `src/screens/onboarding/OnboardingComplete.tsx` | S | Pendiente |
+
+---
+
+### Fase 6 — Pulido (reduced motion, accesibilidad, 120fps)
+
+| ID | Tarea | Archivo | Esfuerzo | Estado |
+|----|-------|---------|----------|--------|
+| AD-6a | Añadir `reduceMotion: ReduceMotion.System` a todos los withSpring/withTiming críticos | Múltiples | M | Pendiente |
+| AD-6b | Añadir `useReducedMotion()` en componentes con animaciones de posición/slide (Toast, sheets) | `src/components/ui/Toast.tsx`, sheets | M | Pendiente |
+| AD-6c | Migrar Toast de Core Animated translateY a Reanimated (interruptible) | `src/components/ui/Toast.tsx` | M | Pendiente |
+| AD-6d | Añadir stagger FadeIn a ActivityRings al montar ProgressScreen | `src/components/ui/ProgressRing.tsx` | S | Pendiente |
+
+---
+
+### Cómo iniciar la implementación
 
 ```
-1. Abrir Claude Code en la carpeta: projects/healthy/frontend/
-2. Cargar contexto: agents/apple-design/CLAUDE.md
-3. Pedir: "Ejecuta el MODO AUDITORÍA completo"
-4. El agente leerá src/screens/ + src/components/ y generará el informe
+ORDEN: Fase 0 (AD-0a, AD-0b, AD-0c) → Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5 → Fase 6
+Las fases 0-2 son las más críticas para la sensación nativa.
+Cada tarea AD-{n} es atómica: un archivo, un componente.
 ```
 
 ---
