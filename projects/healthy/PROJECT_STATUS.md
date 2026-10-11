@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-11 | Sesión: apple-design Fases 5 y 6 completadas
+> Ultima actualización: 2026-10-11 | Sesión: A-7 rediseño Apple Design COMPLETADA — 39 tareas en 7 fases, 454/454 tests
 
 ---
 
@@ -11,11 +11,12 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-10 CERRADA — M-16 EN CURSO (seed foods ejecutándose), M-7 EN CURSO (pruebas APK) |
-| Rama activa | develop — commit e8924f1 (último push) |
+| Fase actual | Sesión 2026-10-11 CERRADA — A-7 rediseño Apple Design ✅ COMPLETADA (39 tareas, 7 fases) |
+| Rama activa | develop — commit f03a358 (ProfileScreen botón regenerar plan) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
-| Siguiente accion inmediata | Confirmar M-16 completada → probar búsqueda alimentos en app → continuar M-7 → M-8 |
+| APK Android | ✅ Build 94110d29 disponible (preview staging) |
+| Siguiente accion inmediata | Confirmar M-16 completada → probar APK con nuevo diseño en dispositivo (M-7) → M-8 Google Play Internal |
 
 ---
 
@@ -29,7 +30,7 @@
 | Landing page | AWS S3 + CloudFront | ✅ OK — produccion |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
 | ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
-| App Android | EAS Build (Expo) | ✅ APK disponible — Build 5befc66f (commit 9d8522a) |
+| App Android | EAS Build (Expo) | ✅ APK disponible — Build 94110d29 (con rediseño Apple Design A-7) |
 | App iOS | EAS Build (Expo) | ❌ APLAZADO indefinidamente |
 
 **IDs Railway:**
@@ -76,11 +77,11 @@
 | A-5 | Generar documentacion API (Swagger/OpenAPI) con endpoint /exercises | Docs Agent | ✅ Completada — swagger.yaml 40 endpoints | Nada |
 | A-Landing | Corregir Accessibility y SEO landing (scores actuales 82-88 → 95+) | Frontend Agent | ✅ Completada — Acc/SEO corregidos (sesión 2026-10-10) | Nada |
 | A-6 | **Expansión de micronutrientes completos**: (1) Ampliar modelo Prisma `Food` con fiber, sugar, saturated_fat, sodium, potassium, calcium, iron, vitamin_c, vitamin_d, vitamin_b12 + migración; (2) Actualizar `import-usda.js` para capturar todos los nutrientes USDA disponibles; (3) Actualizar `foods.controller.js` para devolver nuevos campos; (4) Modificar frontend `NutritionScreen` y `FoodDetailScreen` para mostrar tabla de micronutrientes (calorías, macros, fibra, azúcares, grasas saturadas, sodio, calcio, hierro, vitaminas). Referencia commits: seed 61a3729, import 93e470a | Backend + Database + Frontend Agents | Pendiente — planificar con orquestador | M-16 |
-| **A-7** | **Rediseño Apple Design** — Ver sección detallada abajo | Apple-Design Agent | **FASE 0 lista — auditoría pendiente** | Nada |
+| **A-7** | **Rediseño Apple Design** — Ver sección detallada abajo | Apple-Design Agent | ✅ **COMPLETADA** — 39 tareas en 7 fases, 454/454 tests, APK build 94110d29 | Nada |
 
 ---
 
-## A-7 — Rediseño Apple Design (detalle)
+## A-7 — Rediseño Apple Design (detalle) ✅ COMPLETADA — 2026-10-11
 
 **Objetivo:** Rediseñar el frontend de Healthy aplicando los 17 principios de Apple Design
 (WWDC 2018/2020/2026) y las mejores prácticas de animación nativa para Expo/React Native.
@@ -88,6 +89,8 @@
 **Agente responsable:** `apple-design` (skills: `apple-design.md` + `animate-expo.md`)
 
 **Skills instalados en:** `.claude/skills/apple-design.md` + `.claude/skills/animate-expo.md`
+
+**Resultado final:** 39/39 tareas completadas · 454/454 tests ✅ · APK build `94110d29` generado
 
 ### Flujo de trabajo para el orquestador
 
@@ -249,6 +252,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-09 | M-3: build Android 5befc66f in progress (EAS). M-11b confirmada: /health/ai → success:true, IA activa. M-12: CP-01..CP-10 re-ejecutados (score 23/50). IA real confirmada en CP-07 y CP-08. 7 CPs con caché Redis fallback (usuarios eval_20261009_XX heredaron planes del día de la sesión). Causa: cache Redis TTL 24h impide regenerar planes el mismo día. | pendiente | 2026-10-09 |
 | Sesion 2026-10-10a | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app. | pendiente | 2026-10-10 |
 | Sesion 2026-10-10b | Investigación BD alimentos: BEDCA bloqueada, USDA ✅ gratuita. Creados `seed-foods.js` (128 alimentos ES, commit 61a3729), `import-usda.js` (200+ ES→USDA, commit 93e470a), `import-openfoodfacts.js` (20 categorías × 60 productos, commit e392cb5 + retry 503 en 1cc12b8). Fix Prisma client path en scripts seed. .gitignore actualizado. M-16 EN CURSO. A-6 planificada. | e8924f1 | 2026-10-10 |
+| Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
 

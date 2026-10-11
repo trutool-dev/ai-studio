@@ -266,7 +266,7 @@ Cuando se detecta estancamiento (o el usuario cambia de objetivo, reporta una le
 | `weight_plateau` | Auto / >2 sem sin cambio ±0.5 kg | Ajustar calorías ±100-150 kcal, variar tipos de entrenamiento |
 | `goal_change` | Usuario cambia su objetivo | Plan completamente nuevo para el nuevo objetivo |
 | `injury` | Usuario reporta lesión | Adaptar entrenamiento respetando la limitación |
-| `manual_request` | Usuario pide actualización | Plan variado para mantener motivación |
+| `manual_request` | Usuario pulsa "Regenerar mi plan" en ProfileScreen | Plan variado para mantener motivación |
 
 ---
 
@@ -294,6 +294,37 @@ Sin prompt caching (comparación):
 | **Ahorro mensual** | **~$0.015 (~10%)** |
 
 > Nota: el ahorro de prompt caching es más significativo cuando hay muchas llamadas en la misma ventana de 5 minutos (por ejemplo, durante el onboarding de muchos usuarios en paralelo). En uso normal por usuario el ahorro es modesto, pero en escala (10K usuarios) supone ~$150/mes.
+
+---
+
+## Agente apple-design y skills de emilkowalski
+
+A partir de la sesión 2026-10-11, el toolchain de desarrollo incorpora un agente especializado en Apple Design que consume skills basados en los principios de [emilkowalski/skills](https://github.com/emilkowalski/skills) (45k ⭐).
+
+### Skills instalados
+
+| Skill | Ruta | Contenido |
+|-------|------|-----------|
+| `apple-design` | `.claude/skills/apple-design.md` | 17 principios WWDC 2018/2020/2026: press feedback, springs, haptics, reduced motion, ProMotion 120fps, touch targets 44pt, typography, bottom sheets |
+| `animate-expo` | `.claude/skills/animate-expo.md` | Patrones de animación React Native con Reanimated 4: `useSharedValue`, `useAnimatedStyle`, `useAnimatedProps`, `withSpring`, `withTiming`, `FadeIn/FadeInDown`, `LinearTransition`, `ReduceMotion.System` |
+
+### Agente apple-design
+
+El agente `agents/apple-design/CLAUDE.md` trabaja en dos modos:
+
+- **Modo auditoría** — genera un informe `apple-design-audit.md` con hallazgos categorizados (críticos / moderados / oportunidades de delight) sin tocar código.
+- **Modo implementación** — aplica una tarea AD-{n} concreta, siempre atómica (un archivo, un componente) y con sus tests intactos.
+
+### Flujo de integración en el desarrollo
+
+```
+Orquestador → apple-design (modo auditoría) → apple-design-audit.md
+Orquestador → valida tareas AD-{n} → apple-design (modo implementación)
+             → Tests Agent (verificación 0 regresiones)
+             → DevOps Agent (nuevo build EAS)
+```
+
+El agente no tiene acceso al backend ni a la base de datos. Su scope es exclusivamente `projects/healthy/frontend/src/`.
 
 ---
 

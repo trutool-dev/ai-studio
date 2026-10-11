@@ -282,6 +282,92 @@ Se optó por filtrado SQL estructurado (RAG-lite) en lugar de búsqueda vectoria
 
 ---
 
+## Sesión 2026-10-11 — COMPLETADA: Rediseño Apple Design (A-7) + botón regenerar plan
+
+### Qué se construyó
+
+#### Botón "Regenerar mi plan" en ProfileScreen (commit f03a358)
+
+El usuario puede solicitar un nuevo plan de IA directamente desde su perfil sin necesidad de registrar progreso. El flujo incluye:
+- Confirmación previa (modal de confirmación)
+- Estado de carga durante la generación
+- Feedback de éxito o error al completar
+
+#### Nuevo build APK Android (EAS Build `94110d29`)
+
+- Perfil: preview (staging) — Android APK
+- URL: https://expo.dev/accounts/trutool/projects/healthy/builds/94110d29-1abd-4e17-ac05-229af0c9350c
+
+#### Agente apple-design + skills emilkowalski
+
+Nuevo agente especializado en diseño Apple con dos skills de calidad:
+
+- **`.claude/skills/apple-design.md`** — 17 principios WWDC (basado en emilkowalski/skills, 45k estrellas): press feedback, springs, haptics, reduced motion, ProMotion 120fps, touch targets 44pt.
+- **`.claude/skills/animate-expo.md`** — Patrones de animación Reanimated 4 para React Native: `useSharedValue`, springs, `FadeIn/FadeInDown`, `LinearTransition`, `ReduceMotion.System`.
+- **`agents/apple-design/CLAUDE.md`** — Agente con modo auditoría (genera informe) + modo implementación (aplica tareas atómicas AD-{n}).
+
+#### Rediseño Apple Design completo (A-7) — 39 tareas en 7 fases
+
+| Fase | Descripción | Tareas |
+|------|-------------|--------|
+| **Fase 0** | Setup: `react-native-gesture-handler` + `expo-haptics`, `GestureHandlerRootView`, `CADisableMinimumFrameDurationOnPhone` (120fps) | 3 |
+| **Fase 1** | Tokens: `letterSpacing` por tamaño tipográfico, label Input sin layout pass (Reanimated `transform+scale`), ProgressBar con `scaleX` | 3 |
+| **Fase 2** | Interacción: press feedback `scale(0.97) 120ms` en 17 componentes/pantallas, haptics con `expo-haptics` (Light/Medium/Success/Selection) | 17 |
+| **Fase 3** | Navegación: tab bar sin bounce, bottom sheets drag-to-dismiss con `Gesture.Pan` + rubber-banding + velocity handoff, RegenModal con spring FadeIn | 4 |
+| **Fase 4** | Pantallas principales: skeleton→crossfade, ProgressRing con `useAnimatedProps`, WorkoutCard con `interpolateColor`, MealCard con `LinearTransition` | 8 |
+| **Fase 5** | Onboarding: stagger `FadeInDown` 40-60ms/item en Goal/Lifestyle/Motivation, spinner Reanimated en Complete, spring bounce + haptic `NotificationFeedbackType.Success` | 5 |
+| **Fase 6** | Pulido: `ReduceMotion.System` en todos los springs críticos, Toast migrado a Reanimated con `useReducedMotion()`, ProgressRing stagger con prop `index` | 4 |
+
+**Resultado:** 454/454 tests ✅ — sin regresiones.
+
+### Decisiones técnicas
+
+| Decisión | Justificación |
+|----------|---------------|
+| Reanimated 4 sobre Core Animated | Todas las animaciones corren en el UI thread (sin JS bridge), eliminando jank durante la renderización de listas largas |
+| `scale(0.97)` como feedback universal | Patrón Apple estándar: sutil, consistente, menos intrusivo que el `opacity(0.5)` previo |
+| Rubber-banding en sheets | Reproduce el comportamiento nativo de iOS cuando el usuario intenta arrastrar más allá del límite superior |
+| `ReduceMotion.System` en lugar de constante | Respeta la configuración de accesibilidad del dispositivo (iOS: Reduce Motion; Android: Disable animations) |
+| Tareas atómicas AD-{n} (1 archivo) | Permite revisar y revertir cambios individuales sin afectar el resto del rediseño |
+
+### Archivos modificados en A-7
+
+Los principales grupos de cambios:
+
+```
+frontend/src/
+├── theme/typography.ts          ← letterSpacing por tamaño
+├── components/ui/
+│   ├── Button.tsx               ← Reanimated press feedback
+│   ├── Card.tsx                 ← Reanimated press feedback
+│   ├── Input.tsx                ← label animado sin layout pass
+│   ├── ProgressBar.tsx          ← scaleX en lugar de width string
+│   ├── ProgressRing.tsx         ← useAnimatedProps + stagger
+│   ├── WorkoutCard.tsx          ← interpolateColor + press feedback
+│   ├── MetricCard.tsx           ← dead-code eliminado
+│   ├── MealCard.tsx             ← LinearTransition expand/collapse
+│   ├── DailyLogWidget.tsx       ← haptic + press feedback
+│   └── Toast.tsx                ← Reanimated + useReducedMotion()
+├── navigation/MainTabNavigator.tsx  ← sin bounce en tab press
+├── screens/app/
+│   ├── HomeScreen.tsx           ← skeleton→crossfade
+│   ├── TrainingScreen.tsx       ← bottom sheet + haptic completar sesión
+│   ├── ProgressScreen.tsx       ← bottom sheet + RegenModal spring
+│   └── ProfileScreen.tsx        ← botón "Regenerar mi plan"
+└── screens/onboarding/
+    ├── OnboardingGoal.tsx        ← stagger FadeInDown
+    ├── OnboardingLifestyle.tsx   ← stagger FadeInDown
+    ├── OnboardingMotivation.tsx  ← stagger + haptic chips
+    ├── OnboardingComplete.tsx    ← spinner Reanimated + success spring
+    └── OnboardingLayout.tsx     ← touch target backBtn corregido a 44pt
+
+agents/apple-design/CLAUDE.md    ← agente nuevo
+.claude/skills/apple-design.md   ← skill nuevo
+.claude/skills/animate-expo.md   ← skill nuevo
+```
+
+---
+
 ## Fase 5 — PENDIENTE: Lanzamiento
 
 <!-- TODO: Actualizar al completar la fase -->
@@ -300,4 +386,4 @@ Se optó por filtrado SQL estructurado (RAG-lite) en lugar de búsqueda vectoria
 
 ---
 
-*Última actualización: 2026-06-08 — Docs Agent (Fases 3b y 4 completadas)*
+*Última actualización: 2026-10-11 — Docs Agent (sesión 2026-10-11: rediseño Apple Design A-7 completado, botón regenerar plan, build APK 94110d29)*

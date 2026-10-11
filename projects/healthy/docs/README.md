@@ -2,13 +2,15 @@
 
 Healthy es una aplicación móvil (iOS + Android) y web que genera planes personalizados de entrenamiento y nutrición usando Inteligencia Artificial. El plan se adapta automáticamente cuando detecta que el usuario está en un plateau de progreso.
 
+**Versión actual:** 1.0.0-preview | **Estado:** En pruebas (Android APK disponible, iOS aplazado) | **Última actualización:** 2026-10-11
+
 ---
 
 ## Stack tecnológico
 
 | Capa | Tecnología | Versión mínima | Descripción |
 |------|-----------|----------------|-------------|
-| **App móvil** | React Native + Expo | SDK 51 | iOS y Android desde una sola base de código |
+| **App móvil** | React Native + Expo | SDK 54 | iOS y Android desde una sola base de código |
 | **Landing web** | HTML + CSS + JS (vanilla) | — | Una sola página autocontenida, sin build |
 | **Backend** | Node.js + Express | Node 18 LTS | API REST, lógica de negocio |
 | **ORM** | Prisma | 5.x | Migraciones y queries con TypeScript |
@@ -18,7 +20,23 @@ Healthy es una aplicación móvil (iOS + Android) y web que genera planes person
 | **IA** | Anthropic Claude | claude-sonnet-4-6 | Generación de planes personalizados |
 | **Infraestructura** | AWS (eu-west-1) | — | S3, CloudFront, ECS Fargate, RDS, ElastiCache |
 | **CI/CD** | GitHub Actions | — | Deploy automático en push a `main` |
-| **Tests** | Jest + Playwright | — | Unit, integración y E2E |
+| **Animaciones** | Reanimated 4 + Gesture Handler | — | Animaciones nativas 120fps (UI thread), springs, haptics |
+| **Tests** | Jest + Playwright | — | Unit, integración y E2E — 454/454 ✅ |
+
+---
+
+## Funcionalidades principales
+
+| Área | Funcionalidad |
+|------|--------------|
+| **Onboarding IA** | 7 pasos de personalización: perfil físico, estilo de vida, entrenamiento, nutrición, salud, motivación → plan personalizado generado por Claude |
+| **Plan de entrenamiento** | Plan semanal con ejercicios reales del catálogo (1.324 ejercicios), por sesión y día, adaptado al equipamiento y nivel del usuario |
+| **Plan nutricional** | Calorías, macros y sugerencias de comida calculados por IA según objetivo (perder peso / ganar músculo / mantenimiento) |
+| **Regeneración de plan** | Detección automática de plateau (≤0.5 kg en 14 días) + botón manual "Regenerar mi plan" en el perfil |
+| **Seguimiento diario** | Registro de agua, sueño, energía y pasos; log de comidas con búsqueda de alimentos; registro de peso y fotos de progreso |
+| **Diseño Apple Design** | Animaciones nativas 120fps (Reanimated 4 + ProMotion), press feedback `scale(0.97)`, haptics, bottom sheets con drag-to-dismiss, reduced motion |
+| **Autenticación** | Registro con OTP por email, login, refresh tokens con rotación automática |
+| **RGPD** | Derecho al olvido (`DELETE /user/me`), portabilidad (`GET /user/me/export`), consentimiento Art. 9 para datos de salud |
 
 ---
 
@@ -239,8 +257,8 @@ projects/healthy/
 │   └── ERD.md                   # Diagrama entidad-relación
 │
 ├── design/                      # Sistema de diseño (DS-01..DS-10)
-│   ├── tokens/                  # Colores, tipografía, espaciado
-│   ├── components/              # Componentes React Native
+│   ├── tokens/                  # Colores, tipografía, espaciado, letterSpacing
+│   ├── components/              # Componentes React Native con animaciones Reanimated 4
 │   └── screens/                 # Especificaciones de pantallas
 │
 ├── landing/                     # Landing page estática

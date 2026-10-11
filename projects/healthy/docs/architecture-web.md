@@ -237,4 +237,55 @@ El mayor salto de coste vendrá al escalar el plan Railway (más RAM/CPU) o supe
 
 ---
 
-> Última actualización: 2026-07-07 — Docs Agent (actualización post-deploy: Dockerfile, monorepo, Prisma 7, variables)
+## Sistema de animaciones — Frontend React Native
+
+A partir de la sesión 2026-10-11 (tarea A-7), el frontend usa exclusivamente **Reanimated 4** para todas las animaciones. Core Animated ha sido eliminado de los componentes principales.
+
+### Dependencias instaladas
+
+| Paquete | Propósito |
+|---------|-----------|
+| `react-native-reanimated` | Motor de animaciones en el UI thread (sin JS bridge) |
+| `react-native-gesture-handler` | Gestos nativos: `Gesture.Pan`, drag-to-dismiss, velocity handoff |
+| `expo-haptics` | Feedback táctil: `impactAsync`, `notificationAsync`, `selectionAsync` |
+
+### Configuración 120fps ProMotion
+
+En `app.json` se añadió `CADisableMinimumFrameDurationOnPhone: true` para habilitar 120fps en dispositivos iPhone con pantalla ProMotion (iPhone 13 Pro+).
+
+### Design tokens de animación
+
+| Token | Valor | Uso |
+|-------|-------|-----|
+| Press feedback scale | `0.97` | Todos los botones, cards, elementos interactivos |
+| Press duration | `120ms` | `withTiming(0.97, { duration: 120 })` |
+| Spring sheets | `damping: 20, stiffness: 300` | Bottom sheets drag-to-dismiss |
+| Spring modal | `damping: 15, stiffness: 350` | RegenModal FadeIn + scale 0.9→1 |
+| Stagger onboarding | `40–60ms / item` | FadeInDown en SelectCard, opciones, chips |
+| Reduced motion | `ReduceMotion.System` | Todos los springs/timings críticos |
+
+### Typography letterSpacing
+
+| Estilo | `letterSpacing` | Estándar Apple HIG |
+|--------|----------------|--------------------|
+| `bodyLarge` | `0.15` | ✅ |
+| `bodyNormal` | `0.1` | ✅ |
+| `caption` | `0.25` | ✅ |
+
+### Patrones implementados
+
+- **Press feedback** (`scale 0.97, 120ms`): Button, Card, SelectCard, WorkoutCard, MetricCard, DailyLogWidget, todas las pantallas auth, Profile, Progress, Training, Onboarding.
+- **Haptics**: `Light` en acciones menores (agua +250ml, ejercicio completado), `Medium` en acciones de progreso, `Success` al completar sesión de entrenamiento y al terminar onboarding.
+- **Bottom sheets**: `Gesture.Pan` con rubber-banding (resistencia cuando se arrastra hacia arriba) y velocity handoff en TrainingScreen y ProgressScreen.
+- **Skeleton → crossfade**: Reanimated `FadeIn/FadeOut` al cargar datos en HomeScreen.
+- **Reduced motion**: `ReduceMotion.System` en springs de sheets y `useReducedMotion()` en Toast.
+
+### Agente apple-design como herramienta de desarrollo
+
+El agente `agents/apple-design/` con los skills `apple-design.md` + `animate-expo.md` se usa en dos modos:
+1. **Auditoría** — escanea el frontend y genera `apple-design-audit.md` con hallazgos priorizados.
+2. **Implementación** — aplica tareas atómicas AD-{n} (un archivo por tarea) con verificación de tests 0-regresiones.
+
+---
+
+> Última actualización: 2026-10-11 — Docs Agent (animaciones Reanimated 4, agente apple-design, A-7 completada)
