@@ -8,6 +8,7 @@ import {
   Animated, ScrollView, StyleSheet, Text, View,
   SafeAreaView, Pressable,
 } from 'react-native';
+import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { usePlanStore, calcDayTotals } from '@/stores/planStore';
 import { useAuthStore }                from '@/stores/authStore';
 import { MacroCard }                   from '@/components/ui/MacroCard';
@@ -55,6 +56,11 @@ export function HomeScreen() {
   const hour      = new Date().getHours();
   const greeting  = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
   const firstName = user?.name?.split(' ')[0] ?? 'campeón';
+
+  // Press feedback para la tarjeta de entrenamiento
+  const workoutScale = useSharedValue(1);
+  const workoutAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: workoutScale.value }] }));
+  const workoutTimingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
   const handleAddWater = async () => {
     logWater(250);
@@ -129,10 +135,13 @@ export function HomeScreen() {
 
             {/* Entrenamiento del día */}
             <SectionTitle title="Entrenamiento de hoy" />
+            <ReAnimated.View style={workoutAnimStyle}>
             <Pressable
               style={styles.workoutCard}
               accessibilityLabel={`Entrenamiento: ${todayWorkout.name}`}
               accessibilityRole="button"
+              onPressIn={() => { workoutScale.value = withTiming(0.98, workoutTimingConfig); }}
+              onPressOut={() => { workoutScale.value = withTiming(1, workoutTimingConfig); }}
             >
               <View style={styles.workoutLeft}>
                 <Text style={styles.workoutIcon}>🏋️</Text>
@@ -148,6 +157,7 @@ export function HomeScreen() {
                 <Text style={styles.workoutFractionLabel}>ejercicios</Text>
               </View>
             </Pressable>
+            </ReAnimated.View>
 
             {/* Barra de progreso del workout */}
             <View style={styles.workoutBar}>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps }            from '@react-navigation/native-stack';
 import { RootStackParamList }                from '@/navigation/RootNavigator';
 import { useOnboardingStore, PreviousAttempts } from '@/stores/onboardingStore';
@@ -68,6 +69,7 @@ export function OnboardingMotivation({ navigation }: Props) {
         {MOTIVATIONS.map((m) => (
           <Pressable
             key={m.id}
+            onPressIn={() => Haptics.selectionAsync()}
             onPress={() => setMotivations(p => p.includes(m.id) ? p.filter(x => x !== m.id) : [...p, m.id])}
             style={[s.tag, motivations.includes(m.id) && s.tagSel]}
             accessibilityLabel={m.label}

@@ -8,6 +8,7 @@ import {
   Animated, Easing, Modal, SafeAreaView,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { usePlanStore }   from '@/stores/planStore';
 import { WorkoutCard, ExerciseRow, RestTimer, WorkoutSummary } from '@/components/ui/WorkoutCard';
 import { DailyProgressRing } from '@/components/ui/ProgressRing';
@@ -181,6 +182,8 @@ export function TrainingScreen() {
 
   const handleCompleteSession = async () => {
     setCompleting(true);
+    // Haptic de éxito al completar sesión
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
       await completeSession(todayWorkout.id);
     } catch {

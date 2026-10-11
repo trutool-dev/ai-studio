@@ -134,23 +134,23 @@ Informe completo en: `projects/healthy/apple-design-audit.md`
 
 | ID | Tarea | Archivo | Esfuerzo | Estado |
 |----|-------|---------|----------|--------|
-| AD-2a | Migrar Button a Reanimated CSS transition (cubic-bezier 0.23,1,0.32,1 / 120ms) | `src/components/ui/Button.tsx` | M | Pendiente |
-| AD-2b | Migrar Card press feedback a Reanimated | `src/components/ui/Card.tsx` | S | Pendiente |
-| AD-2c | Migrar WorkoutCard press feedback a Reanimated | `src/components/ui/WorkoutCard.tsx` | S | Pendiente |
-| AD-2d | Migrar MetricCard press feedback a Reanimated | `src/components/ui/MetricCard.tsx` | S | Pendiente |
-| AD-2e | Añadir press feedback (scale 0.97) a SelectCard onboarding | `src/screens/onboarding/SelectCard.tsx` | S | Pendiente |
-| AD-2f | Añadir press feedback + haptic Light al botón +250ml de DailyLogWidget | `src/components/ui/DailyLogWidget.tsx` | S | Pendiente |
-| AD-2g | Añadir press feedback a tarjeta workout en HomeScreen | `src/screens/app/HomeScreen.tsx` | S | Pendiente |
-| AD-2h | Reemplazar TouchableOpacity → Pressable en LoginScreen | `src/screens/auth/LoginScreen.tsx` | S | Pendiente |
-| AD-2i | Reemplazar TouchableOpacity → Pressable en RegisterScreen | `src/screens/auth/RegisterScreen.tsx` | S | Pendiente |
-| AD-2j | Reemplazar TouchableOpacity → Pressable en SetPasswordScreen | `src/screens/auth/SetPasswordScreen.tsx` | S | Pendiente |
-| AD-2k | Reemplazar TouchableOpacity → Pressable en ForgotPasswordScreen | `src/screens/auth/ForgotPasswordScreen.tsx` | S | Pendiente |
-| AD-2l | Reemplazar TouchableOpacity → Pressable en ProfileScreen | `src/screens/app/ProfileScreen.tsx` | S | Pendiente |
-| AD-2m | Reemplazar TouchableOpacity → Pressable en ProgressScreen + añadir scale | `src/screens/app/ProgressScreen.tsx` | S | Pendiente |
-| AD-2n | Añadir haptic (notificationAsync.Success) al completar sesión de entrenamiento | `src/screens/app/TrainingScreen.tsx` | S | Pendiente |
-| AD-2o | Añadir haptic (impactAsync.Light) al marcar ejercicio completado (ExerciseRow) | `src/components/ui/WorkoutCard.tsx` | S | Pendiente |
-| AD-2p | Añadir haptic + press feedback a chips de motivación en OnboardingMotivation | `src/screens/onboarding/OnboardingMotivation.tsx` | S | Pendiente |
-| AD-2q | Corregir touch target backBtn de 36pt a 44pt en OnboardingLayout | `src/screens/onboarding/OnboardingLayout.tsx` | S | Pendiente |
+| AD-2a | Migrar Button a Reanimated CSS transition (cubic-bezier 0.23,1,0.32,1 / 120ms) | `src/components/ui/Button.tsx` | M | ✅ Completada |
+| AD-2b | Migrar Card press feedback a Reanimated | `src/components/ui/Card.tsx` | S | ✅ Completada |
+| AD-2c | Migrar WorkoutCard press feedback a Reanimated | `src/components/ui/WorkoutCard.tsx` | S | ✅ Completada |
+| AD-2d | Migrar MetricCard press feedback a Reanimated | `src/components/ui/MetricCard.tsx` | S | ✅ Completada |
+| AD-2e | Añadir press feedback (scale 0.97) a SelectCard onboarding | `src/screens/onboarding/SelectCard.tsx` | S | ✅ Completada |
+| AD-2f | Añadir press feedback + haptic Light al botón +250ml de DailyLogWidget | `src/components/ui/DailyLogWidget.tsx` | S | ✅ Completada |
+| AD-2g | Añadir press feedback a tarjeta workout en HomeScreen | `src/screens/app/HomeScreen.tsx` | S | ✅ Completada |
+| AD-2h | Reemplazar TouchableOpacity → Pressable en LoginScreen | `src/screens/auth/LoginScreen.tsx` | S | ✅ Completada |
+| AD-2i | Reemplazar TouchableOpacity → Pressable en RegisterScreen | `src/screens/auth/RegisterScreen.tsx` | S | ✅ Completada |
+| AD-2j | Reemplazar TouchableOpacity → Pressable en SetPasswordScreen | `src/screens/auth/SetPasswordScreen.tsx` | S | ✅ Completada |
+| AD-2k | Reemplazar TouchableOpacity → Pressable en ForgotPasswordScreen | `src/screens/auth/ForgotPasswordScreen.tsx` | S | ✅ Completada |
+| AD-2l | Reemplazar TouchableOpacity → Pressable en ProfileScreen | `src/screens/app/ProfileScreen.tsx` | S | ✅ Completada |
+| AD-2m | Reemplazar TouchableOpacity → Pressable en ProgressScreen + añadir scale | `src/screens/app/ProgressScreen.tsx` | S | ✅ Completada |
+| AD-2n | Añadir haptic (notificationAsync.Success) al completar sesión de entrenamiento | `src/screens/app/TrainingScreen.tsx` | S | ✅ Completada |
+| AD-2o | Añadir haptic (impactAsync.Light) al marcar ejercicio completado (ExerciseRow) | `src/components/ui/WorkoutCard.tsx` | S | ✅ Completada |
+| AD-2p | Añadir haptic + press feedback a chips de motivación en OnboardingMotivation | `src/screens/onboarding/OnboardingMotivation.tsx` | S | ✅ Completada |
+| AD-2q | Corregir touch target backBtn de 36pt a 44pt en OnboardingLayout | `src/screens/onboarding/OnboardingLayout.tsx` | S | ✅ Completada |
 
 ---
 

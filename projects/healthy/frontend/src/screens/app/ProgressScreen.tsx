@@ -8,6 +8,7 @@ import {
   Animated, Modal, SafeAreaView, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View, Pressable,
 } from 'react-native';
+import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { usePlanStore }                           from '@/stores/planStore';
 import { ActivityRings, DailyProgressRing }       from '@/components/ui/ProgressRing';
 import { MetricCard, RecoveryScore, MetricGrid }  from '@/components/ui/MetricCard';
@@ -192,6 +193,11 @@ export function ProgressScreen() {
   const [submitting,    setSubmitting]  = useState(false);
   const [regenerating,  setRegenerating] = useState(false);
 
+  // Press feedback para el botón "+ Registrar"
+  const addBtnScale = useSharedValue(1);
+  const addBtnAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addBtnScale.value }] }));
+  const addBtnCfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
+
   useEffect(() => { fetchProgress(); }, []);
 
   const lastWeight  = weightHistory.at(-1)?.value ?? 0;
@@ -233,13 +239,17 @@ export function ProgressScreen() {
 
         <View style={styles.headerRow}>
           <Text style={styles.title}>Mi progreso</Text>
-          <TouchableOpacity
-            onPress={() => setShowProgress(true)}
-            style={styles.addBtn}
-            accessibilityLabel="Registrar nuevo progreso"
-          >
-            <Text style={styles.addBtnText}>+ Registrar</Text>
-          </TouchableOpacity>
+          <ReAnimated.View style={addBtnAnimStyle}>
+            <Pressable
+              onPress={() => setShowProgress(true)}
+              onPressIn={() => { addBtnScale.value = withTiming(0.97, addBtnCfg); }}
+              onPressOut={() => { addBtnScale.value = withTiming(1, addBtnCfg); }}
+              style={styles.addBtn}
+              accessibilityLabel="Registrar nuevo progreso"
+            >
+              <Text style={styles.addBtnText}>+ Registrar</Text>
+            </Pressable>
+          </ReAnimated.View>
         </View>
 
         {/* Score de recuperación protagonista */}

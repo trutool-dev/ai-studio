@@ -4,9 +4,10 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useAuthStore }        from '@/stores/authStore';
 import { usePlanStore }        from '@/stores/planStore';
 import { useOnboardingStore }  from '@/stores/onboardingStore';
@@ -241,27 +242,46 @@ function ToggleRow({
 }: {
   icon: string; label: string; value: boolean; onToggle: () => void; soon?: boolean;
 }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const cfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
   return (
-    <TouchableOpacity style={sStyles.row} onPress={onToggle} activeOpacity={0.7}>
-      <Text style={sStyles.rowIcon}>{icon}</Text>
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-        <Text style={sStyles.rowLabel}>{label}</Text>
-        {soon && <Text style={sStyles.soonBadge}>próximamente</Text>}
-      </View>
-      <View style={[sStyles.toggle, value && sStyles.toggleOn]}>
-        <View style={[sStyles.toggleThumb, value && sStyles.toggleThumbOn]} />
-      </View>
-    </TouchableOpacity>
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={sStyles.row}
+        onPress={onToggle}
+        onPressIn={() => { scale.value = withTiming(0.98, cfg); }}
+        onPressOut={() => { scale.value = withTiming(1, cfg); }}
+      >
+        <Text style={sStyles.rowIcon}>{icon}</Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <Text style={sStyles.rowLabel}>{label}</Text>
+          {soon && <Text style={sStyles.soonBadge}>próximamente</Text>}
+        </View>
+        <View style={[sStyles.toggle, value && sStyles.toggleOn]}>
+          <View style={[sStyles.toggleThumb, value && sStyles.toggleThumbOn]} />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 function SettingRow({ icon, label }: { icon: string; label: string }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const cfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
   return (
-    <TouchableOpacity style={sStyles.row} activeOpacity={0.7}>
-      <Text style={sStyles.rowIcon}>{icon}</Text>
-      <Text style={sStyles.rowLabel}>{label}</Text>
-      <Text style={sStyles.chevron}>›</Text>
-    </TouchableOpacity>
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={sStyles.row}
+        onPressIn={() => { scale.value = withTiming(0.98, cfg); }}
+        onPressOut={() => { scale.value = withTiming(1, cfg); }}
+      >
+        <Text style={sStyles.rowIcon}>{icon}</Text>
+        <Text style={sStyles.rowLabel}>{label}</Text>
+        <Text style={sStyles.chevron}>›</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
