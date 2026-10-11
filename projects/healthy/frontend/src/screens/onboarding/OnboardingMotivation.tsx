@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import Animated, { FadeInDown }            from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { NativeStackScreenProps }            from '@react-navigation/native-stack';
-import { RootStackParamList }                from '@/navigation/RootNavigator';
+import { NativeStackScreenProps }          from '@react-navigation/native-stack';
+import { RootStackParamList }              from '@/navigation/RootNavigator';
 import { useOnboardingStore, PreviousAttempts } from '@/stores/onboardingStore';
 import { OnboardingLayout } from './OnboardingLayout';
 import { SelectCard }       from './SelectCard';
@@ -24,6 +25,75 @@ const MOTIVATIONS = [
   { id: 'performance',  label: 'Rendir mejor',      icon: '🏅' },
   { id: 'longevity',    label: 'Vivir más y mejor', icon: '🌿' },
 ];
+
+const PREVIOUS_ATTEMPTS: { value: PreviousAttempts; icon: string; label: string; sublabel: string }[] = [
+  { value: 'none', icon: '🆕', label: 'Es mi primera vez',       sublabel: 'Nunca he seguido un plan'  },
+  { value: 'few',  icon: '📋', label: 'Lo he intentado antes',   sublabel: '1 o 2 intentos previos'    },
+  { value: 'many', icon: '🔄', label: 'He probado muchas cosas', sublabel: 'Sin resultados duraderos'  },
+];
+
+// Chip de motivación con FadeInDown stagger (delay 40ms — chips pequeños y rápidos)
+function MotivationChip({
+  item,
+  index,
+  selected,
+  onPress,
+}: {
+  item: (typeof MOTIVATIONS)[number];
+  index: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const entering = useMemo(
+    () => FadeInDown.duration(200).delay(index * 40),
+    [index],
+  );
+
+  return (
+    <Animated.View entering={entering}>
+      <Pressable
+        onPressIn={() => Haptics.selectionAsync()}
+        onPress={onPress}
+        style={[s.tag, selected && s.tagSel]}
+        accessibilityLabel={item.label}
+        accessibilityState={{ selected }}
+      >
+        <Text style={{ fontSize: 16 }}>{item.icon}</Text>
+        <Text style={[s.tagLabel, selected && s.tagLabelSel]}>{item.label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// SelectCard de intentos previos con FadeInDown stagger
+function AttemptOption({
+  item,
+  index,
+  selected,
+  onPress,
+}: {
+  item: (typeof PREVIOUS_ATTEMPTS)[number];
+  index: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const entering = useMemo(
+    () => FadeInDown.duration(200).delay(index * 40),
+    [index],
+  );
+
+  return (
+    <Animated.View entering={entering}>
+      <SelectCard
+        icon={item.icon}
+        label={item.label}
+        sublabel={item.sublabel}
+        selected={selected}
+        onPress={onPress}
+      />
+    </Animated.View>
+  );
+}
 
 export function OnboardingMotivation({ navigation }: Props) {
   const { data, setMotivation } = useOnboardingStore();
@@ -66,28 +136,26 @@ export function OnboardingMotivation({ navigation }: Props) {
       <Text style={s.sec}>¿Por qué quieres mejorar tu salud?</Text>
       <Text style={s.hint}>Selecciona todas las que te representen</Text>
       <View style={s.tags}>
-        {MOTIVATIONS.map((m) => (
-          <Pressable
+        {MOTIVATIONS.map((m, index) => (
+          <MotivationChip
             key={m.id}
-            onPressIn={() => Haptics.selectionAsync()}
+            item={m}
+            index={index}
+            selected={motivations.includes(m.id)}
             onPress={() => setMotivations(p => p.includes(m.id) ? p.filter(x => x !== m.id) : [...p, m.id])}
-            style={[s.tag, motivations.includes(m.id) && s.tagSel]}
-            accessibilityLabel={m.label}
-            accessibilityState={{ selected: motivations.includes(m.id) }}
-          >
-            <Text style={{ fontSize: 16 }}>{m.icon}</Text>
-            <Text style={[s.tagLabel, motivations.includes(m.id) && s.tagLabelSel]}>{m.label}</Text>
-          </Pressable>
+          />
         ))}
       </View>
 
       <Text style={[s.sec, { marginTop: spacing.lg }]}>¿Has seguido planes de salud antes?</Text>
-      {([
-        { value: 'none', icon: '🆕', label: 'Es mi primera vez',        sublabel: 'Nunca he seguido un plan'    },
-        { value: 'few',  icon: '📋', label: 'Lo he intentado antes',    sublabel: '1 o 2 intentos previos'      },
-        { value: 'many', icon: '🔄', label: 'He probado muchas cosas',  sublabel: 'Sin resultados duraderos'    },
-      ] as { value: PreviousAttempts; icon: string; label: string; sublabel: string }[]).map((a) => (
-        <SelectCard key={a.value} icon={a.icon} label={a.label} sublabel={a.sublabel} selected={attempts === a.value} onPress={() => setAttempts(a.value)} />
+      {PREVIOUS_ATTEMPTS.map((a, index) => (
+        <AttemptOption
+          key={a.value}
+          item={a}
+          index={index}
+          selected={attempts === a.value}
+          onPress={() => setAttempts(a.value)}
+        />
       ))}
 
       <Text style={[s.sec, { marginTop: spacing.lg }]}>

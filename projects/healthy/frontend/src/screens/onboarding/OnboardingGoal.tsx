@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { NativeStackScreenProps }   from '@react-navigation/native-stack';
-import { RootStackParamList }       from '@/navigation/RootNavigator';
-import { useOnboardingStore, Goal } from '@/stores/onboardingStore';
-import { OnboardingLayout }         from './OnboardingLayout';
-import { SelectCard }               from './SelectCard';
+import React, { useState, useMemo } from 'react';
+import Animated, { FadeInDown }            from 'react-native-reanimated';
+import { NativeStackScreenProps }          from '@react-navigation/native-stack';
+import { RootStackParamList }              from '@/navigation/RootNavigator';
+import { useOnboardingStore, Goal }        from '@/stores/onboardingStore';
+import { OnboardingLayout }               from './OnboardingLayout';
+import { SelectCard }                     from './SelectCard';
 import api from '@/services/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingGoal'>;
@@ -14,6 +15,37 @@ const GOALS: { value: Goal; icon: string; label: string; sublabel: string }[] = 
   { value: 'stay_active',    icon: '🧘', label: 'Mantenerme activo',   sublabel: 'Hábitos saludables para el día a día'         },
   { value: 'improve_habits', icon: '🌱', label: 'Mejorar mis hábitos', sublabel: 'Alimentación y bienestar general'             },
 ];
+
+// Componente interno para cada opción con FadeInDown stagger
+// El builder se construye en useMemo para evitar reconstrucciones en cada render
+function GoalOption({
+  item,
+  index,
+  selected,
+  onPress,
+}: {
+  item: (typeof GOALS)[number];
+  index: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const entering = useMemo(
+    () => FadeInDown.duration(250).delay(index * 60),
+    [index],
+  );
+
+  return (
+    <Animated.View entering={entering}>
+      <SelectCard
+        icon={item.icon}
+        label={item.label}
+        sublabel={item.sublabel}
+        selected={selected}
+        onPress={onPress}
+      />
+    </Animated.View>
+  );
+}
 
 export function OnboardingGoal({ navigation }: Props) {
   const { data, setGoal } = useOnboardingStore();
@@ -42,12 +74,11 @@ export function OnboardingGoal({ navigation }: Props) {
       canContinue={!!selected}
       loading={loading}
     >
-      {GOALS.map((g) => (
-        <SelectCard
+      {GOALS.map((g, index) => (
+        <GoalOption
           key={g.value}
-          icon={g.icon}
-          label={g.label}
-          sublabel={g.sublabel}
+          item={g}
+          index={index}
           selected={selected === g.value}
           onPress={() => setSelected(g.value)}
         />

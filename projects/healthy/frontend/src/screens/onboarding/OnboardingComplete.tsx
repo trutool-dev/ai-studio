@@ -2,10 +2,20 @@
  * OnboardingComplete — genera el plan de IA con loading state prominente.
  * Si generated_by_ai=false muestra banner informativo.
  * Guarda el plan en planStore y navega a MainTabs.
+ *
+ * Animaciones:
+ *  - Spinner: Reanimated withRepeat + withTiming (AD-5d)
+ *  - Círculo de éxito: FadeIn con spring inicial (AD-5e)
+ *  - Haptic Success al completar (AD-5e)
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withRepeat, withTiming,
+  FadeIn, Easing as RAnimEasing,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList }     from '@/navigation/RootNavigator';
 import { useOnboardingStore }     from '@/stores/onboardingStore';
@@ -29,6 +39,12 @@ const MSGS = [
   'Últimos retoques…',
 ];
 
+// Entrada del círculo de éxito: FadeIn con escala inicial reducida
+const SUCCESS_ENTERING = FadeIn.duration(400).withInitialValues({
+  opacity: 0,
+  transform: [{ scale: 0.5 }],
+});
+
 export function OnboardingComplete({ navigation }: Props) {
   const { data, reset }   = useOnboardingStore();
   const { user, login, accessToken, refreshToken } = useAuthStore();
@@ -36,16 +52,22 @@ export function OnboardingComplete({ navigation }: Props) {
   const [msgIdx, setMsgIdx]       = useState(0);
   const [errMsg, setErrMsg]       = useState('');
   const [aiFallback, setAiFallback] = useState(false);
-  const spinAnim  = useRef(new Animated.Value(0)).current;
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  // ── Spinner Reanimated (AD-5d) ────────────────────────────────────────────
+  const rotation = useSharedValue(0);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(spinAnim, { toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: true })
-    ).start();
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 1000, easing: RAnimEasing.linear }),
+      -1, // infinito
+    );
   }, []);
 
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  // ── Mensajes de generación ────────────────────────────────────────────────
   useEffect(() => {
     if (status !== 'generating') return;
     const t = setInterval(() => setMsgIdx((i) => (i + 1) % MSGS.length), 2000);
@@ -78,10 +100,8 @@ export function OnboardingComplete({ navigation }: Props) {
       }
 
       setStatus('success');
-      Animated.parallel([
-        Animated.timing(fadeAnim,  { toValue: 1, duration: duration.medium, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }),
-      ]).start();
+      // Haptic de éxito al completar la generación del plan (AD-5e)
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       reset();
     } catch (err: any) {
       setErrMsg(extractApiError(err, 'No se pudo generar el plan.'));
@@ -89,12 +109,11 @@ export function OnboardingComplete({ navigation }: Props) {
     }
   };
 
-  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
   if (status === 'generating') return (
     <SafeAreaView style={s.safe}>
       <View style={s.center}>
-        <Animated.View style={[s.spinner, { transform: [{ rotate: spin }] }]} />
+        {/* Spinner migrado a Reanimated (AD-5d) */}
+        <Animated.View style={[s.spinner, spinStyle]} />
         <Text style={s.genTitle}>Generando tu plan</Text>
         <Text style={s.genMsg}>{MSGS[msgIdx]}</Text>
         <Text style={s.disclaimer}>La IA de Healthy está personalizando cada detalle para ti</Text>
@@ -116,7 +135,7 @@ export function OnboardingComplete({ navigation }: Props) {
 
   return (
     <SafeAreaView style={s.safe}>
-      <Animated.View style={[s.center, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+      <View style={s.center}>
 
         {/* Banner informativo si no se usó IA */}
         {aiFallback && (
@@ -127,7 +146,11 @@ export function OnboardingComplete({ navigation }: Props) {
           </View>
         )}
 
-        <View style={s.successCircle}><Text style={{ fontSize: 44 }}>🎉</Text></View>
+        {/* Círculo de éxito con spring bounce entrada (AD-5e) */}
+        <Animated.View entering={SUCCESS_ENTERING} style={s.successCircle}>
+          <Text style={{ fontSize: 44 }}>🎉</Text>
+        </Animated.View>
+
         <Text style={s.genTitle}>¡Tu plan está listo!</Text>
         <Text style={s.successSub}>
           Hemos creado un plan 100% personalizado para ti.{'\n'}
@@ -151,7 +174,7 @@ export function OnboardingComplete({ navigation }: Props) {
           onPress={() => navigation.replace('MainTabs')}
           style={s.btn}
         />
-      </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
