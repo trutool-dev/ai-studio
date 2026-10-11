@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-10 | Sesión: en curso
+> Ultima actualización: 2026-10-11 | Sesión: apple-design Fase 3 completada
 
 ---
 
@@ -158,10 +158,10 @@ Informe completo en: `projects/healthy/apple-design-audit.md`
 
 | ID | Tarea | Archivo | Esfuerzo | Estado |
 |----|-------|---------|----------|--------|
-| AD-3a | Eliminar bounce scale en tab press (C-03) — mantener solo icono + dot como feedback | `src/navigation/MainTabNavigator.tsx` | S | Pendiente |
-| AD-3b | Reemplazar SetModal (TrainingScreen) con bottom sheet Reanimated + drag-to-dismiss | `src/screens/app/TrainingScreen.tsx` | L | Pendiente |
-| AD-3c | Reemplazar ProgressModal con bottom sheet Reanimated + drag-to-dismiss | `src/screens/app/ProgressScreen.tsx` | L | Pendiente |
-| AD-3d | Reemplazar RegenModal con modal centered Reanimated (fade + scale spring) | `src/screens/app/ProgressScreen.tsx` | M | Pendiente |
+| AD-3a | Eliminar bounce scale en tab press (C-03) — mantener solo icono + dot como feedback | `src/navigation/MainTabNavigator.tsx` | S | ✅ Completada |
+| AD-3b | Reemplazar SetModal (TrainingScreen) con bottom sheet Reanimated + drag-to-dismiss | `src/screens/app/TrainingScreen.tsx` | L | ✅ Completada |
+| AD-3c | Reemplazar ProgressModal con bottom sheet Reanimated + drag-to-dismiss | `src/screens/app/ProgressScreen.tsx` | L | ✅ Completada |
+| AD-3d | Reemplazar RegenModal con modal centered Reanimated (fade + scale spring) | `src/screens/app/ProgressScreen.tsx` | M | ✅ Completada |
 
 ---
 
