@@ -5,8 +5,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors }                        from '@/theme/colors';
-import { borderRadius, duration, spacing } from '@/theme/spacing';
+import { borderRadius, spacing } from '@/theme/spacing';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -72,12 +73,12 @@ export function MetricCard({
   onPress,
   style,
 }: MetricCardProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const timingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
-  const handlePressIn  = () =>
-    Animated.timing(scaleAnim, { toValue: 0.97, duration: duration.fast, useNativeDriver: true }).start();
-  const handlePressOut = () =>
-    Animated.timing(scaleAnim, { toValue: 1,    duration: duration.fast, useNativeDriver: true }).start();
+  const handlePressIn  = () => { scale.value = withTiming(0.97, timingConfig); };
+  const handlePressOut = () => { scale.value = withTiming(1,    timingConfig); };
 
   const hasTrend    = trend !== undefined && trend !== null;
   const trendUp     = hasTrend && trend! >= 0;
@@ -123,7 +124,7 @@ export function MetricCard({
 
   if (onPress) {
     return (
-      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, style]}>
+      <ReAnimated.View style={[animatedStyle, style]}>
         <Pressable
           style={styles.card}
           onPress={onPress}
@@ -134,7 +135,7 @@ export function MetricCard({
         >
           {content}
         </Pressable>
-      </Animated.View>
+      </ReAnimated.View>
     );
   }
 

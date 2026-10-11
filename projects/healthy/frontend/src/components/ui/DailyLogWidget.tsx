@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { colors }     from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
@@ -35,7 +36,12 @@ function LogItem({ icon, label, current, target, unit, color, onAdd, addLabel = 
         </View>
       </View>
       {onAdd && (
-        <Pressable style={[styles.addBtn, { borderColor: color }]} onPress={onAdd} accessibilityLabel={`Añadir ${label}`}>
+        <Pressable
+          style={[styles.addBtn, { borderColor: color }]}
+          onPressIn={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          onPress={onAdd}
+          accessibilityLabel={`Añadir ${label}`}
+        >
           <Text style={[styles.addLabel, { color }]}>{addLabel}</Text>
         </Pressable>
       )}

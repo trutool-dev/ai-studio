@@ -14,8 +14,10 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { colors }                                      from '@/theme/colors';
-import { borderRadius, duration, pressedScale, shadows, spacing } from '@/theme/spacing';
+import { borderRadius, shadows, spacing } from '@/theme/spacing';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -72,12 +74,12 @@ export function WorkoutCard({
   onPress,
   style,
 }: WorkoutCardProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const timingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
-  const handlePressIn  = () =>
-    Animated.timing(scaleAnim, { toValue: pressedScale, duration: duration.fast, useNativeDriver: true }).start();
-  const handlePressOut = () =>
-    Animated.timing(scaleAnim, { toValue: 1, duration: duration.fast, useNativeDriver: true }).start();
+  const handlePressIn  = () => { scale.value = withTiming(0.97, timingConfig); };
+  const handlePressOut = () => { scale.value = withTiming(1,    timingConfig); };
 
   const isCompact    = variant === 'compact';
   const isInProgress = variant === 'inProgress';
@@ -147,7 +149,7 @@ export function WorkoutCard({
   );
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <ReAnimated.View style={animatedStyle}>
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -157,7 +159,7 @@ export function WorkoutCard({
       >
         {inner}
       </Pressable>
-    </Animated.View>
+    </ReAnimated.View>
   );
 }
 
@@ -175,6 +177,11 @@ export function ExerciseRow({
 
   const handlePress = () => {
     const next = !completed;
+
+    // Haptic al marcar como completado
+    if (next) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
 
     Animated.parallel([
       Animated.timing(checkAnim, {

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
@@ -10,17 +12,39 @@ interface SelectCardProps {
 }
 
 export function SelectCard({ label, sublabel, icon, selected, onPress, style }: SelectCardProps) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const timingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
+
+  const handlePressIn = () => {
+    scale.value = withTiming(0.97, timingConfig);
+    Haptics.selectionAsync();
+  };
+  const handlePressOut = () => {
+    scale.value = withTiming(1, timingConfig);
+  };
+
   return (
-    <Pressable onPress={onPress} style={[s.card, selected && s.selected, style]} accessibilityRole="radio" accessibilityState={{ selected }}>
-      {icon ? <Text style={s.icon}>{icon}</Text> : null}
-      <View style={s.text}>
-        <Text style={[s.label, selected && s.labelSel]}>{label}</Text>
-        {sublabel ? <Text style={[s.sub, selected && s.subSel]}>{sublabel}</Text> : null}
-      </View>
-      <View style={[s.check, selected && s.checkSel]}>
-        {selected && <Text style={s.checkMark}>✓</Text>}
-      </View>
-    </Pressable>
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={onPress}
+        style={[s.card, selected && s.selected, style]}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        hitSlop={4}
+      >
+        {icon ? <Text style={s.icon}>{icon}</Text> : null}
+        <View style={s.text}>
+          <Text style={[s.label, selected && s.labelSel]}>{label}</Text>
+          {sublabel ? <Text style={[s.sub, selected && s.subSel]}>{sublabel}</Text> : null}
+        </View>
+        <View style={[s.check, selected && s.checkSel]}>
+          {selected && <Text style={s.checkMark}>✓</Text>}
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
