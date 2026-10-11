@@ -3,9 +3,8 @@
  * Exporta: WorkoutCard, ExerciseRow, RestTimer, WorkoutSummary
  */
 
-import React, { useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
-  Animated,
   ImageBackground,
   ImageSourcePropType,
   Pressable,
@@ -14,7 +13,10 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import ReAnimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing,
+  interpolateColor,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors }                                      from '@/theme/colors';
 import { borderRadius, shadows, spacing } from '@/theme/spacing';
@@ -172,8 +174,15 @@ export function ExerciseRow({
   active    = false,
   onToggle,
 }: ExerciseRowProps) {
-  const checkAnim = useRef(new Animated.Value(completed ? 1 : 0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  // AD-4f: color del check circle con interpolateColor (Reanimated)
+  const checkProgress = useSharedValue(completed ? 1 : 0);
+  // AD-4g: escala con withSpring para feedback con bounce
+  const scaleProgress = useSharedValue(1);
+
+  // Sincronizar con prop externa
+  useEffect(() => {
+    checkProgress.value = withTiming(completed ? 1 : 0, { duration: 220 });
+  }, [completed]);
 
   const handlePress = () => {
     const next = !completed;
@@ -183,48 +192,45 @@ export function ExerciseRow({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    Animated.parallel([
-      Animated.timing(checkAnim, {
-        toValue:  next ? 1 : 0,
-        duration: 220,
-        useNativeDriver: false,
-      }),
-      Animated.sequence([
-        Animated.timing(scaleAnim, { toValue: 0.92, duration: 80,  useNativeDriver: true }),
-        Animated.timing(scaleAnim, { toValue: 1,    duration: 150, useNativeDriver: true }),
-      ]),
-    ]).start();
+    // AD-4g: bounce spring en confirmación
+    scaleProgress.value = withSpring(0.92, { duration: 80, dampingRatio: 1 }, () => {
+      scaleProgress.value = withSpring(1, { duration: 300, dampingRatio: 0.8 });
+    });
 
     onToggle?.();
   };
 
-  const checkBg = checkAnim.interpolate({
-    inputRange:  [0, 1],
-    outputRange: ['rgba(34,197,94,0)', colors.primary.green],
-  });
+  // AD-4f: color del fondo y opacidad del checkmark via interpolateColor
+  const checkStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      checkProgress.value,
+      [0, 1],
+      ['rgba(34,197,94,0)', colors.primary.green]
+    ),
+    borderColor: interpolateColor(
+      checkProgress.value,
+      [0, 1],
+      [colors.neutral.lightGray, colors.primary.green]
+    ),
+  }));
 
-  const checkOpacity = checkAnim.interpolate({
-    inputRange:  [0, 1],
-    outputRange: [0, 1],
-  });
+  const checkMarkStyle = useAnimatedStyle(() => ({
+    opacity: checkProgress.value,
+  }));
+
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleProgress.value }],
+  }));
 
   return (
-    <Animated.View
-      style={[exStyles.row, active && exStyles.rowActive, { transform: [{ scale: scaleAnim }] }]}
+    <ReAnimated.View
+      style={[exStyles.row, active && exStyles.rowActive, rowStyle]}
     >
       {/* Check circle */}
       <Pressable onPress={handlePress} style={exStyles.checkWrap} accessibilityRole="checkbox">
-        <Animated.View
-          style={[
-            exStyles.check,
-            {
-              backgroundColor: checkBg,
-              borderColor: completed ? colors.primary.green : colors.neutral.lightGray,
-            },
-          ]}
-        >
-          <Animated.Text style={[exStyles.checkMark, { opacity: checkOpacity }]}>✓</Animated.Text>
-        </Animated.View>
+        <ReAnimated.View style={[exStyles.check, checkStyle]}>
+          <ReAnimated.Text style={[exStyles.checkMark, checkMarkStyle]}>✓</ReAnimated.Text>
+        </ReAnimated.View>
       </Pressable>
 
       {/* Info */}
@@ -237,7 +243,7 @@ export function ExerciseRow({
 
       {/* Indicador activo */}
       {active && <View style={exStyles.activeDot} />}
-    </Animated.View>
+    </ReAnimated.View>
   );
 }
 

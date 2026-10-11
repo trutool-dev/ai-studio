@@ -3,8 +3,8 @@
  * Exporta: MetricCard, RecoveryScore, MetricGrid, Sparkline
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors }                        from '@/theme/colors';
 import { borderRadius, spacing } from '@/theme/spacing';
@@ -145,16 +145,6 @@ export function MetricCard({
 // ── RecoveryScore ─────────────────────────────────────────────────────────────
 
 export function RecoveryScore({ score = 0, message, hrv, restingHr }: RecoveryScoreProps) {
-  const scoreAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(scoreAnim, {
-      toValue:  score,
-      duration: 1000,
-      useNativeDriver: false,
-    }).start();
-  }, [score]);
-
   const accentColor =
     score >= 67
       ? colors.whoop.recovery

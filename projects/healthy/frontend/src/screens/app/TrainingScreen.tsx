@@ -3,13 +3,14 @@
  * FE-04: GET /training/today + POST sets + PUT session complete.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Animated, Easing, KeyboardAvoidingView, Platform, Pressable, SafeAreaView,
+  KeyboardAvoidingView, Platform, Pressable, SafeAreaView,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, withSpring, interpolate, Extrapolation,
+  useSharedValue, useAnimatedStyle, withSpring, withRepeat, withTiming, Easing,
+  interpolate, Extrapolation, ReduceMotion,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -25,16 +26,23 @@ import { spacing, borderRadius, shadows } from '@/theme/spacing';
 // ── Skeleton loader ──────────────────────────────────────────────────────────
 
 function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number; width?: number | string; style?: object }) {
-  const opacity = useRef(new Animated.Value(0.4)).current;
+  const opacity = useSharedValue(0.4);
+
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1,   duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
+    opacity.value = withRepeat(
+      withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      -1,   // infinito
+      true  // reverse
+    );
   }, []);
-  return <Animated.View style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, opacity }, style]} />;
+
+  const skeletonStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Reanimated.View
+      style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray }, skeletonStyle, style]}
+    />
+  );
 }
 
 function TrainingSkeleton() {
@@ -81,11 +89,11 @@ function SetSheet({ exerciseName, defaultWeight = 0, defaultReps = 10, onConfirm
 
   // Abrir al montar
   useEffect(() => {
-    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8 });
+    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System });
   }, []);
 
   const closeSheet = useCallback(() => {
-    translateY.value = withSpring(SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true });
+    translateY.value = withSpring(SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true, reduceMotion: ReduceMotion.System });
     scheduleOnRN(onClose);
   }, [onClose]);
 
@@ -99,10 +107,10 @@ function SetSheet({ exerciseName, defaultWeight = 0, defaultReps = 10, onConfirm
     .onEnd((e) => {
       const projected = translateY.value + project(e.velocityY);
       if (projected > SHEET_HEIGHT * 0.4) {
-        translateY.value = withSpring(SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true });
+        translateY.value = withSpring(SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true, reduceMotion: ReduceMotion.System });
         scheduleOnRN(onClose);
       } else {
-        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY });
+        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY, reduceMotion: ReduceMotion.System });
         scheduleOnRN(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
       }
     }), [onClose]);
@@ -181,7 +189,7 @@ export function TrainingScreen() {
   const [timerRunning,  setTimerRunning]  = useState(false);
   const [setModal,      setSetModal]      = useState<{ exerciseId: string; name: string; weight?: number; reps?: number } | null>(null);
   const [completing,    setCompleting]    = useState(false);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseScale = useSharedValue(1);
 
   useEffect(() => { fetchTodayTraining(); }, []);
 
@@ -192,15 +200,16 @@ export function TrainingScreen() {
 
   const activeExerciseId = todayWorkout.exercises.find((e) => !e.completed)?.id ?? null;
 
-  // Pulso en progreso avanzado
+  // Pulso en progreso avanzado (Reanimated)
   useEffect(() => {
     if (pct > 0.5) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.08, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1,    duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        ])
-      ).start();
+      pulseScale.value = withRepeat(
+        withTiming(1.08, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        -1,   // infinito
+        true  // reverse
+      );
+    } else {
+      pulseScale.value = withTiming(1, { duration: 300 });
     }
   }, [pct > 0.5]);
 
@@ -298,9 +307,9 @@ export function TrainingScreen() {
         </View>
 
         {/* Anillo de progreso */}
-        <Animated.View style={[styles.ringWrapper, { transform: [{ scale: pulseAnim }] }]}>
+        <Reanimated.View style={[styles.ringWrapper, useAnimatedStyle(() => ({ transform: [{ scale: pulseScale.value }] }))]}>
           <DailyProgressRing progress={pct} label="Sesión de hoy" size={160} />
-        </Animated.View>
+        </Reanimated.View>
 
         {/* Temporizador de descanso */}
         {timerRunning && restTimer !== null && restTimer > 0 && (

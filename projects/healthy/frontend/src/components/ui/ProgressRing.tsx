@@ -5,8 +5,11 @@
  * Exporta: ProgressRing, ActivityRings, DailyProgressRing
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import ReAnimated, {
+  useSharedValue, useAnimatedProps, withSpring, FadeIn,
+} from 'react-native-reanimated';
 import { colors } from '@/theme/colors';
 
 // ── Carga dinámica de react-native-svg con fallback ───────────────────────────
@@ -25,7 +28,7 @@ try {
   Defs            = rnsvg.Defs;
   LinearGradient  = rnsvg.LinearGradient;
   Stop            = rnsvg.Stop;
-  AnimatedCircle  = Animated.createAnimatedComponent(Circle);
+  AnimatedCircle  = ReAnimated.createAnimatedComponent(Circle);
 } catch (_) {
   // fallback: solo se muestra el contenido interior
 }
@@ -43,6 +46,8 @@ interface ProgressRingProps {
   children?:    React.ReactNode;
   animate?:     boolean;
   gradientEnd?: string;
+  /** Índice opcional para stagger FadeIn al montar (AD-6d) */
+  index?:       number;
 }
 
 interface ActivityRingsProps {
@@ -95,21 +100,9 @@ export function ProgressRing({
   children,
   animate     = true,
   gradientEnd,
+  index,
 }: ProgressRingProps) {
   const clampedProgress = Math.min(1, Math.max(0, progress));
-  const animVal = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (animate) {
-      Animated.timing(animVal, {
-        toValue:         clampedProgress,
-        duration:        900,
-        useNativeDriver: false,
-      }).start();
-    } else {
-      animVal.setValue(clampedProgress);
-    }
-  }, [clampedProgress]);
 
   const r       = (size - stroke) / 2;
   const cx      = size / 2;
@@ -117,6 +110,22 @@ export function ProgressRing({
   const circumf = 2 * Math.PI * r;
   const track   = trackColor ?? hexWithAlpha(color, 0.12);
   const gradEnd = gradientEnd ?? lighten(color);
+
+  // Compartir valor: empieza "vacío" (circumf) y anima hasta circumf*(1-progress)
+  const offset = useSharedValue(circumf);
+
+  useEffect(() => {
+    const target = circumf - circumf * clampedProgress;
+    if (animate) {
+      offset.value = withSpring(target, { duration: 900, dampingRatio: 1 });
+    } else {
+      offset.value = target;
+    }
+  }, [clampedProgress]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: offset.value,
+  }));
 
   if (!SVG_OK) {
     return (
@@ -132,11 +141,6 @@ export function ProgressRing({
     );
   }
 
-  const dashOffset = animVal.interpolate({
-    inputRange:  [0, 1],
-    outputRange: [circumf, 0],
-  });
-
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
@@ -150,7 +154,7 @@ export function ProgressRing({
         {/* Pista de fondo */}
         <Circle cx={cx} cy={cy} r={r} stroke={track} strokeWidth={stroke} fill="none" />
 
-        {/* Arco de progreso animado */}
+        {/* Arco de progreso animado con Reanimated useAnimatedProps */}
         <AnimatedCircle
           cx={cx}
           cy={cy}
@@ -159,7 +163,7 @@ export function ProgressRing({
           strokeWidth={stroke}
           fill="none"
           strokeDasharray={circumf}
-          strokeDashoffset={dashOffset}
+          animatedProps={animatedProps}
           strokeLinecap="round"
           rotation="-90"
           origin={`${cx},${cy}`}

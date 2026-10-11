@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-11 | Sesión: apple-design Fase 3 completada
+> Ultima actualización: 2026-10-11 | Sesión: apple-design Fase 4 completada
 
 ---
 
@@ -169,14 +169,14 @@ Informe completo en: `projects/healthy/apple-design-audit.md`
 
 | ID | Tarea | Archivo | Esfuerzo | Estado |
 |----|-------|---------|----------|--------|
-| AD-4a | Migrar SkeletonBlock de Core Animated a Reanimated (UI thread) | `src/screens/app/HomeScreen.tsx` | S | Pendiente |
-| AD-4b | Añadir crossfade skeleton→contenido con Reanimated FadeIn/FadeOut | `src/screens/app/HomeScreen.tsx` | M | Pendiente |
-| AD-4c | Migrar pulso de progreso (pct > 0.5) a Reanimated withRepeat | `src/screens/app/TrainingScreen.tsx` | S | Pendiente |
-| AD-4d | Migrar ProgressRing `strokeDashoffset` de Core Animated a Reanimated useAnimatedProps | `src/components/ui/ProgressRing.tsx` | M | Pendiente |
-| AD-4e | Eliminar dead-code `scoreAnim` en RecoveryScore (no se usa visualmente) | `src/components/ui/MetricCard.tsx` | S | Pendiente |
-| AD-4f | Migrar ExerciseRow color interpolation a Reanimated interpolateColor | `src/components/ui/WorkoutCard.tsx` | M | Pendiente |
-| AD-4g | Migrar ExerciseRow scale feedback de timing a Reanimated withSpring | `src/components/ui/WorkoutCard.tsx` | S | Pendiente |
-| AD-4h | Añadir Layout animation (LinearTransition) a MealCard expand/collapse | `src/components/ui/MealCard.tsx` | M | Pendiente |
+| AD-4a | Migrar SkeletonBlock de Core Animated a Reanimated (UI thread) | `src/screens/app/HomeScreen.tsx` | S | ✅ Completada |
+| AD-4b | Añadir crossfade skeleton→contenido con Reanimated FadeIn/FadeOut | `src/screens/app/HomeScreen.tsx` | M | ✅ Completada |
+| AD-4c | Migrar pulso de progreso (pct > 0.5) a Reanimated withRepeat | `src/screens/app/TrainingScreen.tsx` | S | ✅ Completada |
+| AD-4d | Migrar ProgressRing `strokeDashoffset` de Core Animated a Reanimated useAnimatedProps | `src/components/ui/ProgressRing.tsx` | M | ✅ Completada |
+| AD-4e | Eliminar dead-code `scoreAnim` en RecoveryScore (no se usa visualmente) | `src/components/ui/MetricCard.tsx` | S | ✅ Completada |
+| AD-4f | Migrar ExerciseRow color interpolation a Reanimated interpolateColor | `src/components/ui/WorkoutCard.tsx` | M | ✅ Completada |
+| AD-4g | Migrar ExerciseRow scale feedback de timing a Reanimated withSpring | `src/components/ui/WorkoutCard.tsx` | S | ✅ Completada |
+| AD-4h | Añadir Layout animation (LinearTransition) a MealCard expand/collapse | `src/components/ui/MealCard.tsx` | M | ✅ Completada |
 
 ---
 

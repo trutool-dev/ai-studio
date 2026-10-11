@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Meal, calcMealTotals }              from '@/stores/planStore';
 import { colors }                            from '@/theme/colors';
 import { textStyles }                        from '@/theme/typography';
@@ -19,7 +20,7 @@ export function MealCard({ meal, onToggle }: MealCardProps) {
   const totals = calcMealTotals(meal);
 
   return (
-    <View style={[styles.card, meal.completed && styles.cardDone]}>
+    <Animated.View layout={LinearTransition.duration(200)} style={[styles.card, meal.completed && styles.cardDone]}>
       {/* Cabecera — siempre visible */}
       <Pressable
         style={styles.header}
@@ -45,9 +46,13 @@ export function MealCard({ meal, onToggle }: MealCardProps) {
         <Text style={[styles.chevron, expanded && styles.chevronUp]}>›</Text>
       </Pressable>
 
-      {/* Detalle expandible */}
+      {/* Detalle expandible — con FadeIn/FadeOut animado */}
       {expanded && (
-        <View style={styles.detail}>
+        <Animated.View
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(100)}
+          style={styles.detail}
+        >
           <View style={styles.divider} />
           {meal.foods.map((f) => (
             <View key={f.id} style={styles.foodRow}>
@@ -69,9 +74,9 @@ export function MealCard({ meal, onToggle }: MealCardProps) {
               {meal.completed ? '✓ Completado' : 'Marcar como completado'}
             </Text>
           </Pressable>
-        </View>
+        </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
