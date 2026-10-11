@@ -76,6 +76,58 @@
 | A-5 | Generar documentacion API (Swagger/OpenAPI) con endpoint /exercises | Docs Agent | ✅ Completada — swagger.yaml 40 endpoints | Nada |
 | A-Landing | Corregir Accessibility y SEO landing (scores actuales 82-88 → 95+) | Frontend Agent | ✅ Completada — Acc/SEO corregidos (sesión 2026-10-10) | Nada |
 | A-6 | **Expansión de micronutrientes completos**: (1) Ampliar modelo Prisma `Food` con fiber, sugar, saturated_fat, sodium, potassium, calcium, iron, vitamin_c, vitamin_d, vitamin_b12 + migración; (2) Actualizar `import-usda.js` para capturar todos los nutrientes USDA disponibles; (3) Actualizar `foods.controller.js` para devolver nuevos campos; (4) Modificar frontend `NutritionScreen` y `FoodDetailScreen` para mostrar tabla de micronutrientes (calorías, macros, fibra, azúcares, grasas saturadas, sodio, calcio, hierro, vitaminas). Referencia commits: seed 61a3729, import 93e470a | Backend + Database + Frontend Agents | Pendiente — planificar con orquestador | M-16 |
+| **A-7** | **Rediseño Apple Design** — Ver sección detallada abajo | Apple-Design Agent | **FASE 0 lista — auditoría pendiente** | Nada |
+
+---
+
+## A-7 — Rediseño Apple Design (detalle)
+
+**Objetivo:** Rediseñar el frontend de Healthy aplicando los 17 principios de Apple Design
+(WWDC 2018/2020/2026) y las mejores prácticas de animación nativa para Expo/React Native.
+
+**Agente responsable:** `apple-design` (skills: `apple-design.md` + `animate-expo.md`)
+
+**Skills instalados en:** `.claude/skills/apple-design.md` + `.claude/skills/animate-expo.md`
+
+### Flujo de trabajo para el orquestador
+
+```
+PASO 1 → Invocar apple-design en MODO AUDITORÍA
+         El agente genera: apple-design-audit.md + tareas AD-{n}
+
+PASO 2 → Orquestador lee la auditoría y valida las tareas AD-{n}
+         Reorganiza prioridades en este archivo
+
+PASO 3 → Invocar apple-design en MODO IMPLEMENTACIÓN (tarea por tarea)
+         Orden: Fase 0 → Fase 1 → Fase 2 → Fase 3 → Fase 4 → Fase 5
+
+PASO 4 → Tests Agent: verificar que nada se rompió
+PASO 5 → DevOps Agent: nuevo build EAS con los cambios
+```
+
+### Fase 0 — Setup de dependencias (pre-auditoría — ya listo para ejecutar)
+
+| ID | Tarea | Estado |
+|----|-------|--------|
+| AD-0a | `npx expo install react-native-reanimated react-native-worklets react-native-gesture-handler expo-haptics` | Pendiente |
+| AD-0b | Envolver app root con `GestureHandlerRootView` en `_layout.tsx` | Pendiente |
+| AD-0c | Añadir `CADisableMinimumFrameDurationOnPhone: true` en `app.json` (120fps ProMotion) | Pendiente |
+
+### Fases 1-5 — Pendientes de auditoría
+
+Las tareas AD-1xx a AD-5xx se generarán cuando el agente `apple-design`
+ejecute la auditoría completa en `src/screens/` y `src/components/`.
+
+El informe se guardará en: `projects/healthy/apple-design-audit.md`
+
+### Cómo iniciar la auditoría
+
+```
+1. Abrir Claude Code en la carpeta: projects/healthy/frontend/
+2. Cargar contexto: agents/apple-design/CLAUDE.md
+3. Pedir: "Ejecuta el MODO AUDITORÍA completo"
+4. El agente leerá src/screens/ + src/components/ y generará el informe
+```
 
 ---
 

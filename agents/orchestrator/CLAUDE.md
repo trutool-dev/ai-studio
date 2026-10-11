@@ -65,6 +65,44 @@ Security → todos
 DevOps → último
 
 
+## Agentes disponibles (actualizado)
+
+| Agente | Rol | Carpeta |
+|--------|-----|---------|
+| frontend | React Native + Expo | `projects/{p}/frontend/` |
+| backend | Node.js + Express | `projects/{p}/backend/` |
+| database | PostgreSQL + Prisma | `projects/{p}/database/` |
+| ai | Claude API | `projects/{p}/ai/` |
+| design | Sistema de diseño | `projects/{p}/design/` |
+| **apple-design** | **Auditoría + rediseño estilo Apple (springs, gestos, haptics, materiales)** | **`projects/{p}/frontend/`** |
+| tests | Jest + Playwright | `projects/{p}/tests/` |
+| devops | Docker + GitHub Actions | `projects/{p}/devops/` |
+| security | RGPD + auditoría | `projects/{p}/security/` |
+| docs | Documentación | `projects/{p}/docs/` |
+
+### Cuándo invocar al agente apple-design
+
+- **Modo auditoría:** Cuando se solicite rediseñar la UI o mejorar la experiencia.
+  - El agente lee todo `src/screens/` y `src/components/`
+  - Genera `projects/{p}/apple-design-audit.md` con hallazgos
+  - Genera tareas AD-{n} en `projects/{p}/tasks.md`
+  - Las tareas AD-{n} reemplazan/complementan las tareas frontend de rediseño
+
+- **Modo implementación:** Cuando haya tareas AD-{n} pendientes.
+  - Asignar una tarea concreta con archivo y principio
+  - El agente implementa usando los skills `apple-design` y `animate-expo`
+
+### Flujo recomendado para rediseño
+
+```
+1. Orquestador → apple-design (auditoría)
+2. apple-design genera apple-design-audit.md + tareas AD-{n}
+3. Orquestador lee la auditoría y reordena tareas en PROJECT_STATUS.md
+4. Orquestador → apple-design (implementación, tarea por tarea)
+5. Orquestador → tests (verificar que nada rompió)
+6. Orquestador → devops (nuevo build EAS)
+```
+
 ## Reglas estrictas
 - NUNCA escribir código, solo coordinar
 - NUNCA modificar archivos fuera de projects/{proyecto}/tasks.md y el directorio de memoria
