@@ -109,9 +109,9 @@ PASO 5 → DevOps Agent: nuevo build EAS con los cambios
 
 | ID | Tarea | Estado |
 |----|-------|--------|
-| AD-0a | `npx expo install react-native-reanimated react-native-worklets react-native-gesture-handler expo-haptics` | Pendiente |
-| AD-0b | Envolver app root con `GestureHandlerRootView` en `_layout.tsx` | Pendiente |
-| AD-0c | Añadir `CADisableMinimumFrameDurationOnPhone: true` en `app.json` (120fps ProMotion) | Pendiente |
+| AD-0a | `npx expo install react-native-reanimated react-native-worklets react-native-gesture-handler expo-haptics` | ✅ Completada |
+| AD-0b | Envolver app root con `GestureHandlerRootView` en `_layout.tsx` | ✅ Completada |
+| AD-0c | Añadir `CADisableMinimumFrameDurationOnPhone: true` en `app.json` (120fps ProMotion) | ✅ Completada |
 
 ### Auditoría completada — 2026-10-11
 
@@ -124,9 +124,9 @@ Informe completo en: `projects/healthy/apple-design-audit.md`
 
 | ID | Tarea | Archivo | Esfuerzo | Estado |
 |----|-------|---------|----------|--------|
-| AD-1a | Añadir letterSpacing a bodyLarge (0.15), bodyNormal (0.1), caption (0.25) | `src/theme/typography.ts` | S | Pendiente |
-| AD-1b | Migrar animación de label flotante de fontSize a transform+scale (sin layout pass) | `src/components/ui/Input.tsx` | M | Pendiente |
-| AD-1c | Migrar ProgressBar de animar `width` string a `scaleX` transform | `src/components/ui/ProgressBar.tsx` | S | Pendiente |
+| AD-1a | Añadir letterSpacing a bodyLarge (0.15), bodyNormal (0.1), caption (0.25) | `src/theme/typography.ts` | S | ✅ Completada |
+| AD-1b | Migrar animación de label flotante de fontSize a transform+scale (sin layout pass) | `src/components/ui/Input.tsx` | M | ✅ Completada |
+| AD-1c | Migrar ProgressBar de animar `width` string a `scaleX` transform | `src/components/ui/ProgressBar.tsx` | S | ✅ Completada |
 
 ---
 
