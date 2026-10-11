@@ -4,10 +4,19 @@
  *   <Toast message="Error de red" type="error" visible={show} onHide={() => setShow(false)} />
  *
  * Para uso global sin prop-drilling, usar el hook useToast().
+ *
+ * Animaciones (AD-6b + AD-6c):
+ *  - Migrado de Core Animated a Reanimated
+ *  - Respeta prefers-reduced-motion: si está activo solo FadeIn/FadeOut sin translateY
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle,
+  withTiming, withSpring,
+  useReducedMotion, Easing,
+} from 'react-native-reanimated';
 import { colors }     from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius } from '@/theme/spacing';
@@ -36,32 +45,54 @@ const ICON: Record<ToastType, string> = {
   warning: '⚠',
 };
 
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+
 export function Toast({ message, type = 'error', visible, onHide, duration = 3000 }: ToastProps) {
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity    = useRef(new Animated.Value(0)).current;
+  const reduced    = useReducedMotion();
+  const translateY = useSharedValue(-100);
+  const opacity    = useSharedValue(0);
+
+  const hide = () => {
+    if (reduced) {
+      // Solo fundido, sin movimiento
+      opacity.value = withTiming(0, { duration: 150, easing: EASE_OUT }, (finished) => {
+        if (finished) {
+          // Llamar onHide en el hilo JS
+        }
+      });
+      // Usar setTimeout para dejar que la animación termine antes de ocultar
+      setTimeout(() => onHide?.(), 160);
+    } else {
+      // Slide down + fade out
+      translateY.value = withTiming(-100, { duration: 250, easing: EASE_OUT });
+      opacity.value    = withTiming(0,    { duration: 250, easing: EASE_OUT });
+      setTimeout(() => onHide?.(), 260);
+    }
+  };
 
   useEffect(() => {
     if (visible) {
-      // Slide in
-      Animated.parallel([
-        Animated.timing(translateY, { toValue: 0,   duration: 300, useNativeDriver: true }),
-        Animated.timing(opacity,    { toValue: 1,   duration: 300, useNativeDriver: true }),
-      ]).start();
+      if (reduced) {
+        // Solo fundido, sin translateY
+        translateY.value = 0;
+        opacity.value    = withTiming(1, { duration: 200, easing: EASE_OUT });
+      } else {
+        // Spring entrada desde arriba
+        translateY.value = -100;
+        opacity.value    = withTiming(1, { duration: 300, easing: EASE_OUT });
+        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.75 });
+      }
 
       // Auto-dismiss
-      const timer = setTimeout(() => {
-        hide();
-      }, duration);
+      const timer = setTimeout(() => { hide(); }, duration);
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, reduced]);
 
-  const hide = () => {
-    Animated.parallel([
-      Animated.timing(translateY, { toValue: -100, duration: 250, useNativeDriver: true }),
-      Animated.timing(opacity,    { toValue: 0,    duration: 250, useNativeDriver: true }),
-    ]).start(() => onHide?.());
-  };
+  const animStyle = useAnimatedStyle(() => ({
+    opacity:   opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   if (!visible) return null;
 
@@ -69,7 +100,8 @@ export function Toast({ message, type = 'error', visible, onHide, duration = 300
     <Animated.View
       style={[
         styles.container,
-        { backgroundColor: BG[type], transform: [{ translateY }], opacity },
+        { backgroundColor: BG[type] },
+        animStyle,
       ]}
       accessibilityLiveRegion="assertive"
       accessibilityRole="alert"

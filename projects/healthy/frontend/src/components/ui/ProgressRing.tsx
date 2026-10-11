@@ -127,9 +127,15 @@ export function ProgressRing({
     strokeDashoffset: offset.value,
   }));
 
+  // FadeIn stagger — builder construido en useMemo para evitar recreación en cada render
+  const entering = useMemo(
+    () => index !== undefined ? FadeIn.duration(400).delay(index * 80) : undefined,
+    [index],
+  );
+
   if (!SVG_OK) {
     return (
-      <View style={[styles.container, { width: size, height: size }]}>
+      <ReAnimated.View entering={entering} style={[styles.container, { width: size, height: size }]}>
         <View
           style={[
             styles.fallbackRing,
@@ -137,12 +143,12 @@ export function ProgressRing({
           ]}
         />
         <View style={styles.inner}>{children}</View>
-      </View>
+      </ReAnimated.View>
     );
   }
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <ReAnimated.View entering={entering} style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Defs>
           <LinearGradient id={`grad-${color}`} x1="0" y1="0" x2="1" y2="1">
@@ -171,7 +177,7 @@ export function ProgressRing({
       </Svg>
 
       <View style={styles.inner}>{children}</View>
-    </View>
+    </ReAnimated.View>
   );
 }
 

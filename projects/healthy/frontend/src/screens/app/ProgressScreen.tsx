@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import ReAnimated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
-  interpolate, Extrapolation, FadeIn, Easing,
+  interpolate, Extrapolation, FadeIn, Easing, ReduceMotion,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -117,11 +117,11 @@ function ProgressSheet({ onSubmit, onClose, submitting }: ProgressSheetProps) {
 
   // Abrir al montar
   useEffect(() => {
-    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8 });
+    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System });
   }, []);
 
   const closeSheet = useCallback(() => {
-    translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true });
+    translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true, reduceMotion: ReduceMotion.System });
     scheduleOnRN(onClose);
   }, [onClose]);
 
@@ -135,10 +135,10 @@ function ProgressSheet({ onSubmit, onClose, submitting }: ProgressSheetProps) {
     .onEnd((e) => {
       const projected = translateY.value + projectVelocity(e.velocityY);
       if (projected > PROGRESS_SHEET_HEIGHT * 0.4) {
-        translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true });
+        translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true, reduceMotion: ReduceMotion.System });
         scheduleOnRN(onClose);
       } else {
-        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY });
+        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY, reduceMotion: ReduceMotion.System });
       }
     }), [onClose]);
 

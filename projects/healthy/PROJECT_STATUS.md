@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-11 | Sesión: apple-design Fase 4 completada
+> Ultima actualización: 2026-10-11 | Sesión: apple-design Fases 5 y 6 completadas
 
 ---
 
@@ -184,11 +184,11 @@ Informe completo en: `projects/healthy/apple-design-audit.md`
 
 | ID | Tarea | Archivo | Esfuerzo | Estado |
 |----|-------|---------|----------|--------|
-| AD-5a | Añadir FadeInDown stagger (50ms/card) a SelectCard en OnboardingGoal | `src/screens/onboarding/OnboardingGoal.tsx` | S | Pendiente |
-| AD-5b | Añadir FadeInDown stagger a opciones en OnboardingLifestyle | `src/screens/onboarding/OnboardingLifestyle.tsx` | S | Pendiente |
-| AD-5c | Añadir FadeInDown stagger a chips de motivación en OnboardingMotivation | `src/screens/onboarding/OnboardingMotivation.tsx` | S | Pendiente |
-| AD-5d | Migrar spinner de OnboardingComplete a Reanimated (mantiene useNativeDriver: true) | `src/screens/onboarding/OnboardingComplete.tsx` | S | Pendiente |
-| AD-5e | Añadir spring bounce al círculo de éxito en OnboardingComplete + haptic Success | `src/screens/onboarding/OnboardingComplete.tsx` | S | Pendiente |
+| AD-5a | Añadir FadeInDown stagger (50ms/card) a SelectCard en OnboardingGoal | `src/screens/onboarding/OnboardingGoal.tsx` | S | ✅ Completada |
+| AD-5b | Añadir FadeInDown stagger a opciones en OnboardingLifestyle | `src/screens/onboarding/OnboardingLifestyle.tsx` | S | ✅ Completada |
+| AD-5c | Añadir FadeInDown stagger a chips de motivación en OnboardingMotivation | `src/screens/onboarding/OnboardingMotivation.tsx` | S | ✅ Completada |
+| AD-5d | Migrar spinner de OnboardingComplete a Reanimated (mantiene useNativeDriver: true) | `src/screens/onboarding/OnboardingComplete.tsx` | S | ✅ Completada |
+| AD-5e | Añadir spring bounce al círculo de éxito en OnboardingComplete + haptic Success | `src/screens/onboarding/OnboardingComplete.tsx` | S | ✅ Completada |
 
 ---
 
@@ -196,10 +196,10 @@ Informe completo en: `projects/healthy/apple-design-audit.md`
 
 | ID | Tarea | Archivo | Esfuerzo | Estado |
 |----|-------|---------|----------|--------|
-| AD-6a | Añadir `reduceMotion: ReduceMotion.System` a todos los withSpring/withTiming críticos | Múltiples | M | Pendiente |
-| AD-6b | Añadir `useReducedMotion()` en componentes con animaciones de posición/slide (Toast, sheets) | `src/components/ui/Toast.tsx`, sheets | M | Pendiente |
-| AD-6c | Migrar Toast de Core Animated translateY a Reanimated (interruptible) | `src/components/ui/Toast.tsx` | M | Pendiente |
-| AD-6d | Añadir stagger FadeIn a ActivityRings al montar ProgressScreen | `src/components/ui/ProgressRing.tsx` | S | Pendiente |
+| AD-6a | Añadir `reduceMotion: ReduceMotion.System` a todos los withSpring/withTiming críticos | Múltiples | M | ✅ Completada |
+| AD-6b | Añadir `useReducedMotion()` en componentes con animaciones de posición/slide (Toast, sheets) | `src/components/ui/Toast.tsx`, sheets | M | ✅ Completada |
+| AD-6c | Migrar Toast de Core Animated translateY a Reanimated (interruptible) | `src/components/ui/Toast.tsx` | M | ✅ Completada |
+| AD-6d | Añadir stagger FadeIn a ActivityRings al montar ProgressScreen | `src/components/ui/ProgressRing.tsx` | S | ✅ Completada |
 
 ---
 
