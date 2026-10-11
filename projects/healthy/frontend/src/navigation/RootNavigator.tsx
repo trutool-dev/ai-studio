@@ -8,6 +8,7 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, View }    from 'react-native';
 import { NavigationContainer }        from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView }     from 'react-native-gesture-handler';
 import { useAuthStore }               from '@/stores/authStore';
 import { colors }                     from '@/theme/colors';
 
@@ -74,6 +75,7 @@ export function RootNavigator() {
   const hasPlan = user?.has_plan ?? false;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
@@ -128,5 +130,6 @@ export function RootNavigator() {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+    </GestureHandlerRootView>
   );
 }
