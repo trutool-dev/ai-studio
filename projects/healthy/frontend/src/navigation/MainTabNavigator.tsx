@@ -5,7 +5,7 @@
 
 import React from 'react';
 import {
-  Animated, Platform, Pressable,
+  Platform, Pressable,
   StyleSheet, Text, View,
 } from 'react-native';
 import { BlurView }                    from 'expo-blur';
@@ -17,7 +17,7 @@ import { NutritionScreen }             from '@/screens/app/NutritionScreen';
 import { ProgressScreen }              from '@/screens/app/ProgressScreen';
 import { ProfileScreen }               from '@/screens/app/ProfileScreen';
 import { colors }                      from '@/theme/colors';
-import { iconSize, spacing, duration } from '@/theme/spacing';
+import { iconSize, spacing } from '@/theme/spacing';
 
 export type MainTabParamList = {
   Home:      undefined;
@@ -54,14 +54,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             const { options }  = descriptors[route.key];
             const tab          = TABS[index];
             const isActive     = state.index === index;
-            const scaleAnim    = React.useRef(new Animated.Value(1)).current;
 
             const handlePress = () => {
-              Animated.sequence([
-                Animated.timing(scaleAnim, { toValue: 0.85, duration: duration.fast, useNativeDriver: true }),
-                Animated.timing(scaleAnim, { toValue: 1,    duration: duration.fast, useNativeDriver: true }),
-              ]).start();
-
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!isActive && !event.defaultPrevented) navigation.navigate(route.name);
             };
@@ -75,13 +69,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                 accessibilityState={{ selected: isActive }}
                 accessibilityLabel={options.tabBarAccessibilityLabel ?? tab.label}
               >
-                <Animated.View style={[barStyles.iconWrap, { transform: [{ scale: scaleAnim }] }]}>
+                <View style={barStyles.iconWrap}>
                   <Ionicons
                     name={isActive ? tab.iconFilled : tab.iconOutline}
                     size={iconSize.standard}
                     color={isActive ? colors.primary.darkGreen : colors.neutral.midGray}
                   />
-                </Animated.View>
+                </View>
                 <Text style={[barStyles.label, isActive && barStyles.labelActive]}>
                   {tab.label}
                 </Text>
