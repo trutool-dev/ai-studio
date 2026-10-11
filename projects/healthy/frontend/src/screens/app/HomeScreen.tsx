@@ -3,12 +3,15 @@
  * FE-07: GET/PUT /logs/today conectado al DailyLogWidget.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
-  Animated, ScrollView, StyleSheet, Text, View,
+  ScrollView, StyleSheet, Text, View,
   SafeAreaView, Pressable,
 } from 'react-native';
-import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import ReAnimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing,
+  FadeIn,
+} from 'react-native-reanimated';
 import { usePlanStore, calcDayTotals } from '@/stores/planStore';
 import { useAuthStore }                from '@/stores/authStore';
 import { MacroCard }                   from '@/components/ui/MacroCard';
@@ -20,16 +23,23 @@ import { spacing, borderRadius, shadows } from '@/theme/spacing';
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
 function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number; width?: number | string; style?: object }) {
-  const opacity = useRef(new Animated.Value(0.4)).current;
+  const opacity = useSharedValue(0.4);
+
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1,   duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
+    opacity.value = withRepeat(
+      withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      -1,   // infinito
+      true  // reverse
+    );
   }, []);
-  return <Animated.View style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, opacity, marginBottom: 8 }, style]} />;
+
+  const skeletonStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <ReAnimated.View
+      style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, marginBottom: 8 }, skeletonStyle, style]}
+    />
+  );
 }
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
@@ -104,7 +114,7 @@ export function HomeScreen() {
             <SkeletonBlock height={100} />
           </>
         ) : (
-          <>
+          <ReAnimated.View entering={FadeIn.duration(300)}>
             {/* Anillo de calorías */}
             <View style={styles.calCard}>
               <View style={styles.calRing}>
@@ -183,7 +193,7 @@ export function HomeScreen() {
               sleepHours={log.sleepHours}
               onAddWater={handleAddWater}
             />
-          </>
+          </ReAnimated.View>
         )}
 
         <View style={{ height: spacing.xxl }} />
