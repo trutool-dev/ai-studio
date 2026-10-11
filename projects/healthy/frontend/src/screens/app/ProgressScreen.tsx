@@ -3,12 +3,17 @@
  * FE-06: GET /progress + /progress/stats · POST /progress · POST /plans/regenerate.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, Modal, SafeAreaView, ScrollView, StyleSheet,
-  Text, TextInput, TouchableOpacity, View, Pressable,
+  Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet,
+  Text, TextInput, View, Pressable,
 } from 'react-native';
-import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import ReAnimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withSpring,
+  interpolate, Extrapolation, FadeIn, Easing,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
 import { usePlanStore }                           from '@/stores/planStore';
 import { ActivityRings, DailyProgressRing }       from '@/components/ui/ProgressRing';
 import { MetricCard, RecoveryScore, MetricGrid }  from '@/components/ui/MetricCard';
@@ -81,61 +86,121 @@ function StreakCalendar({ streak }: { streak: number }) {
   );
 }
 
-// ── Modal de registro de progreso ─────────────────────────────────────────────
+// ── Helpers para bottom sheet ─────────────────────────────────────────────────
 
-interface ProgressModalProps {
-  visible:   boolean;
+function projectVelocity(velocity: number, decelerationRate = 0.998): number {
+  'worklet';
+  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
+}
+
+function rubberband(overshoot: number, dimension: number, constant = 0.55): number {
+  'worklet';
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
+const PROGRESS_SHEET_HEIGHT = 360;
+
+// ── Bottom sheet de registro de progreso ──────────────────────────────────────
+
+interface ProgressSheetProps {
   onSubmit:  (weight: number, notes: string) => void;
   onClose:   () => void;
   submitting: boolean;
 }
 
-function ProgressModal({ visible, onSubmit, onClose, submitting }: ProgressModalProps) {
+function ProgressSheet({ onSubmit, onClose, submitting }: ProgressSheetProps) {
   const [weight, setWeight] = useState('');
   const [notes,  setNotes]  = useState('');
 
+  const translateY = useSharedValue(PROGRESS_SHEET_HEIGHT);
+  const context    = useSharedValue(0);
+
+  // Abrir al montar
+  useEffect(() => {
+    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8 });
+  }, []);
+
+  const closeSheet = useCallback(() => {
+    translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true });
+    scheduleOnRN(onClose);
+  }, [onClose]);
+
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-10, 10])
+    .onStart(() => { context.value = translateY.value; })
+    .onUpdate((e) => {
+      const next = context.value + e.translationY;
+      translateY.value = next >= 0 ? next : rubberband(next, PROGRESS_SHEET_HEIGHT);
+    })
+    .onEnd((e) => {
+      const projected = translateY.value + projectVelocity(e.velocityY);
+      if (projected > PROGRESS_SHEET_HEIGHT * 0.4) {
+        translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true });
+        scheduleOnRN(onClose);
+      } else {
+        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY });
+      }
+    }), [onClose]);
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateY.value, [0, PROGRESS_SHEET_HEIGHT], [0.5, 0], Extrapolation.CLAMP),
+  }));
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={pmStyles.overlay}>
-        <View style={pmStyles.sheet}>
-          <Text style={pmStyles.title}>Registrar progreso</Text>
-          <View style={pmStyles.field}>
-            <Text style={pmStyles.fieldLabel}>Peso actual (kg) — opcional</Text>
-            <TextInput
-              style={pmStyles.input}
-              value={weight}
-              onChangeText={setWeight}
-              keyboardType="decimal-pad"
-              placeholder="Ej: 80.5"
-              placeholderTextColor={colors.neutral.midGray}
-              accessibilityLabel="Peso en kilogramos"
-            />
-          </View>
-          <View style={pmStyles.field}>
-            <Text style={pmStyles.fieldLabel}>Notas — opcional</Text>
-            <TextInput
-              style={[pmStyles.input, { height: 80, textAlignVertical: 'top' }]}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              placeholder="¿Cómo te has sentido esta semana?"
-              placeholderTextColor={colors.neutral.midGray}
-              accessibilityLabel="Notas de progreso"
-            />
-          </View>
-          <View style={pmStyles.btns}>
-            <Button label="Cancelar" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-            <Button
-              label="Guardar"
-              variant="primary"
-              loading={submitting}
-              onPress={() => onSubmit(parseFloat(weight) || 0, notes)}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
+    <View style={pmStyles.container} pointerEvents="box-none">
+      {/* Fondo oscuro */}
+      <ReAnimated.View style={[pmStyles.backdrop, backdropStyle]} pointerEvents="box-none">
+        <Pressable style={{ flex: 1 }} onPress={closeSheet} accessibilityLabel="Cerrar sheet" />
+      </ReAnimated.View>
+
+      {/* Sheet */}
+      <GestureDetector gesture={pan}>
+        <ReAnimated.View style={[pmStyles.sheet, sheetStyle]}>
+          <View style={pmStyles.handle} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <Text style={pmStyles.title}>Registrar progreso</Text>
+            <View style={pmStyles.field}>
+              <Text style={pmStyles.fieldLabel}>Peso actual (kg) — opcional</Text>
+              <TextInput
+                style={pmStyles.input}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="decimal-pad"
+                placeholder="Ej: 80.5"
+                placeholderTextColor={colors.neutral.midGray}
+                accessibilityLabel="Peso en kilogramos"
+              />
+            </View>
+            <View style={pmStyles.field}>
+              <Text style={pmStyles.fieldLabel}>Notas — opcional</Text>
+              <TextInput
+                style={[pmStyles.input, { height: 80, textAlignVertical: 'top' }]}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                placeholder="¿Cómo te has sentido esta semana?"
+                placeholderTextColor={colors.neutral.midGray}
+                accessibilityLabel="Notas de progreso"
+              />
+            </View>
+            <View style={pmStyles.btns}>
+              <Button label="Cancelar" variant="secondary" onPress={closeSheet} style={{ flex: 1 }} />
+              <Button
+                label="Guardar"
+                variant="primary"
+                loading={submitting}
+                onPress={() => onSubmit(parseFloat(weight) || 0, notes)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </KeyboardAvoidingView>
+        </ReAnimated.View>
+      </GestureDetector>
+    </View>
   );
 }
 
@@ -149,20 +214,20 @@ interface RegenModalProps {
 }
 
 function RegenModal({ visible, onConfirm, onDismiss, regenerating }: RegenModalProps) {
+  if (!visible) return null;
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      <View style={regenStyles.overlay}>
-        <View style={regenStyles.card}>
-          <Text style={{ fontSize: 40, textAlign: 'center' }}>🔄</Text>
-          <Text style={regenStyles.title}>¿Actualizar tu plan?</Text>
-          <Text style={regenStyles.body}>
-            Tu progreso sugiere que tu plan actual podría optimizarse. ¿Quieres que la IA regenere tu plan con los nuevos datos?
-          </Text>
-          <Button label="Sí, regenerar plan" variant="primary" loading={regenerating} onPress={onConfirm} />
-          <Button label="Mantener el actual" variant="ghost"   onPress={onDismiss}    style={{ marginTop: spacing.sm }} />
-        </View>
-      </View>
-    </Modal>
+    <View style={regenStyles.overlay} pointerEvents="box-none">
+      <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={onDismiss} />
+      <ReAnimated.View entering={FadeIn.duration(200).withInitialValues({ opacity: 0, transform: [{ scale: 0.9 }] })} style={regenStyles.card}>
+        <Text style={{ fontSize: 40, textAlign: 'center' }}>🔄</Text>
+        <Text style={regenStyles.title}>¿Actualizar tu plan?</Text>
+        <Text style={regenStyles.body}>
+          Tu progreso sugiere que tu plan actual podría optimizarse. ¿Quieres que la IA regenere tu plan con los nuevos datos?
+        </Text>
+        <Button label="Sí, regenerar plan" variant="primary" loading={regenerating} onPress={onConfirm} />
+        <Button label="Mantener el actual" variant="ghost"   onPress={onDismiss}    style={{ marginTop: spacing.sm }} />
+      </ReAnimated.View>
+    </View>
   );
 }
 
@@ -381,13 +446,16 @@ export function ProgressScreen() {
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
 
-      {/* Modales */}
-      <ProgressModal
-        visible={showProgress}
-        onSubmit={handleSubmitProgress}
-        onClose={() => setShowProgress(false)}
-        submitting={submitting}
-      />
+      {/* Bottom sheet de progreso */}
+      {showProgress && (
+        <ProgressSheet
+          onSubmit={handleSubmitProgress}
+          onClose={() => setShowProgress(false)}
+          submitting={submitting}
+        />
+      )}
+
+      {/* Modal centrado de regeneración de plan */}
       <RegenModal
         visible={showRegen}
         onConfirm={handleRegenerate}
@@ -478,8 +546,21 @@ const todayStyles = StyleSheet.create({
 });
 
 const pmStyles = StyleSheet.create({
-  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet:      { backgroundColor: colors.neutral.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, gap: spacing.lg },
+  // Overlay de pantalla completa para el sheet
+  container:  { position: 'absolute', bottom: 0, left: 0, right: 0, top: 0 },
+  backdrop:   { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: colors.neutral.white,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.xl, paddingTop: spacing.md,
+    gap: spacing.lg,
+  },
+  handle: {
+    alignSelf: 'center', width: 36, height: 4,
+    borderRadius: 2, backgroundColor: colors.neutral.lightGray,
+    marginBottom: spacing.md,
+  },
   title:      { ...textStyles.titleSmall, color: colors.neutral.black },
   field:      { gap: spacing.xs },
   fieldLabel: { ...textStyles.caption, color: colors.neutral.midGray, fontWeight: '600' },
@@ -488,7 +569,7 @@ const pmStyles = StyleSheet.create({
 });
 
 const regenStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   card:    { backgroundColor: colors.neutral.white, borderRadius: 24, padding: spacing.xl, gap: spacing.lg, width: '100%' },
   title:   { ...textStyles.titleSmall, color: colors.neutral.black, textAlign: 'center' },
   body:    { ...textStyles.bodyNormal, color: colors.neutral.midGray, textAlign: 'center', lineHeight: 22 },

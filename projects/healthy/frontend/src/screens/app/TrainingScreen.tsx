@@ -3,11 +3,16 @@
  * FE-04: GET /training/today + POST sets + PUT session complete.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, Easing, Modal, SafeAreaView,
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Animated, Easing, KeyboardAvoidingView, Platform, Pressable, SafeAreaView,
+  ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withSpring, interpolate, Extrapolation,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
 import * as Haptics from 'expo-haptics';
 import { usePlanStore }   from '@/stores/planStore';
 import { WorkoutCard, ExerciseRow, RestTimer, WorkoutSummary } from '@/components/ui/WorkoutCard';
@@ -43,10 +48,23 @@ function TrainingSkeleton() {
   );
 }
 
-// ── Modal para registrar una serie ──────────────────────────────────────────
+// ── Helpers para el bottom sheet ─────────────────────────────────────────────
 
-interface SetModalProps {
-  visible:     boolean;
+function project(velocity: number, decelerationRate = 0.998): number {
+  'worklet';
+  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
+}
+
+function rubberband(overshoot: number, dimension: number, constant = 0.55): number {
+  'worklet';
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
+const SHEET_HEIGHT = 320;
+
+// ── Bottom sheet para registrar una serie ────────────────────────────────────
+
+interface SetSheetProps {
   exerciseName: string;
   defaultWeight?: number;
   defaultReps?:   number;
@@ -54,52 +72,99 @@ interface SetModalProps {
   onClose:     () => void;
 }
 
-function SetModal({ visible, exerciseName, defaultWeight = 0, defaultReps = 10, onConfirm, onClose }: SetModalProps) {
+function SetSheet({ exerciseName, defaultWeight = 0, defaultReps = 10, onConfirm, onClose }: SetSheetProps) {
   const [weight, setWeight] = useState(String(defaultWeight));
   const [reps,   setReps]   = useState(String(defaultReps));
 
+  const translateY = useSharedValue(SHEET_HEIGHT);
+  const context    = useSharedValue(0);
+
+  // Abrir al montar
+  useEffect(() => {
+    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8 });
+  }, []);
+
+  const closeSheet = useCallback(() => {
+    translateY.value = withSpring(SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true });
+    scheduleOnRN(onClose);
+  }, [onClose]);
+
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-10, 10])
+    .onStart(() => { context.value = translateY.value; })
+    .onUpdate((e) => {
+      const next = context.value + e.translationY;
+      translateY.value = next >= 0 ? next : rubberband(next, SHEET_HEIGHT);
+    })
+    .onEnd((e) => {
+      const projected = translateY.value + project(e.velocityY);
+      if (projected > SHEET_HEIGHT * 0.4) {
+        translateY.value = withSpring(SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true });
+        scheduleOnRN(onClose);
+      } else {
+        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY });
+        scheduleOnRN(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+      }
+    }), [onClose]);
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [0.5, 0], Extrapolation.CLAMP),
+  }));
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={modal.overlay}>
-        <View style={modal.sheet}>
-          <Text style={modal.title}>Registrar serie</Text>
-          <Text style={modal.subtitle}>{exerciseName}</Text>
-          <View style={modal.row}>
-            <View style={modal.field}>
-              <Text style={modal.fieldLabel}>Peso (kg)</Text>
-              <TextInput
-                style={modal.input}
-                value={weight}
-                onChangeText={setWeight}
-                keyboardType="decimal-pad"
-                accessibilityLabel="Peso en kilogramos"
+    <View style={sheet.container} pointerEvents="box-none">
+      {/* Fondo oscuro */}
+      <Reanimated.View style={[sheet.backdrop, backdropStyle]} pointerEvents="box-none">
+        <Pressable style={{ flex: 1 }} onPress={closeSheet} accessibilityLabel="Cerrar sheet" />
+      </Reanimated.View>
+
+      {/* Sheet */}
+      <GestureDetector gesture={pan}>
+        <Reanimated.View style={[sheet.sheet, sheetStyle]}>
+          {/* Handle */}
+          <View style={sheet.handle} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <Text style={modal.title}>Registrar serie</Text>
+            <Text style={modal.subtitle}>{exerciseName}</Text>
+            <View style={modal.row}>
+              <View style={modal.field}>
+                <Text style={modal.fieldLabel}>Peso (kg)</Text>
+                <TextInput
+                  style={modal.input}
+                  value={weight}
+                  onChangeText={setWeight}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel="Peso en kilogramos"
+                />
+              </View>
+              <View style={modal.field}>
+                <Text style={modal.fieldLabel}>Repeticiones</Text>
+                <TextInput
+                  style={modal.input}
+                  value={reps}
+                  onChangeText={setReps}
+                  keyboardType="number-pad"
+                  accessibilityLabel="Número de repeticiones"
+                />
+              </View>
+            </View>
+            <View style={modal.btns}>
+              <Button label="Cancelar" variant="secondary" onPress={closeSheet} style={{ flex: 1 }} />
+              <Button
+                label="Guardar"
+                variant="primary"
+                onPress={() => onConfirm(parseFloat(weight) || 0, parseInt(reps, 10) || 0)}
+                style={{ flex: 1 }}
               />
             </View>
-            <View style={modal.field}>
-              <Text style={modal.fieldLabel}>Repeticiones</Text>
-              <TextInput
-                style={modal.input}
-                value={reps}
-                onChangeText={setReps}
-                keyboardType="number-pad"
-                accessibilityLabel="Número de repeticiones"
-              />
-            </View>
-          </View>
-          <View style={modal.btns}>
-            <Button label="Cancelar" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
-            <Button
-              label="Guardar"
-              variant="primary"
-              onPress={() => {
-                onConfirm(parseFloat(weight) || 0, parseInt(reps, 10) || 0);
-              }}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
+          </KeyboardAvoidingView>
+        </Reanimated.View>
+      </GestureDetector>
+    </View>
   );
 }
 
@@ -297,10 +362,9 @@ export function TrainingScreen() {
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
 
-      {/* Modal de registro de serie */}
+      {/* Bottom sheet de registro de serie */}
       {setModal && (
-        <SetModal
-          visible
+        <SetSheet
           exerciseName={setModal.name}
           defaultWeight={setModal.weight}
           defaultReps={setModal.reps}
@@ -331,9 +395,25 @@ const styles = StyleSheet.create({
   emptySub:   { ...textStyles.bodyNormal,  color: colors.neutral.midGray, textAlign: 'center', lineHeight: 22 },
 });
 
+const sheet = StyleSheet.create({
+  // Capa que cubre toda la pantalla (overlay + sheet)
+  container: { position: 'absolute', bottom: 0, left: 0, right: 0, top: 0 },
+  backdrop:  { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: colors.neutral.white,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.xl, paddingTop: spacing.md,
+    gap: spacing.lg,
+  },
+  handle: {
+    alignSelf: 'center', width: 36, height: 4,
+    borderRadius: 2, backgroundColor: colors.neutral.lightGray,
+    marginBottom: spacing.md,
+  },
+});
+
 const modal = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet:   { backgroundColor: colors.neutral.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, gap: spacing.lg },
   title:    { ...textStyles.titleSmall, color: colors.neutral.black },
   subtitle: { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: -spacing.md },
   row:      { flexDirection: 'row', gap: spacing.md },
