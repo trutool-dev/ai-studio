@@ -55,6 +55,7 @@ const getPlanById = async (req, res, next) => {
 /** POST /plans/regenerate — Regenerar plan con IA */
 const regeneratePlan = async (req, res, next) => {
   try {
+    // SEC-04: userId siempre del JWT — nunca del body del request
     const userId = req.user.userId;
     const { reason = 'manual_request' } = req.body;
 
@@ -97,6 +98,19 @@ const regeneratePlan = async (req, res, next) => {
     logger.info(`[plans] Catálogo: ${catalogExercises.length} ejercicios para usuario ${userId} (regeneración)`);
 
     const newPlan = await aiService.regeneratePlan(userId, onboardingData, reason, progressLogs.map(l => ({ log_date: l.log_date.toISOString(), weight_kg: l.weight_kg ? parseFloat(l.weight_kg) : null })), exerciseCatalogContext);
+
+    // SEC-23: Validar que los IDs de ejercicios del plan existen en el catálogo real
+    if (catalogExercises.length > 0 && newPlan.training_plan?.weekly_schedule) {
+      const catalogIds = new Set(catalogExercises.map(e => String(e.externalId || e.id)));
+      for (const day of newPlan.training_plan.weekly_schedule) {
+        if (Array.isArray(day.exercises)) {
+          day.exercises = day.exercises.filter(ex => {
+            if (!ex.id) return true; // ejercicios sin ID se mantienen (fallback)
+            return catalogIds.has(String(ex.id));
+          });
+        }
+      }
+    }
 
     await prisma.plan.updateMany({ where: { user_id: userId, status: 'active' }, data: { status: 'paused' } });
 
