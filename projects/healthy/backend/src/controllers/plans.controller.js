@@ -120,7 +120,7 @@ const regeneratePlan = async (req, res, next) => {
         const targetJsDay = isoToJs(daySession.day_of_week);
         const todayJsDay = startDate.getDay();
         let daysOffset = targetJsDay - todayJsDay;
-        if (daysOffset <= 0) daysOffset += 7; // si ya paso este dia en la semana, ir a la siguiente
+        if (daysOffset < 0) daysOffset += 7; // si el dia ya paso esta semana, ir a la siguiente ocurrencia
         const sessionDate = new Date(startDate);
         sessionDate.setDate(startDate.getDate() + (week * 7) + daysOffset);
         trainingSessions.push({ plan_id: savedPlan.id, user_id: userId, scheduled_date: sessionDate, status: 'scheduled', notes: daySession.notes || null });
