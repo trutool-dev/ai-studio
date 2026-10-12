@@ -91,6 +91,7 @@
 | **A-14** | **Bug: regeneratePlan falla con timeout** — El plan con IA puede tardar >20s. Axios timeout global era 20s. Fix: timeout específico 90s en la llamada `POST /plans/regenerate`. | Frontend Agent | ✅ **COMPLETADA** — commit `831b223` (sesión 2026-10-12) | Nada |
 | **A-15** | **Bug: login redirige siempre a onboarding** — `POST /auth/login` y `GET /auth/me` no devuelven `has_plan`. Fix: en `login()` y `getMe()` hacer `prisma.plan.findFirst({ where: { user_id, status: 'active' } })` e incluir `has_plan: !!activePlan` en el objeto `user` de la respuesta. Archivo: `backend/src/controllers/auth.controller.js` | Backend Agent | Pendiente | Nada |
 | **A-16** | **Bug: has_plan siempre undefined al arrancar app** — `loadStoredAuth()` no refresca el usuario contra la API. Fix: tras cargar tokens de SecureStore y setear `isAuthenticated: true`, llamar a `GET /auth/me`, actualizar el store y re-guardar en SecureStore. Si la llamada falla (sin red), usar el usuario guardado como fallback. Archivo: `frontend/src/stores/authStore.ts` | Frontend Agent | Pendiente | A-15 |
+| **A-17** | **Auditoría de seguridad MITRE ATLAS** — Agente JailBreak completó la auditoría de las 16 tácticas ATLAS v4.5. Ver `auditoria_atlas_mitre.md`. 30 hallazgos, 24 tareas SEC-01..SEC-24 para el orquestador. | JailBreak Agent | ✅ **COMPLETADA** — `CLAUDE.jailbreak.md` + `auditoria_atlas_mitre.md`. Commit `1ad08bc` (sesión 2026-10-12e) | Nada |
 
 ---
 
@@ -382,3 +383,54 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 2. Actualizar la seccion "Estado general" con la fecha y sesion actuales
 3. Anotar cualquier nuevo bloqueante o deuda tecnica descubierta
 4. Actualizar tambien `C:\Users\Antonio\.claude\projects\c--Users-Antonio-Documents-ai-studio\memory\current_status.md`
+
+---
+
+## Tareas pendientes — SEGURIDAD IA (MITRE ATLAS) — generadas por agente JailBreak
+
+> Origen: `auditoria_atlas_mitre.md` — MITRE ATLAS v4.5 — Sesión 2026-10-12e  
+> Ver archivo completo para descripción detallada de cada hallazgo, vector de ataque y mitigación.
+
+### 🔴 CRÍTICAS — Resolver antes del go-live
+
+| ID | Componente | Descripción | Agente | Estado |
+|----|-----------|-------------|--------|--------|
+| **SEC-01** | `aiService.js` → `buildUserContextPrompt()` | Sanitización anti-prompt-injection: truncar campos a 500 chars, strip de patrones de inyección, encapsular datos en `<user_data>`, añadir instrucción defensiva al SYSTEM_PROMPT | Security Agent | Pendiente |
+| **SEC-02** | `POST /plans/generate` endpoint | Eliminar `extraContext` como parámetro del cliente. Solo generado internamente por el backend | Security Agent | Pendiente |
+| **SEC-03** | `aiService.js` → `formatExercisesForPrompt()` | Sanitizar catálogo de ejercicios externo antes de incluirlo en prompts: `sanitizeExerciseForPrompt()` con límites longitud y strip de patrones sospechosos | Security Agent | Pendiente |
+| **SEC-04** | Controller de planes | Verificar que `userId` del JWT === `userId` de los datos de onboarding. Nunca confiar en userId del body; consultar onboarding desde BD con userId del JWT | Security Agent | Pendiente |
+| **SEC-05** | Registro de usuarios | Rate limiter de registro por IP (máx 3 cuentas/hora). Configurar budget límite en Anthropic. Alerta de gasto. Verificación de email | Security Agent | Pendiente |
+
+### 🟠 ALTAS — Resolver en sprint post-lanzamiento
+
+| ID | Componente | Descripción | Agente | Estado |
+|----|-----------|-------------|--------|--------|
+| **SEC-06** | `aiService.js` | Límite de generaciones de plan por usuario/día (1 nuevo + 3 regeneraciones). Métricas de tokens en Redis. Alerta uso anómalo | Security Agent | Pendiente |
+| **SEC-07** | SYSTEM_PROMPT | Añadir defensas anti-jailbreak: instrucciones de refusal, prohibición de roles alternativos. Validación post-generación del JSON de Claude | Security Agent | Pendiente |
+| **SEC-08** | Error handling | Estandarizar respuestas de error: nunca exponer detalles de Claude API al cliente. Respuesta genérica `PLAN_GENERATION_FAILED` | Security Agent | Pendiente |
+| **SEC-09** | SYSTEM_PROMPT | Añadir instrucción de confidencialidad. Mover SYSTEM_PROMPT a variable de entorno `AI_SYSTEM_PROMPT` | Security Agent | Pendiente |
+| **SEC-10** | Redis / PostgreSQL | Cifrar planes en Redis con AES-256 (`REDIS_ENCRYPTION_KEY`). Auditar accesos a datos de planes | Security Agent | Pendiente |
+| **SEC-11** | Output processing | Sanitizar y truncar campos de texto libre del output de Claude (`notes`, `generated_at`, `model_version`) antes de almacenar/devolver | Security Agent | Pendiente |
+| **SEC-12** | `app.js` | Reducir límite `express.json` a 50kb. Validación de longitud máxima de campos en schema de onboarding | Security Agent | Pendiente |
+| **SEC-13** | CI/CD + npm | `npm audit --production` en CI/CD. Pinear versión exacta `@anthropic-ai/sdk`. Activar Dependabot | DevOps Agent | Pendiente |
+
+### 🟡 MEDIAS — Backlog de mejoras
+
+| ID | Descripción | Estado |
+|----|-------------|--------|
+| **SEC-14** | `.gitignore` para docs internos (`CLAUDE.*.md`, `PR-*.md`, `*_STATUS.md`) antes de hacer repo público | Pendiente |
+| **SEC-15** | Validar integridad del catálogo de ejercicios externo (schema JSON, longitud, caracteres) | Pendiente |
+| **SEC-16** | HMAC de integridad en planes cacheados en Redis (`HMAC-SHA256` con `REDIS_HMAC_SECRET`) | Pendiente |
+| **SEC-17** | Normalización Unicode (NFC) y strip de caracteres de control/RTL en sanitización de inputs | Pendiente |
+| **SEC-18** | Separadores semánticos entre secciones del prompt. Límite 2000 chars total para campos de texto libre | Pendiente |
+| **SEC-19** | Autenticar `/health/ai` con token de admin o eliminarlo en staging. No exponer prefijo de API key | Pendiente |
+| **SEC-20** | Validación de rangos fisiológicos en `calculateMetabolism()`: age [10,120], weight [20,500], height [50,250] | Pendiente |
+
+### 🟢 BAJAS — Nice to have
+
+| ID | Descripción | Estado |
+|----|-------------|--------|
+| **SEC-21** | Verificar que Helmet deshabilita `X-Powered-By` en producción | Pendiente |
+| **SEC-22** | Verificar TTL de JWT en `authService.js`. `expiresIn: '24h'` máximo. Implementar refresh token | Pendiente |
+| **SEC-23** | Post-procesado del plan: validar IDs de ejercicios contra catálogo real. Eliminar IDs inexistentes | Pendiente |
+| **SEC-24** | Política de rotación de secretos cada 90 días. `JWT_SECRET` con `openssl rand -hex 64`. Pre-commit hook para detectar API keys | Pendiente |
