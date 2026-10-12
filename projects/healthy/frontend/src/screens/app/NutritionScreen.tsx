@@ -50,7 +50,7 @@ function FoodSearchBar() {
     setSearching(true);
     try {
       const { data } = await api.get(`/foods/search?q=${encodeURIComponent(q.trim())}`);
-      const foods = data?.data ?? data ?? [];
+      const foods = data?.data?.foods ?? data?.data ?? [];
       setResults(Array.isArray(foods) ? foods : []);
     } catch {
       setResults([]);
@@ -105,6 +105,11 @@ function FoodSearchBar() {
               </View>
             )}
           />
+        </View>
+      )}
+      {results.length === 0 && query.length > 0 && !searching && (
+        <View style={srStyles.emptyState}>
+          <Text style={srStyles.emptyText}>No se encontraron alimentos para &apos;{query}&apos;</Text>
         </View>
       )}
     </View>
@@ -289,6 +294,8 @@ const srStyles = StyleSheet.create({
   resultInfo:{ flex: 1 },
   resultName:{ ...textStyles.bodyNormal, color: colors.neutral.darkGray, fontWeight: '600' },
   resultMeta:{ ...textStyles.caption, color: colors.neutral.midGray, marginTop: 2 },
+  emptyState:{ backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, marginTop: 4, padding: spacing.md, alignItems: 'center', ...shadows.card },
+  emptyText: { ...textStyles.bodyNormal, color: colors.neutral.midGray, textAlign: 'center' },
 });
 
 export default NutritionScreen;
