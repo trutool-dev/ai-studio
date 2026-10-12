@@ -41,6 +41,7 @@ const getTodaySession = async (req, res, next) => {
       where: {
         user_id: userId,
         scheduled_date: { gte: new Date(today.setHours(0,0,0,0)), lte: new Date(today.setHours(23,59,59,999)) },
+        plan: { status: 'active' },
       },
       include: { session_exercises: { include: { exercise: true }, orderBy: { order_index: 'asc' } } },
       orderBy: { scheduled_date: 'asc' },
