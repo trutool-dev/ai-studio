@@ -1,3 +1,29 @@
 .env
 *.env.local
 node_modules/
+
+# Build artifacts
+dist/
+build/
+.expo/
+app.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# Tests
+coverage/
+.nyc_output/

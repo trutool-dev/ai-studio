@@ -70,6 +70,26 @@ function buildInjuryExclusions(injuries) {
 }
 
 /**
+ * Sanitiza los campos de texto de un ejercicio del catálogo externo.
+ * Protege contra indirect prompt injection (SEC-15, MITRE ATLAS AML.T0051.002).
+ */
+function sanitizeCatalogExercise(exercise) {
+  const maxLen = (s, n) => (typeof s === 'string' ? s.slice(0, n).replace(/[­‪-‮]/g, '') : s);
+  return {
+    ...exercise,
+    name:            maxLen(exercise.name, 100),
+    bodyPart:        maxLen(exercise.bodyPart, 50),
+    target:          maxLen(exercise.target, 50),
+    equipment:       maxLen(exercise.equipment, 50),
+    instructionsEn:  maxLen(exercise.instructionsEn, 300),
+    instructionsEs:  maxLen(exercise.instructionsEs, 300),
+    secondaryMuscles: Array.isArray(exercise.secondaryMuscles)
+      ? exercise.secondaryMuscles.slice(0, 5).map(m => maxLen(m, 30))
+      : [],
+  };
+}
+
+/**
  * Obtiene ejercicios filtrados del catálogo real según perfil del usuario.
  * Si el perfil no es válido o no se encuentran ejercicios, devuelve array vacío sin lanzar error.
  *
@@ -140,7 +160,7 @@ async function getExercisesForProfile(profile, limit = 80) {
       orderBy: { name: 'asc' },
     });
 
-    return exercises;
+    return exercises.map(sanitizeCatalogExercise);
   } catch (err) {
     // No propagar el error: el generador de planes tiene fallback propio
     const logger = require('../utils/logger.util');

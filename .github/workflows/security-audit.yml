@@ -1,0 +1,38 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 8 * * 1'  # Cada lunes a las 8h UTC
+
+jobs:
+  audit:
+    name: npm audit (production)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/healthy/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: projects/healthy/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (production deps only)
+        run: npm audit --production --audit-level=high
+        continue-on-error: false
+
+      - name: Check for known vulnerable packages
+        run: npx better-npm-audit audit --production --level high
+        continue-on-error: true

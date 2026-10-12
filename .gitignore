@@ -7,3 +7,12 @@ node_modules/
 projects/healthy/frontend/dist/
 projects/healthy/frontend/.expo/
 projects/healthy/app.json
+
+# Documentos internos del estudio (no exponer si el repo se hace público)
+CLAUDE.*.md
+PR-*.md
+*_STATUS.md
+*_AUDIT.md
+auditoria_*.md
+apple-design-audit.md
+*.jsonl
