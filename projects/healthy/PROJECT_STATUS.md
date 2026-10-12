@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-12 | Sesión: Bug fix onboarding/complete (const→let). Nuevo APK build 39e44a5e con rediseño Apple Design. Docs actualizados.
+> Ultima actualización: 2026-10-12 | Sesión: A-8/A-9/A-10/A-11 completadas. Frontend worktree mergeado. Push a develop → Railway redesplegado.
 
 ---
 
@@ -11,12 +11,12 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-12 — Bug fix onboarding, nuevo APK con rediseño, docs actualizados |
-| Rama activa | develop — commit `72d38af` (fix onboarding const→let) |
+| Fase actual | Sesión 2026-10-12b — A-8/A-9/A-10/A-11 completadas, frontend mergeado, Railway redesplegado |
+| Rama activa | develop — commit `e601547` (merge worktree A-9/A-10/A-11 frontend) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build `39e44a5e` disponible — rediseño Apple Design completo |
-| Siguiente accion inmediata | **M-17** — Confirmar seed foods (`GET /foods/search?q=pollo`) → **M-18** — Probar APK `39e44a5e` en dispositivo → **M-19** — Google Play Internal Testing |
+| Siguiente accion inmediata | **M-16** — Seed foods (pendiente Antonio) → **M-17** — Confirmar `GET /foods/search?q=pollo` → **M-18** — Instalar nuevo APK con fixes A-8..A-11 → **M-19** — Google Play Internal Testing |
 
 ---
 
@@ -51,7 +51,7 @@
 | M-1b | Despertar servicios Railway — redeploy staging | CRITICO | ✅ Completada |
 | M-2 | Verificar build Android: `eas build:list --limit 1 --platform android` | CRITICO | ✅ Completada |
 | M-3 | Build Android EAS con deps corregidas | CRITICO | ✅ Completada — APK build 5befc66f (commit 9d8522a) en https://expo.dev/artifacts/eas/WqEK5PmpORXPgcL1DFnT-6hQ-YRAZlxsrVjqcU-Xo6c.apk |
-| M-4 | Ejecutar seed de ejercicios: `node projects/healthy/database/seedExercises.js` con DATABASE_URL de Railway | IMPORTANTE | Pendiente |
+| M-4 | Ejecutar seed de ejercicios: `node projects/healthy/database/seedExercises.js` con DATABASE_URL de Railway | IMPORTANTE | ✅ Completada — 1.324 ejercicios insertados en staging (sesión 2026-10-12) |
 | M-5 | Registrar Bundle ID `com.healthy.app` en developer.apple.com | APLAZADO | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | M-6 | Crear app en App Store Connect para iOS | APLAZADO | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | M-7 | Instalar y probar APK en dispositivo Android real | IMPORTANTE | **EN CURSO** — Antonio probando APK en dispositivo Android |
@@ -81,10 +81,10 @@
 | A-Landing | Corregir Accessibility y SEO landing (scores actuales 82-88 → 95+) | Frontend Agent | ✅ Completada — Acc/SEO corregidos (sesión 2026-10-10) | Nada |
 | A-6 | **Expansión de micronutrientes completos**: (1) Ampliar modelo Prisma `Food` con fiber, sugar, saturated_fat, sodium, potassium, calcium, iron, vitamin_c, vitamin_d, vitamin_b12 + migración; (2) Actualizar `import-usda.js` para capturar todos los nutrientes USDA disponibles; (3) Actualizar `foods.controller.js` para devolver nuevos campos; (4) Modificar frontend `NutritionScreen` y `FoodDetailScreen` para mostrar tabla de micronutrientes (calorías, macros, fibra, azúcares, grasas saturadas, sodio, calcio, hierro, vitaminas). Referencia commits: seed 61a3729, import 93e470a | Backend + Database + Frontend Agents | Pendiente — planificar con orquestador | M-16 |
 | **A-7** | **Rediseño Apple Design** — Ver sección detallada abajo | Apple-Design Agent | ✅ **COMPLETADA** — 39 tareas en 7 fases, 454/454 tests, APK build 94110d29 | Nada |
-| **A-8** | **Bug: primer día del plan siempre descanso** — Al crear/regenerar el plan, `day_of_week 1 = +0 días desde hoy`, por lo que si hoy es domingo el lunes (día 1) cae en hoy, que es día de descanso. Fix en backend `onboarding.controller.js` y `plans.controller.js`: calcular `scheduled_date` como la próxima ocurrencia real del `day_of_week` en el calendario a partir de hoy (no offset fijo). | Backend Agent | Pendiente | Nada |
-| **A-9** | **Bug: ProfileScreen muestra `—` en edad/altura/peso** — `ProfileScreen` lee de `useOnboardingStore` que se resetea tras el onboarding. Fix: (1) Crear endpoint `GET /profile/me` en backend que devuelva `{ age, weight_kg, height_cm, gender, goal, diet_type, sessions_per_week }`; (2) Actualizar `ProfileScreen` para llamar a ese endpoint al montar y mostrar los datos reales de la BD. | Backend + Frontend Agents | Pendiente | Nada |
-| **A-10** | **Bug: DailyLogWidget sin inputs editables para agua/pasos/peso** — El widget muestra los valores pero el botón `+` solo suma incrementos fijos. Fix: añadir modal/sheet con `TextInput` numérico para que el usuario pueda introducir valores exactos de agua (ml), pasos y peso (kg). El peso también debe guardarse en `progress_logs` via `POST /progress`. | Frontend Agent | Pendiente | Nada |
-| **A-11** | **Bug: buscador de alimentos no muestra resultados** — `NutritionScreen` llama a `GET /foods/search?q=pollo` que devuelve `{ foods: [], total: 0 }` porque la tabla `foods` está vacía (M-16 pendiente). Fix doble: (1) ejecutar M-16 para poblar la tabla; (2) el buscador debería mostrar mensaje "No se encontraron alimentos" en vez de no hacer nada visualmente. Verificar también que la respuesta de la API (`data.data.foods` vs `data.data`) se parsea correctamente en el frontend. | Backend + Frontend Agents | Pendiente | M-16 |
+| **A-8** | **Bug: primer día del plan siempre descanso** — Fix: conversión ISO→JS weekday + cálculo de próxima ocurrencia real del `day_of_week`. Aplicado en `onboarding.controller.js` y `plans.controller.js`. | Backend Agent | ✅ **COMPLETADA** — commit `9441d66` (sesión 2026-10-12) | Nada |
+| **A-9** | **Bug: ProfileScreen muestra `—` en edad/altura/peso** — Fix: nuevo endpoint `GET /user/me/profile` + ProfileScreen fetches API al montar. | Backend + Frontend Agents | ✅ **COMPLETADA** — backend `aa4679d`, frontend `20719e2` (sesión 2026-10-12) | Nada |
+| **A-10** | **Bug: DailyLogWidget sin inputs editables para agua/pasos/peso** — Fix: `InputModal` con `TextInput` numérico para agua (ml), pasos y peso (kg). Peso guarda en `POST /progress`. | Frontend Agent | ✅ **COMPLETADA** — commit `b90074a` (sesión 2026-10-12) | Nada |
+| **A-11** | **Bug: buscador de alimentos no muestra resultados** — Fix: parsing respuesta API (`data.data.foods`) + empty state "No se encontraron alimentos para '{query}'". Resultados reales requieren M-16. | Backend + Frontend Agents | ✅ **COMPLETADA** (frontend fix) — commit `a4b1d65` (sesión 2026-10-12) | M-16 para datos reales |
 
 ---
 
@@ -235,7 +235,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Backend staging operativo | Activo | ✅ ACTIVO |
 | ANTHROPIC_API_KEY en staging | Configurado | ✅ Configurado |
 | Créditos Anthropic | Disponibles | ✅ ACTIVO — M-11b completada, /health/ai confirma success:true |
-| Seed 1.324 ejercicios ejecutado | Completo | PENDIENTE — ejecutar M-4 |
+| Seed 1.324 ejercicios ejecutado | Completo | ✅ COMPLETADO — M-4 ejecutada sesión 2026-10-12 |
 | CP-01..CP-10 con IA activa | 8+/10 | ⚠️ PARCIAL — score 23/50; IA real en 2/10 CPs; 7 CPs con caché Redis fallback; ver sesión 2026-10-09 |
 | Tag v1.0.0 | Creado | PENDIENTE |
 
@@ -260,6 +260,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-10a | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app. | pendiente | 2026-10-10 |
 | Sesion 2026-10-10b | Investigación BD alimentos: BEDCA bloqueada, USDA ✅ gratuita. Creados `seed-foods.js` (128 alimentos ES, commit 61a3729), `import-usda.js` (200+ ES→USDA, commit 93e470a), `import-openfoodfacts.js` (20 categorías × 60 productos, commit e392cb5 + retry 503 en 1cc12b8). Fix Prisma client path en scripts seed. .gitignore actualizado. M-16 EN CURSO. A-6 planificada. | e8924f1 | 2026-10-10 |
 | Sesion 2026-10-12 | Bug fix crítico `onboarding/complete`: `const→let` en destructuring línea 163 causaba `TypeError: Assignment to constant variable` cuando el usuario enviaba datos del onboarding directamente al endpoint final. Fix commit `72d38af`, desplegado a Railway. Nuevo APK `39e44a5e` con rediseño Apple Design completo generado via EAS Build. Docs actualizados (README, ai-architecture, architecture-web, PROGRESS, PROJECT_STATUS). Tareas M-17/M-18/M-19 añadidas como arranque próxima sesión. Investigación autenticación staging: SMTP no configurado, usar `/auth/dev/auto-verify` con `Content-Type: application/json`. | 72d38af | 2026-10-12 |
+| Sesion 2026-10-12b | **A-8** ✅ Fix scheduled_date: ISO→JS weekday + próxima ocurrencia real (`9441d66`). **A-9** ✅ Nuevo `GET /user/me/profile` + ProfileScreen fetch API (`aa4679d`, `20719e2`). **A-10** ✅ DailyLogWidget con InputModal numérico para agua/pasos/peso + `POST /progress` (`b90074a`). **A-11** ✅ NutritionScreen: fix parsing `data.data.foods` + empty state (`a4b1d65`). **M-4** ✅ Seed 1.324 ejercicios completado en staging. Frontend worktree mergeado a develop + push Railway (`e601547`). Nuevo build EAS pendiente para incorporar todos estos fixes. | e601547 | 2026-10-12 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
