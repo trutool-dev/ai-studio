@@ -7,11 +7,11 @@ const router = require('express').Router();
 const { body } = require('express-validator');
 const { validate } = require('../middleware/validate.middleware');
 const { authenticate } = require('../middleware/auth.middleware');
-const { authRateLimiter } = require('../middleware/rateLimiter.middleware');
+const { authRateLimiter, registrationLimiter } = require('../middleware/rateLimiter.middleware');
 const ctrl = require('../controllers/auth.controller');
 
-// POST /auth/register
-router.post('/register', authRateLimiter,
+// POST /auth/register — SEC-05: máx 3 cuentas/hora por IP
+router.post('/register', registrationLimiter, authRateLimiter,
   [body('email').isEmail().withMessage('Email inválido'), body('phone_number').optional()],
   validate, ctrl.register);
 
