@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-12c | Sesión: DOC-01..DOC-08 completadas. M-15 completada (icono hoja+ECG). Landing actualizada con icono real. Commit f4dc665.
+> Ultima actualización: 2026-10-12d | Sesión: Bugs entrenamiento resueltos (exerciseSelector case, training/today plan activo, daysOffset). Input sueño DailyLogWidget. Timeout regeneratePlan 90s. APK 96aedf25 con icono nuevo.
 
 ---
 
@@ -11,13 +11,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-12c — DOC-01..DOC-08 completadas, M-15 completada (icono), Landing actualizada |
-| Rama activa | develop — commit `f4dc665` (icono hoja+ECG en assets y landing) |
+| Fase actual | Sesión 2026-10-12d — Bugs entrenamiento resueltos, input sueño, timeout regeneratePlan, APK 96aedf25 con icono |
+| Rama activa | develop — commit `69da1c8` (fix exerciseSelector case) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
-| APK Android | ✅ Build `1bb08be5` disponible — rediseño Apple Design + fixes A-8/A-9/A-10/A-11 |
+| APK Android | ✅ Build `96aedf25` — icono nuevo + rediseño Apple Design + todos los fixes sesión |
 | Icono app | ✅ Completado — hoja estilizada + ECG blanco. Aplicado en assets/ y landing |
-| Siguiente accion inmediata | **M-18** — Instalar nuevo APK `1bb08be5` y probar → **M-19** — Google Play Internal Testing → **M-13** — Merge develop→main + tag v1.0.0 |
+| Siguiente accion inmediata | **M-18** — Instalar APK `96aedf25` y probar → **M-19** — Google Play Internal Testing → **M-13** — Merge develop→main + tag v1.0.0 |
 
 ---
 
@@ -31,7 +31,7 @@
 | Landing page | AWS S3 + CloudFront | ✅ OK — produccion |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
 | ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
-| App Android | EAS Build (Expo) | ✅ APK disponible — Build `1bb08be5` (rediseño Apple Design + fixes A-8/A-9/A-10/A-11, lanzado 2026-10-12) |
+| App Android | EAS Build (Expo) | ✅ APK disponible — Build `96aedf25` (icono nuevo + rediseño Apple Design + todos los fixes, lanzado 2026-10-12) |
 | App iOS | EAS Build (Expo) | ❌ APLAZADO indefinidamente |
 
 **IDs Railway:**
@@ -67,7 +67,7 @@
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | ✅ Completada — icono hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada (navbar, footer, sección descarga, favicon). Commit `f4dc665` (sesión 2026-10-12c) |
 | M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | ✅ Completada — `/foods/search?q=pollo` devuelve 6 resultados verificados (sesión 2026-10-12) |
 | M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | ✅ Completada — verificado 2026-10-12: 6 alimentos con macros completos |
-| M-18 | Instalar nuevo APK (build `1bb08be5`, con fixes A-8..A-11 + rediseño Apple Design) y probar | IMPORTANTE | Pendiente — APK listo en expo.dev/accounts/trutool/projects/healthy/builds/1bb08be5-d199-44e3-9aca-0b193f705cfe |
+| M-18 | Instalar nuevo APK y probar: icono nuevo, ejercicios reales en entrenamiento, regenerar plan funciona, input sueño | IMPORTANTE | Pendiente — APK `96aedf25` listo en expo.dev/accounts/trutool/projects/healthy/builds/96aedf25-a437-40e1-b5fd-10068fcf4f3a |
 | M-19 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-18) |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
@@ -86,6 +86,9 @@
 | **A-9** | **Bug: ProfileScreen muestra `—` en edad/altura/peso** — Fix: nuevo endpoint `GET /user/me/profile` + ProfileScreen fetches API al montar. | Backend + Frontend Agents | ✅ **COMPLETADA** — backend `aa4679d`, frontend `20719e2` (sesión 2026-10-12) | Nada |
 | **A-10** | **Bug: DailyLogWidget sin inputs editables para agua/pasos/peso** — Fix: `InputModal` con `TextInput` numérico para agua (ml), pasos y peso (kg). Peso guarda en `POST /progress`. | Frontend Agent | ✅ **COMPLETADA** — commit `b90074a` (sesión 2026-10-12) | Nada |
 | **A-11** | **Bug: buscador de alimentos no muestra resultados** — Fix: parsing respuesta API (`data.data.foods`) + empty state "No se encontraron alimentos para '{query}'". Resultados reales requieren M-16. | Backend + Frontend Agents | ✅ **COMPLETADA** (frontend fix) — commit `a4b1d65` (sesión 2026-10-12) | M-16 para datos reales |
+| **A-12** | **Bug: TrainingScreen muestra "Día de descanso" aunque hay sesión** — Tres causas: (1) `daysOffset <= 0` empujaba sesión de hoy 7 días al futuro → fix `< 0`; (2) `training/today` no filtraba por plan activo, devolvía sesión del plan pausado → fix `plan: { status: 'active' }`; (3) `EQUIPMENT_MAP`/`GOAL_TO_CATEGORIES` usaban title case pero BD tiene minúsculas → 0 ejercicios asignados → fix valores a minúsculas. | Backend Agent | ✅ **COMPLETADA** — commits `44bdf57`, `ce9204c`, `69da1c8` (sesión 2026-10-12) | Nada |
+| **A-13** | **Mejora: DailyLogWidget sin input para horas de sueño** — Fix: añadir modal numérico igual que agua/pasos/peso. Guarda en `PUT /logs/today { sleep_hours }`. | Frontend Agent | ✅ **COMPLETADA** — commit `18552bf` (sesión 2026-10-12) | Nada |
+| **A-14** | **Bug: regeneratePlan falla con timeout** — El plan con IA puede tardar >20s. Axios timeout global era 20s. Fix: timeout específico 90s en la llamada `POST /plans/regenerate`. | Frontend Agent | ✅ **COMPLETADA** — commit `831b223` (sesión 2026-10-12) | Nada |
 
 ---
 
@@ -262,6 +265,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-10b | Investigación BD alimentos: BEDCA bloqueada, USDA ✅ gratuita. Creados `seed-foods.js` (128 alimentos ES, commit 61a3729), `import-usda.js` (200+ ES→USDA, commit 93e470a), `import-openfoodfacts.js` (20 categorías × 60 productos, commit e392cb5 + retry 503 en 1cc12b8). Fix Prisma client path en scripts seed. .gitignore actualizado. M-16 EN CURSO. A-6 planificada. | e8924f1 | 2026-10-10 |
 | Sesion 2026-10-12 | Bug fix crítico `onboarding/complete`: `const→let` en destructuring línea 163 causaba `TypeError: Assignment to constant variable` cuando el usuario enviaba datos del onboarding directamente al endpoint final. Fix commit `72d38af`, desplegado a Railway. Nuevo APK `39e44a5e` con rediseño Apple Design completo generado via EAS Build. Docs actualizados (README, ai-architecture, architecture-web, PROGRESS, PROJECT_STATUS). Tareas M-17/M-18/M-19 añadidas como arranque próxima sesión. Investigación autenticación staging: SMTP no configurado, usar `/auth/dev/auto-verify` con `Content-Type: application/json`. | 72d38af | 2026-10-12 |
 | Sesion 2026-10-12b | **A-8** ✅ Fix scheduled_date: ISO→JS weekday + próxima ocurrencia real (`9441d66`). **A-9** ✅ Nuevo `GET /user/me/profile` + ProfileScreen fetch API (`aa4679d`, `20719e2`). **A-10** ✅ DailyLogWidget con InputModal numérico para agua/pasos/peso + `POST /progress` (`b90074a`). **A-11** ✅ NutritionScreen: fix parsing `data.data.foods` + empty state (`a4b1d65`). **M-4** ✅ Seed 1.324 ejercicios completado en staging. Frontend worktree mergeado a develop + push Railway (`e601547`). Nuevo build EAS pendiente para incorporar todos estos fixes. | e601547 | 2026-10-12 |
+| Sesion 2026-10-12d | **M-16/M-17** ✅ Verificados: `GET /foods/search?q=pollo` devuelve 6 resultados. **A-12** ✅ TrainingScreen "Día de descanso" resuelto: fix `daysOffset < 0` (`44bdf57`), `training/today` filtra plan activo (`ce9204c`), `EQUIPMENT_MAP`/`GOAL_TO_CATEGORIES` en minúsculas para match con BD (`69da1c8`). **A-13** ✅ Input sueño en DailyLogWidget (`18552bf`). **A-14** ✅ Timeout regeneratePlan 90s (`831b223`). **Go-live checklist** revisada: 4 criterios ✅, 1 aplazado (iOS), 2 pendientes (Google Play + tag). **APK `96aedf25`** ✅ con icono nuevo + todos los fixes. | 69da1c8 | 2026-10-12 |
 | Sesion 2026-10-12c | **DOC-01..DOC-08** ✅ Verificadas y marcadas como completadas en tasks.md — todos los documentos existían con contenido completo (api-reference, deployment-guide, ai-architecture, rgpd-compliance, README, architecture-web, landing-deploy, landing-content). Commit `e0dde65`. **M-15** ✅ Icono app diseñado: hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada: navbar, footer, sección descarga y favicon usan icono real. Commit `f4dc665`. | f4dc665 | 2026-10-12 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
