@@ -178,13 +178,14 @@ const login = async (req, res, next) => {
       logger.warn(`[auth] Redis no disponible, sesión no cacheada: ${redisErr.message}`);
     }
 
+    const activePlan = await prisma.plan.findFirst({ where: { user_id: user.id, status: 'active' } });
     logger.info(`[auth] Login exitoso: ${user.id}`);
     return sendSuccess(res, {
       access_token: accessToken,
       refresh_token: refreshToken,
       token_type: 'Bearer',
       expires_in: 900,
-      user: { id: user.id, email: user.email, status: user.status },
+      user: { id: user.id, email: user.email, status: user.status, has_plan: !!activePlan },
     }, 'Sesión iniciada');
   } catch (err) {
     next(err);
@@ -316,7 +317,8 @@ const me = async (req, res, next) => {
     });
 
     if (!user) return sendError(res, 'NOT_FOUND', 'Usuario no encontrado', 404);
-    return sendSuccess(res, { user }, 'Datos del usuario');
+    const activePlan = await prisma.plan.findFirst({ where: { user_id: req.user.userId, status: 'active' } });
+    return sendSuccess(res, { user: { ...user, has_plan: !!activePlan } }, 'Datos del usuario');
   } catch (err) {
     next(err);
   }

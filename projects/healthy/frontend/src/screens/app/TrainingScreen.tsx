@@ -189,7 +189,8 @@ export function TrainingScreen() {
   const [timerRunning,  setTimerRunning]  = useState(false);
   const [setModal,      setSetModal]      = useState<{ exerciseId: string; name: string; weight?: number; reps?: number } | null>(null);
   const [completing,    setCompleting]    = useState(false);
-  const pulseScale = useSharedValue(1);
+  const pulseScale     = useSharedValue(1);
+  const pulseAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulseScale.value }] }));
 
   useEffect(() => { fetchTodayTraining(); }, []);
 
@@ -307,7 +308,7 @@ export function TrainingScreen() {
         </View>
 
         {/* Anillo de progreso */}
-        <Reanimated.View style={[styles.ringWrapper, useAnimatedStyle(() => ({ transform: [{ scale: pulseScale.value }] }))]}>
+        <Reanimated.View style={[styles.ringWrapper, pulseAnimStyle]}>
           <DailyProgressRing progress={pct} label="Sesión de hoy" size={160} />
         </Reanimated.View>
 
