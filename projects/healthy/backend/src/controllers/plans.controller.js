@@ -115,8 +115,14 @@ const regeneratePlan = async (req, res, next) => {
     for (let week = 0; week < newPlan.training_plan.weeks; week++) {
       for (const daySession of newPlan.training_plan.weekly_schedule) {
         if (daySession.session_type === 'rest') continue;
+        // Convierte ISO weekday (1=Lun..7=Dom) a JS weekday (0=Dom..6=Sab)
+        const isoToJs = (iso) => iso === 7 ? 0 : iso;
+        const targetJsDay = isoToJs(daySession.day_of_week);
+        const todayJsDay = startDate.getDay();
+        let daysOffset = targetJsDay - todayJsDay;
+        if (daysOffset <= 0) daysOffset += 7; // si ya paso este dia en la semana, ir a la siguiente
         const sessionDate = new Date(startDate);
-        sessionDate.setDate(startDate.getDate() + (week * 7) + (daySession.day_of_week - 1));
+        sessionDate.setDate(startDate.getDate() + (week * 7) + daysOffset);
         trainingSessions.push({ plan_id: savedPlan.id, user_id: userId, scheduled_date: sessionDate, status: 'scheduled', notes: daySession.notes || null });
       }
     }
