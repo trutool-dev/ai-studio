@@ -194,14 +194,14 @@ El foco actual es conectar las piezas y llevarlo a producción.
 ### Docs
 > Carpeta: `projects/healthy/docs/`
 
-- [ ] **DOC-01** Generar documentación OpenAPI/Swagger de todos los endpoints del backend
-- [ ] **DOC-02** Escribir guía de despliegue paso a paso (local, staging, producción)
-- [ ] **DOC-03** Documentar arquitectura de la IA: cómo se construye el prompt, qué datos entran, qué JSON sale
-- [ ] **DOC-04** Actualizar documentación RGPD con los flujos reales implementados (consentimiento, exportación, borrado)
-- [ ] **DOC-05** Escribir README del proyecto con requisitos, instalación, variables de entorno y comandos principales
-- [ ] **DOC-06** Crear `docs/architecture-web.md`: diagrama de la arquitectura AWS completa — flujo usuario → Route 53 → CloudFront → S3 (landing) y Route 53 → ALB → ECS → API → RDS/Redis (backend). Incluir decisiones de red (VPC, subnets, security groups) y estimación de costes mensuales
-- [ ] **DOC-07** Crear `docs/landing-deploy.md`: guía para actualizar la landing — estructura de `landing/index.html`, tokens de diseño usados, cómo añadir secciones, proceso de despliegue manual (`aws s3 sync`) vs automático (CI en push a `main`), y cómo forzar invalidación de CloudFront
-- [ ] **DOC-08** Crear `docs/landing-content.md`: guía para el equipo de marketing — secciones de la landing (hero, stats, features, manifesto, download), copy editable, cómo cambiar imágenes de mockup y actualizar CTAs sin tocar CSS
+- [x] **DOC-01** Generar documentación OpenAPI/Swagger de todos los endpoints del backend
+- [x] **DOC-02** Escribir guía de despliegue paso a paso (local, staging, producción)
+- [x] **DOC-03** Documentar arquitectura de la IA: cómo se construye el prompt, qué datos entran, qué JSON sale
+- [x] **DOC-04** Actualizar documentación RGPD con los flujos reales implementados (consentimiento, exportación, borrado)
+- [x] **DOC-05** Escribir README del proyecto con requisitos, instalación, variables de entorno y comandos principales
+- [x] **DOC-06** Crear `docs/architecture-web.md`: diagrama de la arquitectura AWS completa — flujo usuario → Route 53 → CloudFront → S3 (landing) y Route 53 → ALB → ECS → API → RDS/Redis (backend). Incluir decisiones de red (VPC, subnets, security groups) y estimación de costes mensuales
+- [x] **DOC-07** Crear `docs/landing-deploy.md`: guía para actualizar la landing — estructura de `landing/index.html`, tokens de diseño usados, cómo añadir secciones, proceso de despliegue manual (`aws s3 sync`) vs automático (CI en push a `main`), y cómo forzar invalidación de CloudFront
+- [x] **DOC-08** Crear `docs/landing-content.md`: guía para el equipo de marketing — secciones de la landing (hero, stats, features, manifesto, download), copy editable, cómo cambiar imágenes de mockup y actualizar CTAs sin tocar CSS
 
 **Dependencias:** BE-01..BE-09, AI-01..AI-07, SEC-04; DOC-06 depende de DO-09..DO-13 para reflejar infraestructura real
 
@@ -420,12 +420,12 @@ docs/landing-content.md     (CREAR)
 
 #### Criterios de aceptación (merge gate)
 
-- [ ] Los 8 documentos existen y no están vacíos
-- [ ] `docs/api-reference.md` cubre los 10 dominios de endpoints
-- [ ] `docs/deployment-guide.md` incluye los tres entornos (local, staging, producción)
-- [ ] `docs/rgpd-compliance.md` referencia los artículos 17 y 20 con los endpoints reales
-- [ ] `docs/architecture-web.md` incluye estimación de costes mensuales AWS
-- [ ] Ningún documento referencia archivos que no existen en el repo (links rotos)
+- [x] Los 8 documentos existen y no están vacíos
+- [x] `docs/api-reference.md` cubre los 10 dominios de endpoints
+- [x] `docs/deployment-guide.md` incluye los tres entornos (local, staging, producción)
+- [x] `docs/rgpd-compliance.md` referencia los artículos 17 y 20 con los endpoints reales
+- [x] `docs/architecture-web.md` incluye estimación de costes mensuales AWS
+- [x] Ningún documento referencia archivos que no existen en el repo (links rotos)
 
 #### Dependencias
 
