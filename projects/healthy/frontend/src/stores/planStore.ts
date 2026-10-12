@@ -360,7 +360,8 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   regeneratePlan: async () => {
-    await api.post('/plans/regenerate');
+    // La IA puede tardar hasta 60s — timeout extendido solo para esta llamada
+    await api.post('/plans/regenerate', { reason: 'manual_request' }, { timeout: 90000 });
   },
 
   // ── Acciones de API — Logs ─────────────────────────────────────────────────
