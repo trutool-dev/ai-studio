@@ -12,27 +12,27 @@ const { Pool } = require('pg');
 
 // Mapeo de equipamiento del onboarding → nombre en el dataset
 const EQUIPMENT_MAP = {
-  'none': ['Body Weight'],
-  'dumbbells': ['Dumbbell', 'Body Weight'],
-  'barbell': ['Barbell', 'Dumbbell', 'Body Weight'],
+  'none': ['body weight'],
+  'dumbbells': ['dumbbell', 'body weight'],
+  'barbell': ['barbell', 'dumbbell', 'body weight'],
   'gym_full': null, // null = sin filtro (todo el equipamiento disponible)
-  'resistance_bands': ['Band', 'Body Weight'],
-  'kettlebells': ['Kettlebell', 'Body Weight'],
+  'resistance_bands': ['band', 'body weight'],
+  'kettlebells': ['kettlebell', 'body weight'],
   // Alias del schema de onboarding
-  'bands': ['Band', 'Body Weight'],
+  'bands': ['band', 'body weight'],
   'machines': null,
   'full': null,
 };
 
-// Grupos musculares del objetivo → categorías del dataset
+// Grupos musculares del objetivo → categorías del dataset (valores en minúsculas como en BD)
 const GOAL_TO_CATEGORIES = {
-  'weight_loss': ['Cardio', 'Waist', 'Legs', 'Back'],
-  'lose_weight': ['Cardio', 'Waist', 'Legs', 'Back'],
-  'muscle_gain': ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'],
-  'gain_muscle': ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'],
-  'strength': ['Chest', 'Back', 'Legs', 'Shoulders'],
-  'endurance': ['Cardio', 'Legs', 'Back'],
-  'flexibility': ['Waist', 'Legs', 'Shoulders'],
+  'weight_loss': ['cardio', 'waist', 'legs', 'back'],
+  'lose_weight': ['cardio', 'waist', 'legs', 'back'],
+  'muscle_gain': ['chest', 'back', 'shoulders', 'arms', 'legs'],
+  'gain_muscle': ['chest', 'back', 'shoulders', 'arms', 'legs'],
+  'strength': ['chest', 'back', 'legs', 'shoulders'],
+  'endurance': ['cardio', 'legs', 'back'],
+  'flexibility': ['waist', 'legs', 'shoulders'],
   'wellness': null, // null = sin filtro de categoría
   'maintain': null,
   'general_health': null,
