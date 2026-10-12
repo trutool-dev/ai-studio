@@ -49,7 +49,7 @@ export function HomeScreen() {
   const navigation = useNavigation<any>();
   const {
     todayWorkout, todayMeals, targets, log, streak,
-    logWater, fetchTodayTraining, fetchTodayNutrition, fetchTodayLog, submitLog,
+    logWater, logSteps, fetchTodayTraining, fetchTodayNutrition, fetchTodayLog, submitLog,
     isLoadingTraining, isLoadingNutrition, isLoadingLog,
   } = usePlanStore();
   const { user } = useAuthStore();
@@ -74,12 +74,21 @@ export function HomeScreen() {
   const workoutAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: workoutScale.value }] }));
   const workoutTimingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
-  const handleAddWater = async () => {
-    logWater(250);
+  const handleAddWater = async (ml: number) => {
+    logWater(ml);
     try {
-      await submitLog({ waterMl: log.waterMl + 250 });
+      await submitLog({ waterMl: log.waterMl + ml });
     } catch {
       // fallback silencioso — la actualización local ya se hizo
+    }
+  };
+
+  const handleAddSteps = async (steps: number) => {
+    logSteps(steps);
+    try {
+      await submitLog({ steps });
+    } catch {
+      // fallback silencioso
     }
   };
 
@@ -195,6 +204,7 @@ export function HomeScreen() {
               steps={log.steps}          stepsTarget={targets.steps}
               sleepHours={log.sleepHours}
               onAddWater={handleAddWater}
+              onAddSteps={handleAddSteps}
             />
           </ReAnimated.View>
         )}
