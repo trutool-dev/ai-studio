@@ -49,7 +49,7 @@ export function HomeScreen() {
   const navigation = useNavigation<any>();
   const {
     todayWorkout, todayMeals, targets, log, streak,
-    logWater, logSteps, fetchTodayTraining, fetchTodayNutrition, fetchTodayLog, submitLog,
+    logWater, logSteps, logSleep, fetchTodayTraining, fetchTodayNutrition, fetchTodayLog, submitLog,
     isLoadingTraining, isLoadingNutrition, isLoadingLog,
   } = usePlanStore();
   const { user } = useAuthStore();
@@ -87,6 +87,15 @@ export function HomeScreen() {
     logSteps(steps);
     try {
       await submitLog({ steps });
+    } catch {
+      // fallback silencioso
+    }
+  };
+
+  const handleAddSleep = async (hours: number) => {
+    logSleep(hours);
+    try {
+      await submitLog({ sleepHours: hours });
     } catch {
       // fallback silencioso
     }
@@ -205,6 +214,7 @@ export function HomeScreen() {
               sleepHours={log.sleepHours}
               onAddWater={handleAddWater}
               onAddSteps={handleAddSteps}
+              onAddSleep={handleAddSleep}
             />
           </ReAnimated.View>
         )}

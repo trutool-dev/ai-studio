@@ -1,5 +1,5 @@
 /**
- * DailyLogWidget — widget de registro rápido: agua, pasos, peso
+ * DailyLogWidget — widget de registro rápido: agua, pasos, peso, sueño
  * A-10: modal con TextInput numérico al pulsar + en cada métrica
  */
 
@@ -107,13 +107,15 @@ interface DailyLogWidgetProps {
   onAddSteps?:  (steps: number) => void;
   /** Llamado con el peso introducido por el usuario (también guarda en /progress) */
   onAddWeight?: (kg: number) => void;
+  /** Llamado con las horas de sueño introducidas por el usuario */
+  onAddSleep?:  (hours: number) => void;
 }
 
 export function DailyLogWidget({
   waterMl, waterTarget, steps, stepsTarget, sleepHours, weightKg,
-  onAddWater, onAddSteps, onAddWeight,
+  onAddWater, onAddSteps, onAddWeight, onAddSleep,
 }: DailyLogWidgetProps) {
-  const [activeModal, setActiveModal] = useState<'water' | 'steps' | 'weight' | null>(null);
+  const [activeModal, setActiveModal] = useState<'water' | 'steps' | 'weight' | 'sleep' | null>(null);
 
   const waterL       = (waterMl / 1000).toFixed(1);
   const waterTargetL = (waterTarget / 1000).toFixed(1);
@@ -130,6 +132,15 @@ export function DailyLogWidget({
     onAddWeight?.(value);
     try {
       await api.post('/progress', { weight_kg: value });
+    } catch {
+      // guardado en background; el valor local ya se actualizó
+    }
+  };
+
+  const handleConfirmSleep = async (value: number) => {
+    onAddSleep?.(value);
+    try {
+      await api.put('/logs/today', { sleep_hours: value });
     } catch {
       // guardado en background; el valor local ya se actualizó
     }
@@ -162,6 +173,7 @@ export function DailyLogWidget({
         icon="😴" label="Sueño"
         current={sleepHours} target={8} unit="h"
         color="#A855F7"
+        onAdd={() => setActiveModal('sleep')}
       />
 
       {/* Modales de entrada */}
@@ -184,6 +196,13 @@ export function DailyLogWidget({
         title="Registrar peso"
         unit="kg"
         onConfirm={handleConfirmWeight}
+        onClose={() => setActiveModal(null)}
+      />
+      <InputModal
+        visible={activeModal === 'sleep'}
+        title="Horas de sueño"
+        unit="horas"
+        onConfirm={handleConfirmSleep}
         onClose={() => setActiveModal(null)}
       />
     </View>
