@@ -5,6 +5,7 @@
 
 import React, { useEffect } from 'react';
 import {
+  Image,
   ImageBackground,
   ImageSourcePropType,
   Pressable,
@@ -44,6 +45,7 @@ interface ExerciseRowProps {
   detail?:    string;
   completed?: boolean;
   active?:    boolean;
+  gifUrl?:    string;
   onToggle?:  () => void;
 }
 
@@ -172,6 +174,7 @@ export function ExerciseRow({
   detail    = '',
   completed = false,
   active    = false,
+  gifUrl,
   onToggle,
 }: ExerciseRowProps) {
   // AD-4f: color del check circle con interpolateColor (Reanimated)
@@ -226,6 +229,20 @@ export function ExerciseRow({
     <ReAnimated.View
       style={[exStyles.row, active && exStyles.rowActive, rowStyle]}
     >
+      {/* GIF del ejercicio */}
+      {gifUrl ? (
+        <Image
+          source={{ uri: gifUrl }}
+          style={exStyles.gif}
+          resizeMode="cover"
+          accessibilityLabel={`Animación de ${name}`}
+        />
+      ) : (
+        <View style={exStyles.gifPlaceholder}>
+          <Text style={exStyles.gifPlaceholderIcon}>💪</Text>
+        </View>
+      )}
+
       {/* Check circle */}
       <Pressable onPress={handlePress} style={exStyles.checkWrap} accessibilityRole="checkbox">
         <ReAnimated.View style={[exStyles.check, checkStyle]}>
@@ -443,6 +460,28 @@ const exStyles = StyleSheet.create({
 
   rowActive: {
     backgroundColor: colors.primary.lightGreen,
+  },
+
+  gif: {
+    width:        52,
+    height:       52,
+    borderRadius: 10,
+    marginRight:  spacing.sm,
+    backgroundColor: colors.neutral.lightGray,
+  },
+
+  gifPlaceholder: {
+    width:           52,
+    height:          52,
+    borderRadius:    10,
+    marginRight:     spacing.sm,
+    backgroundColor: colors.neutral.lightGray,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+
+  gifPlaceholderIcon: {
+    fontSize: 22,
   },
 
   checkWrap: {

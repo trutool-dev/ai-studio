@@ -27,6 +27,7 @@ function formatSession(session) {
       weight_kg:    se.weight_kg ? parseFloat(se.weight_kg) : null,
       rest_seconds: se.rest_seconds ?? 60,
       instructions: se.exercise?.instructions ?? '',
+      gif_url:      se.exercise?.gifUrl ?? null,
       completed:    se.completed ?? false,
     })),
   };

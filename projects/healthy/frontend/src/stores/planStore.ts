@@ -29,6 +29,7 @@ export interface Exercise {
   id: string; name: string; muscleGroup: string;
   sets: number; reps: number; weight?: number; restSeconds: number;
   completed: boolean;
+  gifUrl?: string;
   loggedSets?: SetRecord[];
 }
 
@@ -230,6 +231,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
             weight:       e.weight_kg ?? e.weight,
             restSeconds:  e.rest_seconds ?? e.restSeconds ?? 60,
             completed:    e.completed ?? false,
+            gifUrl:       e.gif_url ?? e.gifUrl ?? undefined,
           })),
         };
         set({ todayWorkout: workout });
@@ -242,8 +244,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   logExerciseSet: async (sessionId, exerciseId, setData) => {
-    await api.post(`/training/sessions/${sessionId}/exercises/${exerciseId}/sets`, setData);
-    // Marcar el ejercicio como completado localmente
+    await api.post(`/training/sessions/${sessionId}/exercises/${exerciseId}/complete`, setData);
     get().toggleExercise(exerciseId);
   },
 
