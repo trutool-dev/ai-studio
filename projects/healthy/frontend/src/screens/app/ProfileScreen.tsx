@@ -10,11 +10,11 @@ import {
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useAuthStore }        from '@/stores/authStore';
 import { usePlanStore }        from '@/stores/planStore';
-import { useOnboardingStore }  from '@/stores/onboardingStore';
 import { Button }              from '@/components/ui/Button';
 import { colors }              from '@/theme/colors';
 import { textStyles }          from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
+import api                     from '@/services/api';
 
 // ── Mapas de etiquetas ───────────────────────────────────────────────────────
 
@@ -41,14 +41,26 @@ export function ProfileScreen() {
   const { todayWorkout, streak, progressStats,
           isLoadingProgress, fetchProgress,
           regeneratePlan }                            = usePlanStore();
-  const { data: onboarding }                         = useOnboardingStore();
   const [notifications, setNotif]                    = useState(true);
   const [darkMode, setDarkMode]                      = useState(false);
   const [regenerating, setRegenerating]              = useState(false);
+  const [profileData, setProfileData]                = useState<any>(null);
 
   // Cargar estadísticas de progreso al montar la pantalla
   useEffect(() => {
     fetchProgress();
+  }, []);
+
+  // Cargar datos de perfil desde el backend
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/user/me/profile');
+        setProfileData(data?.data ?? null);
+      } catch {
+        // si falla, los labels mostrarán '—'
+      }
+    })();
   }, []);
 
   const handleLogout = () => {
@@ -93,18 +105,13 @@ export function ProfileScreen() {
     .join('')
     .toUpperCase();
 
-  // Datos de perfil desde onboardingStore
-  const profile  = onboarding.profile;
-  const training = onboarding.training;
-  const nutrition = onboarding.nutrition;
-  const goal     = onboarding.goal;
-
-  const heightLabel = profile?.height ? `${profile.height} cm`   : '—';
-  const weightLabel = profile?.weight ? `${profile.weight} kg`   : '—';
-  const ageLabel    = profile?.age    ? `${profile.age} años`    : '—';
-  const dietLabel   = nutrition?.dietType ? (DIET_LABELS[nutrition.dietType] ?? nutrition.dietType) : '—';
-  const goalLabel   = goal ? (GOAL_LABELS[goal] ?? goal) : '—';
-  const sessionsLabel = training?.daysPerWeek ? `${training.daysPerWeek} días` : '—';
+  // Datos de perfil desde el backend
+  const heightLabel   = profileData?.height_cm         ? `${profileData.height_cm} cm`            : '—';
+  const weightLabel   = profileData?.weight_kg         ? `${profileData.weight_kg} kg`            : '—';
+  const ageLabel      = profileData?.age               ? `${profileData.age} años`                : '—';
+  const dietLabel     = profileData?.diet_type         ? (DIET_LABELS[profileData.diet_type] ?? '—') : '—';
+  const goalLabel     = profileData?.goal              ? (GOAL_LABELS[profileData.goal]      ?? '—') : '—';
+  const sessionsLabel = profileData?.sessions_per_week ? `${profileData.sessions_per_week} días`  : '—';
 
   // Estadísticas dinámicas desde /progress/stats
   const workoutsValue = isLoadingProgress
