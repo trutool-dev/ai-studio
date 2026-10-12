@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-12 | Sesión: A-8/A-9/A-10/A-11 completadas. Frontend worktree mergeado. Push a develop → Railway redesplegado.
+> Ultima actualización: 2026-10-12c | Sesión: DOC-01..DOC-08 completadas. M-15 completada (icono hoja+ECG). Landing actualizada con icono real. Commit f4dc665.
 
 ---
 
@@ -11,12 +11,13 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-12b — A-8/A-9/A-10/A-11 completadas, frontend mergeado, Railway redesplegado |
-| Rama activa | develop — commit `e601547` (merge worktree A-9/A-10/A-11 frontend) |
+| Fase actual | Sesión 2026-10-12c — DOC-01..DOC-08 completadas, M-15 completada (icono), Landing actualizada |
+| Rama activa | develop — commit `f4dc665` (icono hoja+ECG en assets y landing) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build `1bb08be5` disponible — rediseño Apple Design + fixes A-8/A-9/A-10/A-11 |
-| Siguiente accion inmediata | **M-16** — Seed foods (pendiente Antonio) → **M-17** — Confirmar `GET /foods/search?q=pollo` → **M-18** — Instalar nuevo APK con fixes A-8..A-11 → **M-19** — Google Play Internal Testing |
+| Icono app | ✅ Completado — hoja estilizada + ECG blanco. Aplicado en assets/ y landing |
+| Siguiente accion inmediata | **M-18** — Instalar nuevo APK `1bb08be5` y probar → **M-19** — Google Play Internal Testing → **M-13** — Merge develop→main + tag v1.0.0 |
 
 ---
 
@@ -63,7 +64,7 @@
 | M-12 | Re-ejecutar CP-01..CP-10 con IA activa | IMPORTANTE | ✅ Completada — score 23/50 (2 CPs con IA real: CP-07, CP-08; ver detalle sesión 2026-10-09) |
 | M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | Pendiente |
 | M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
-| M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
+| M-15 | Diseñar e implementar icono de la app | IMPORTANTE | ✅ Completada — icono hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada (navbar, footer, sección descarga, favicon). Commit `f4dc665` (sesión 2026-10-12c) |
 | M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | ✅ Completada — `/foods/search?q=pollo` devuelve 6 resultados verificados (sesión 2026-10-12) |
 | M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | ✅ Completada — verificado 2026-10-12: 6 alimentos con macros completos |
 | M-18 | Instalar nuevo APK (build `1bb08be5`, con fixes A-8..A-11 + rediseño Apple Design) y probar | IMPORTANTE | Pendiente — APK listo en expo.dev/accounts/trutool/projects/healthy/builds/1bb08be5-d199-44e3-9aca-0b193f705cfe |
@@ -230,7 +231,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Tests lineas | >= 80% | ✅ OK — 96.78% |
 | Tests branches | >= 80% | ✅ OK — 85.01% |
 | Lighthouse landing | >= 95 | ✅ OK — A-Landing completada, Acc/SEO corregidos |
-| App Android Google Play Internal | Publicada | ⚠️ M-7 EN CURSO — APK en prueba en dispositivo real; M-8 pendiente |
+| App Android Google Play Internal | Publicada | ⚠️ M-18 pendiente — instalar APK `1bb08be5` con nuevo icono; M-19 pendiente |
 | App iOS TestFlight | Publicada | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | Backend staging operativo | Activo | ✅ ACTIVO |
 | ANTHROPIC_API_KEY en staging | Configurado | ✅ Configurado |
@@ -261,6 +262,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-10b | Investigación BD alimentos: BEDCA bloqueada, USDA ✅ gratuita. Creados `seed-foods.js` (128 alimentos ES, commit 61a3729), `import-usda.js` (200+ ES→USDA, commit 93e470a), `import-openfoodfacts.js` (20 categorías × 60 productos, commit e392cb5 + retry 503 en 1cc12b8). Fix Prisma client path en scripts seed. .gitignore actualizado. M-16 EN CURSO. A-6 planificada. | e8924f1 | 2026-10-10 |
 | Sesion 2026-10-12 | Bug fix crítico `onboarding/complete`: `const→let` en destructuring línea 163 causaba `TypeError: Assignment to constant variable` cuando el usuario enviaba datos del onboarding directamente al endpoint final. Fix commit `72d38af`, desplegado a Railway. Nuevo APK `39e44a5e` con rediseño Apple Design completo generado via EAS Build. Docs actualizados (README, ai-architecture, architecture-web, PROGRESS, PROJECT_STATUS). Tareas M-17/M-18/M-19 añadidas como arranque próxima sesión. Investigación autenticación staging: SMTP no configurado, usar `/auth/dev/auto-verify` con `Content-Type: application/json`. | 72d38af | 2026-10-12 |
 | Sesion 2026-10-12b | **A-8** ✅ Fix scheduled_date: ISO→JS weekday + próxima ocurrencia real (`9441d66`). **A-9** ✅ Nuevo `GET /user/me/profile` + ProfileScreen fetch API (`aa4679d`, `20719e2`). **A-10** ✅ DailyLogWidget con InputModal numérico para agua/pasos/peso + `POST /progress` (`b90074a`). **A-11** ✅ NutritionScreen: fix parsing `data.data.foods` + empty state (`a4b1d65`). **M-4** ✅ Seed 1.324 ejercicios completado en staging. Frontend worktree mergeado a develop + push Railway (`e601547`). Nuevo build EAS pendiente para incorporar todos estos fixes. | e601547 | 2026-10-12 |
+| Sesion 2026-10-12c | **DOC-01..DOC-08** ✅ Verificadas y marcadas como completadas en tasks.md — todos los documentos existían con contenido completo (api-reference, deployment-guide, ai-architecture, rgpd-compliance, README, architecture-web, landing-deploy, landing-content). Commit `e0dde65`. **M-15** ✅ Icono app diseñado: hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada: navbar, footer, sección descarga y favicon usan icono real. Commit `f4dc665`. | f4dc665 | 2026-10-12 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
