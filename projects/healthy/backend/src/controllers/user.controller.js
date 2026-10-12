@@ -197,4 +197,35 @@ const exportData = async (req, res, next) => {
   }
 };
 
-module.exports = { deleteAccount, exportData };
+// ─── GET /user/me/profile — Datos del perfil del usuario ─────────
+
+/**
+ * Devuelve los datos del perfil del usuario autenticado.
+ * Usado por ProfileScreen tras el onboarding (el store se resetea al completarlo).
+ */
+const getProfile = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const [profile, training, nutrition] = await Promise.all([
+      prisma.profile.findUnique({ where: { user_id: userId } }),
+      prisma.trainingPreferences.findUnique({ where: { user_id: userId } }),
+      prisma.nutritionPreferences.findUnique({ where: { user_id: userId } }),
+    ]);
+    if (!profile) return sendError(res, 'NOT_FOUND', 'Perfil no encontrado', 404);
+
+    const birthdate = new Date(profile.birthdate);
+    const age = new Date().getFullYear() - birthdate.getFullYear();
+
+    return sendSuccess(res, {
+      age,
+      weight_kg: parseFloat(profile.weight_kg) || null,
+      height_cm: parseFloat(profile.height_cm) || null,
+      gender: profile.gender,
+      goal: profile.goal,
+      diet_type: nutrition?.diet_type ?? null,
+      sessions_per_week: training?.available_days_per_week ?? null,
+    }, 'Perfil del usuario');
+  } catch (err) { next(err); }
+};
+
+module.exports = { deleteAccount, exportData, getProfile };
