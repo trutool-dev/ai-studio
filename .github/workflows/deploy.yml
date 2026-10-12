@@ -8,119 +8,83 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref_name }}
-  cancel-in-progress: false  # nunca cancelar un deploy en curso
+  cancel-in-progress: false
 
 env:
-  AWS_REGION: eu-west-1
-  ECR_REPOSITORY: healthy-backend
-  IMAGE_TAG: ${{ github.sha }}
+  # Service IDs de Railway (no son secretos, son identificadores públicos del servicio)
+  RAILWAY_STAGING_SERVICE_ID: fa137c98-5210-4057-a531-f1c7fbf39743    # backend (staging)
+  # Producción se obtiene de RAILWAY_PRODUCTION_SERVICE_ID (repo secret)
 
 jobs:
-  # ── Build y push a ECR ───────────────────────────────────────────────────────
-  build-push:
-    name: Build + Push ECR
+  # ── Deploy a staging (develop → staging) ────────────────────────────────────
+  deploy-staging:
+    name: Deploy → Staging (Railway)
     runs-on: ubuntu-latest
-
-    outputs:
-      image: ${{ steps.build.outputs.image }}
+    if: github.ref_name == 'develop'
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Login a Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Deploy backend a Railway staging
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: a01d9f3d-510b-4529-b75a-d9d7198cbcb5
+          RAILWAY_ENVIRONMENT_ID: 1bc84954-5618-44fd-98fc-5b4190523cf0
+        run: railway up --service ${{ env.RAILWAY_STAGING_SERVICE_ID }} --detach
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build y push imagen
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.ref_name == 'main' && 'latest' || 'staging' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Exportar nombre de imagen
-        run: echo "image=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
-        id: export  # alias para el output del job
-
-  # ── Deploy a staging (develop → staging) ────────────────────────────────────
-  deploy-staging:
-    name: Deploy → Staging
-    runs-on: ubuntu-latest
-    needs: build-push
-    if: github.ref_name == 'develop'
-    environment: staging
-
-    steps:
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Actualizar servicio ECS staging
+      - name: Smoke test staging
         run: |
-          aws ecs update-service \
-            --cluster healthy-staging \
-            --service healthy-backend \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
-
-      - name: Esperar despliegue estable
-        run: |
-          aws ecs wait services-stable \
-            --cluster healthy-staging \
-            --services healthy-backend \
-            --region ${{ env.AWS_REGION }}
+          echo "Verificando que la API de staging responde..."
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              https://backend-staging-01ee.up.railway.app/health \
+              --max-time 10 || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "OK: /health respondio HTTP 200"
+              exit 0
+            fi
+            echo "Intento $i: HTTP $STATUS — reintentando en 5s..."
+            sleep 5
+          done
+          echo "ERROR: /health no respondio 200 tras 60s"
+          exit 1
 
   # ── Deploy a producción (main → production) ──────────────────────────────────
   deploy-production:
-    name: Deploy → Production
+    name: Deploy → Production (Railway)
     runs-on: ubuntu-latest
-    needs: build-push
     if: github.ref_name == 'main'
     environment: production  # requiere aprobación manual en GitHub
 
     steps:
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      - uses: actions/checkout@v4
 
-      - name: Actualizar servicio ECS producción
-        run: |
-          aws ecs update-service \
-            --cluster healthy-production \
-            --service healthy-backend \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-      - name: Esperar despliegue estable
-        run: |
-          aws ecs wait services-stable \
-            --cluster healthy-production \
-            --services healthy-backend \
-            --region ${{ env.AWS_REGION }}
+      - name: Deploy backend a Railway production
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: a01d9f3d-510b-4529-b75a-d9d7198cbcb5
+          RAILWAY_ENVIRONMENT_ID: 3cb3489e-beda-44bf-9396-bf2618b121f3
+        run: railway up --service ${{ secrets.RAILWAY_PRODUCTION_SERVICE_ID }} --detach
 
-      - name: Notificar despliegue exitoso
-        if: success()
+      - name: Smoke test production
         run: |
-          echo "Despliegue a producción completado: ${{ env.IMAGE_TAG }}"
+          echo "Verificando que la API de producción responde..."
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              https://ai-studio-production-1835.up.railway.app/health \
+              --max-time 10 || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "OK: /health respondio HTTP 200"
+              exit 0
+            fi
+            echo "Intento $i: HTTP $STATUS — reintentando en 5s..."
+            sleep 5
+          done
+          echo "ERROR: /health no respondio 200 tras 60s"
+          exit 1

@@ -1,189 +1,291 @@
 # Arquitectura Web — Healthy
 
-Healthy despliega su infraestructura en AWS (región `eu-west-1`), con una landing estática servida vía S3 + CloudFront y una API containerizada en ECS Fargate. El tráfico a ambas capas pasa por Route 53 y se termina con SSL/TLS gestionado por ACM.
+Healthy despliega su backend en Railway (proyecto `healthy-staging`), con PostgreSQL y Redis gestionados por el mismo proveedor. La landing estática se sirve vía S3 + CloudFront (ver [landing-deploy.md](./landing-deploy.md)). AWS **no se usa** para el backend.
 
 ---
 
 ## Diagrama de arquitectura
 
+```mermaid
+graph TD
+    subgraph Clientes
+        APP[App Móvil\nReact Native + Expo]
+    end
+
+    subgraph Railway ["Railway — proyecto healthy-staging"]
+        BACKEND["Servicio: backend\nNode.js + Express\nDockerfile multi-stage\nai-studio-production-1835.up.railway.app"]
+        PG[("PostgreSQL\n(gestionado Railway)")]
+        REDIS[("Redis\n(gestionado Railway)")]
+    end
+
+    subgraph Externos
+        SUPABASE[Supabase\nAuth / OTP]
+        ANTHROPIC[Anthropic API\nClaude claude-sonnet-4-6]
+        SMTP[Gmail SMTP\nsmtp.gmail.com:587]
+    end
+
+    subgraph CICD ["CI/CD — GitHub Actions"]
+        PR[Pull Request\ndevelop → main]
+        CI["ci.yml\nlint + tests + docker build"]
+        DEPLOY["deploy.yml\nrailway up"]
+    end
+
+    APP -->|HTTPS| BACKEND
+    BACKEND --> PG
+    BACKEND --> REDIS
+    BACKEND --> SUPABASE
+    BACKEND --> ANTHROPIC
+    BACKEND --> SMTP
+
+    PR --> CI
+    CI -->|merge a main| DEPLOY
+    DEPLOY -->|railway up| BACKEND
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              INTERNET                                   │
-└──────────┬──────────────────────────────────────┬───────────────────────┘
-           │                                      │
-           ▼                                      ▼
-  ┌─────────────────┐                   ┌─────────────────┐
-  │   Route 53      │                   │   Route 53      │
-  │  healthy.app    │                   │  api.healthy.app│
-  │  (A alias CF)   │                   │  (A alias ALB)  │
-  └────────┬────────┘                   └────────┬────────┘
-           │                                     │
-           ▼                                     ▼
-  ┌─────────────────┐                   ┌─────────────────┐
-  │   CloudFront    │                   │      ALB        │
-  │  (CDN global)   │                   │  (eu-west-1)    │
-  │  SSL · OAC · CF │                   │  443 / HTTPS    │
-  │  Functions      │                   └────────┬────────┘
-  └────────┬────────┘                            │
-           │                                     ▼
-           ▼                           ┌─────────────────────┐
-  ┌─────────────────┐                  │    ECS Fargate      │
-  │  S3 Bucket      │                  │  Node.js + Express  │
-  │  healthy-       │                  │  (0.25 vCPU/0.5GB)  │
-  │  landing-prod   │                  └──────┬──────────────┘
-  │  (eu-west-1)    │                         │
-  └─────────────────┘                   ┌─────┴──────┐
-                                         │            │
-                                         ▼            ▼
-                                  ┌──────────┐  ┌──────────┐
-                                  │   RDS    │  │  Redis   │
-                                  │ Postgres │  │ ElastiC. │
-                                  │(privado) │  │(privado) │
-                                  └──────────┘  └──────────┘
 
-──────── FLUJO APP MÓVIL ──────────────────────────────────────────────────
+---
 
-  ┌──────────────────┐
-  │  App Móvil       │  React Native + Expo (iOS / Android)
-  │  (dispositivo)   │
-  └────────┬─────────┘
-           │  HTTPS
-           ▼
-  ┌─────────────────┐
-  │      ALB        │  → ECS Fargate → RDS + Redis
-  └─────────────────┘
+## Diagrama ASCII
 
-──────── SERVICIOS EXTERNOS ───────────────────────────────────────────────
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                            INTERNET                                  │
+└──────────────────────────────────┬───────────────────────────────────┘
+                                   │ HTTPS
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │  Railway — backend           │
+                    │  Node.js + Express + Prisma  │
+                    │  (Dockerfile, root: backend/)│
+                    │  ai-studio-production-       │
+                    │  1835.up.railway.app         │
+                    └───────────┬──────────────────┘
+                                │
+                   ┌────────────┴────────────┐
+                   ▼                         ▼
+          ┌─────────────────┐      ┌─────────────────┐
+          │  PostgreSQL      │      │  Redis          │
+          │  (Railway        │      │  (Railway       │
+          │  managed)        │      │  managed)       │
+          └─────────────────┘      └─────────────────┘
 
-  ECS Fargate ──────→  Supabase        (Auth / OTP emails)
-  ECS Fargate ──────→  Anthropic API   (Claude claude-sonnet-4-6)
+──────── SERVICIOS EXTERNOS ───────────────────────────────────────────
 
-──────── CI / CD ──────────────────────────────────────────────────────────
+  Backend ──────→  Supabase        (Auth / OTP emails)
+  Backend ──────→  Anthropic API   (Claude claude-sonnet-4-6)
+  Backend ──────→  Gmail SMTP      (smtp.gmail.com:587)
 
-  GitHub                          GitHub
-  push main                       push main / develop
-  (landing/ changes)              (backend changes)
-       │                                │
-       ▼                                ▼
-  GitHub Actions               GitHub Actions
-  deploy-landing               build-push (ECR)
-       │                                │
-       ├── aws s3 sync          ┌────────┴────────┐
-       │   s3://healthy-        │                 │
-       │   landing-prod         ▼                 ▼
-       │                  deploy-staging    deploy-production
-       └── CloudFront          (develop)         (main)
-           invalidation           │                 │
-           "/*"                   ▼                 ▼
-                            ECS staging      ECS production
-                            (force new       (aprobación
-                            deployment)       manual)
+──────── CI / CD ──────────────────────────────────────────────────────
+
+  GitHub                         GitHub
+  push develop                   push main
+       │                              │
+       ▼                              ▼
+  deploy.yml                    deploy.yml
+  railway up                    railway up
+  → staging                     → producción
+  backend-staging-              ai-studio-production-
+  01ee.up.railway.app           1835.up.railway.app
+
+  (En PRs: ci.yml — lint + tests + docker build, sin deploy)
 ```
 
 ---
 
 ## Componentes
 
-| Componente | Región | Descripción |
+| Componente | Proveedor | Descripción |
 |---|---|---|
-| **Route 53** | eu-west-1 / global | DNS autoritativo. Hosted zone `healthy.app`. Registros A alias para apex y `www` → CloudFront; alias para API → ALB. |
-| **CloudFront** | Global (us-east-1 control) | CDN. SSL termination con certificado ACM. Dominio `healthy.app` + `www.healthy.app`. TTL 86 400 s, compresión activada, redirige HTTP → HTTPS. CloudFront Functions inyectan security headers en cada respuesta. OAC para autenticar las peticiones al bucket S3. |
-| **ACM** | us-east-1 | Certificado SSL wildcard / multi-dominio para CloudFront (CloudFront exige ACM en `us-east-1`). Gratuito, renovación automática. |
-| **S3 `healthy-landing-prod`** | eu-west-1 | Aloja `landing/index.html`. Static website hosting habilitado. Acceso público GET permitido vía política de bucket. Versioning activado (permite rollback). Solo el rol de CI puede escribir. |
-| **ALB** | eu-west-1 | Load balancer HTTPS frente a ECS. Listener en 443, forward al target group del servicio `healthy-backend`. Health check en `GET /health`. |
-| **ECS Fargate** | eu-west-1 | Contenedor del backend Node.js + Express + Prisma. Tarea con 0,25 vCPU y 0,5 GB RAM. Una tarea mínima en producción; auto-scaling opcional. Imagen almacenada en ECR `healthy-backend`. |
-| **RDS PostgreSQL** | eu-west-1 | Base de datos principal. Instancia `db.t3.micro`. Desplegada en subnet privada. Multi-AZ desactivado en early stage (activar en producción estable). Backups automáticos diarios en S3. |
-| **ElastiCache Redis** | eu-west-1 | Caché de planes IA (TTL 24 h) y store de refresh tokens. Nodo `cache.t3.micro`. Subnet privada. |
-| **S3 `healthy-progress-photos`** | eu-west-1 | Almacena las fotos de progreso de los usuarios. Acceso **privado**: el backend genera presigned URLs con expiración corta para upload y download. |
+| **Backend `backend`** | Railway | Servicio Node.js + Express + Prisma. Builder Dockerfile multi-stage. Root: `projects/healthy/backend`. Dominio `ai-studio-production-1835.up.railway.app`. Service ID staging: `fa137c98-5210-4057-a531-f1c7fbf39743`. |
+| **PostgreSQL** | Railway (managed) | Base de datos principal. Referenciada como `${{Postgres.DATABASE_URL}}`. Backups automáticos incluidos en el plan Railway. |
+| **Redis** | Railway (managed) | Caché de planes IA (TTL 24 h) y store de refresh tokens. Referenciado como `${{Redis.REDIS_URL}}`. |
 | **Supabase** | External (EU) | Autenticación de usuarios: registro, verificación OTP por email, tokens JWT. Gestiona el proveedor de emails transaccionales. |
 | **Anthropic API** | External | Generación de planes personalizados con `claude-sonnet-4-6`. Prompt caching activado (`cache_control`) para el system prompt base (~80 % reducción de tokens facturados). |
+| **Gmail SMTP** | External | Envío de emails de verificación y recuperación de contraseña. Host: `smtp.gmail.com:587`. Usuario: `trutool@gmail.com`. **SMTP no está configurado en staging** — los emails se loguean en consola. Pendiente configurar para producción. |
+| **Landing (S3 + CloudFront)** | AWS | Landing estática independiente del backend. Ver [landing-deploy.md](./landing-deploy.md). |
 
 ---
 
-## Decisiones de red (VPC)
+## Estructura del repositorio
 
 ```
-VPC: 10.0.0.0/16
-│
-├── Subnets públicas (AZ-a: 10.0.1.0/24 · AZ-b: 10.0.2.0/24)
-│   ├── ALB (requiere subnet pública para recibir tráfico externo)
-│   └── NAT Gateway (salida a internet para recursos privados)
-│
-└── Subnets privadas (AZ-a: 10.0.10.0/24 · AZ-b: 10.0.11.0/24)
-    ├── ECS Fargate tasks
-    ├── RDS PostgreSQL
-    └── ElastiCache Redis
+ai-studio/                              ← raíz del repositorio
+├── .github/workflows/
+│   ├── deploy.yml                      → deploy backend a Railway (staging/prod)
+│   ├── ci.yml                          → lint + tests en PRs
+│   └── tests.yml                       → suite de tests con cobertura
+├── agents/                             → definiciones de agentes reutilizables
+└── projects/healthy/
+    ├── backend/                        → API Node.js — raíz del servicio Railway
+    │   ├── Dockerfile                  → build multi-stage (builder + runner)
+    │   ├── railway.toml                → config Railway (healthcheck, builder)
+    │   └── prisma.config.ts            → config Prisma 7 (datasource URL para migraciones)
+    ├── frontend/                       → App React Native + Expo
+    ├── database/                       → Schema Prisma, migraciones, seed
+    ├── devops/                         → Workflows EAS, docs infra, estrategia backup
+    │   └── .github/workflows/          → workflows adicionales (EAS, landing, backup)
+    ├── docs/                           → Documentación técnica (este directorio)
+    ├── landing/                        → Landing estática (S3 + CloudFront)
+    ├── security/                       → Auditoría RGPD y seguridad
+    └── tests/                          → Tests de carga y E2E
 ```
-
-### Security Groups
-
-| SG | Regla inbound | Regla outbound |
-|---|---|---|
-| `sg-alb` | 80/TCP `0.0.0.0/0`, 443/TCP `0.0.0.0/0` | Todo → `sg-ecs` |
-| `sg-ecs` | 3000/TCP desde `sg-alb` | Todo (necesita acceder a RDS, Redis, Supabase, Anthropic) |
-| `sg-rds` | 5432/TCP desde `sg-ecs` | — |
-| `sg-redis` | 6379/TCP desde `sg-ecs` | — |
 
 ---
 
-## Estimación de costes mensuales
+## Modelo de contenedor Docker
 
-> Basada en tráfico bajo (early stage). Región eu-west-1. Precios aproximados de mayo 2026.
+El backend se construye con un **Dockerfile multi-stage** para minimizar el tamaño de la imagen final.
 
-| Servicio | Instancia / Tier | Coste estimado |
-|---|---|---|
-| CloudFront | Tráfico landing bajo (~10 GB/mes) | ~$1–5/mes |
-| S3 `healthy-landing-prod` | < 1 MB, pocas peticiones | ~$0.10/mes |
-| Route 53 | 1 hosted zone + queries | ~$0.50/mes + $0.40/M queries |
-| ACM | — | Gratis |
-| ALB | 1 ALB, tráfico bajo | ~$16–20/mes |
-| ECS Fargate | 0.25 vCPU · 0.5 GB · 1 tarea 24/7 | ~$10–15/mes |
-| RDS PostgreSQL | `db.t3.micro`, Single-AZ | ~$15–20/mes |
-| ElastiCache Redis | `cache.t3.micro`, 1 nodo | ~$12–15/mes |
-| S3 `healthy-progress-photos` | Variable según usuarios | ~$1–5/mes |
-| ECR | < 1 GB imágenes | ~$0.10/mes |
-| **Total estimado** | | **~$56–80/mes** |
+### Etapa 1 — builder
+- Instala todas las dependencias (incluidas devDependencies para disponer del CLI de Prisma)
+- Ejecuta `npx prisma generate` → genera el cliente JavaScript en `src/generated/prisma/`
 
-El mayor salto de coste vendrá al activar RDS Multi-AZ (~+$15/mes) y escalar ECS a 2+ tareas (~+$10–15/mes por tarea).
+### Etapa 2 — runner
+- Instala solo dependencias de producción (`npm ci --omit=dev`)
+- Copia el cliente Prisma generado desde la etapa builder
+- Copia el código fuente
+
+### Arranque del contenedor (CMD)
+
+```
+npx prisma migrate deploy || echo '[WARN] migrate fallo' && node server.js
+```
+
+Las migraciones se ejecutan al arrancar. Si fallan (e.g. primer deploy sin DB), el servidor arranca igualmente y el healthcheck reporta `db: error`.
+
+### Prisma 7 — driver adapter
+
+Prisma 7 no acepta `url` en el datasource del schema. La URL de conexión:
+- **Para migraciones:** `prisma.config.ts` provee `process.env.DATABASE_URL`
+- **Para PrismaClient:** se pasa un adapter explícito `PrismaPg(new Pool({ connectionString: DATABASE_URL }))`
+
+---
+
+## Entornos Railway
+
+| Entorno | Servicio | Dominio | Rama |
+|---------|---------|---------|------|
+| Producción | `ai-studio` (ID: `ec2720da-...`) | `ai-studio-production-1835.up.railway.app` | `main` |
+| Staging | `backend` (ID: `fa137c98-...`) | `backend-staging-01ee.up.railway.app` | `develop` |
+
+Proyecto Railway: `healthy-staging` (ID: `a01d9f3d-510b-4529-b75a-d9d7198cbcb5`)
 
 ---
 
 ## Flujo CI/CD
 
-### Landing (push a `main` con cambios en `landing/`)
-
-```
-1. GitHub detecta cambios en landing/ en rama main
-2. Dispara job deploy-landing
-3. Configura credenciales AWS (secrets del repo)
-4. aws s3 sync landing/ → s3://healthy-landing-prod --delete
-5. aws s3 cp index.html con cache-control: no-cache (fuerza refresco)
-6. aws cloudfront create-invalidation --paths "/*"
-7. CloudFront sirve la versión nueva en < 60 s
-```
-
 ### Backend (push a `develop` o `main`)
 
 ```
-1. Job build-push
-   a. docker build del contexto ./backend
-   b. Push a ECR con tags :sha y :staging/:latest
-
-2. Si rama == develop → deploy-staging
-   a. aws ecs update-service --force-new-deployment (cluster healthy-staging)
-   b. Espera aws ecs wait services-stable
-
-3. Si rama == main → deploy-production
-   a. Requiere aprobación manual en GitHub environment "production"
-   b. aws ecs update-service --force-new-deployment (cluster healthy-production)
-   c. Espera aws ecs wait services-stable
+1. Push a develop o main
+2. GitHub Actions dispara deploy.yml:
+   a. test   → npm test --coverage (cobertura ≥ 80 %)
+   b. deploy → railway up (ejecutado desde la raíz del repositorio)
+              NOTA: el CLI sube el repositorio completo y Railway navega
+              a projects/healthy/backend según la configuración del servicio.
+   c. smoke  → GET /health con 3 reintentos
 ```
+
+### En Pull Requests (ci.yml)
+
+```
+1. Apertura / actualización de PR
+2. GitHub Actions dispara ci.yml:
+   a. lint        → ESLint
+   b. tests       → Jest con cobertura ≥ 80 % (tests.yml)
+   c. docker build → verifica que la imagen compila (sin push ni deploy)
+```
+
+### Landing (push a `main` con cambios en `landing/`)
+
+Ver [landing-deploy.md](./landing-deploy.md).
 
 ### Secretos necesarios en GitHub
 
 | Secret | Uso |
-|---|---|
-| `AWS_ACCESS_KEY_ID` | Autenticación AWS CLI en CI |
-| `AWS_SECRET_ACCESS_KEY` | Autenticación AWS CLI en CI |
-| `AWS_REGION` | Región por defecto (`eu-west-1`) |
-| `CLOUDFRONT_DISTRIBUTION_ID` | Invalidación de caché en deploy de landing |
+|--------|-----|
+| `RAILWAY_TOKEN` | Autenticación Railway CLI en CI (`railway up`) |
+| `JWT_SECRET` | Clave de access tokens |
+| `JWT_REFRESH_SECRET` | Clave de refresh tokens |
+| `SUPABASE_URL` | URL Supabase del entorno |
+| `SUPABASE_KEY` | Clave anon Supabase (`process.env.SUPABASE_KEY` en el backend) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio Supabase (operaciones privilegiadas) |
+| `SMTP_USER` | `trutool@gmail.com` |
+| `SMTP_PASS` | Contraseña de aplicación Gmail |
+| `ANTHROPIC_API_KEY` | API key de Anthropic |
+| `AWS_ACCESS_KEY_ID` | Solo para deploy de la landing |
+| `AWS_SECRET_ACCESS_KEY` | Solo para deploy de la landing |
+| `CLOUDFRONT_DISTRIBUTION_ID` | Solo para invalidación de caché de la landing |
+
+---
+
+## Estimación de costes mensuales
+
+> Estimación para tráfico bajo (early stage). Precios aproximados Railway, junio 2026.
+
+| Servicio | Tier / Uso | Coste estimado |
+|---|---|---|
+| Railway backend `ai-studio` | Hobby/Pro, uso bajo | ~$5–10/mes |
+| Railway PostgreSQL | Managed, early stage | ~$5–10/mes |
+| Railway Redis | Managed, early stage | ~$3–5/mes |
+| Supabase | Free tier (hasta 50k MAU) | $0/mes |
+| Anthropic API | Variable según uso | ~$5–20/mes |
+| Gmail SMTP | Gratuito (límite 500 emails/día) | $0/mes |
+| S3 + CloudFront (landing) | Tráfico bajo | ~$1–5/mes |
+| **Total estimado** | | **~$19–50/mes** |
+
+El mayor salto de coste vendrá al escalar el plan Railway (más RAM/CPU) o superar el free tier de Supabase. Significativamente más económico que la arquitectura AWS anterior (~$56–80/mes).
+
+---
+
+## Sistema de animaciones — Frontend React Native
+
+A partir de la sesión 2026-10-11 (tarea A-7), el frontend usa exclusivamente **Reanimated 4** para todas las animaciones. Core Animated ha sido eliminado de los componentes principales.
+
+### Dependencias instaladas
+
+| Paquete | Propósito |
+|---------|-----------|
+| `react-native-reanimated` | Motor de animaciones en el UI thread (sin JS bridge) |
+| `react-native-gesture-handler` | Gestos nativos: `Gesture.Pan`, drag-to-dismiss, velocity handoff |
+| `expo-haptics` | Feedback táctil: `impactAsync`, `notificationAsync`, `selectionAsync` |
+
+### Configuración 120fps ProMotion
+
+En `app.json` se añadió `CADisableMinimumFrameDurationOnPhone: true` para habilitar 120fps en dispositivos iPhone con pantalla ProMotion (iPhone 13 Pro+).
+
+### Design tokens de animación
+
+| Token | Valor | Uso |
+|-------|-------|-----|
+| Press feedback scale | `0.97` | Todos los botones, cards, elementos interactivos |
+| Press duration | `120ms` | `withTiming(0.97, { duration: 120 })` |
+| Spring sheets | `damping: 20, stiffness: 300` | Bottom sheets drag-to-dismiss |
+| Spring modal | `damping: 15, stiffness: 350` | RegenModal FadeIn + scale 0.9→1 |
+| Stagger onboarding | `40–60ms / item` | FadeInDown en SelectCard, opciones, chips |
+| Reduced motion | `ReduceMotion.System` | Todos los springs/timings críticos |
+
+### Typography letterSpacing
+
+| Estilo | `letterSpacing` | Estándar Apple HIG |
+|--------|----------------|--------------------|
+| `bodyLarge` | `0.15` | ✅ |
+| `bodyNormal` | `0.1` | ✅ |
+| `caption` | `0.25` | ✅ |
+
+### Patrones implementados
+
+- **Press feedback** (`scale 0.97, 120ms`): Button, Card, SelectCard, WorkoutCard, MetricCard, DailyLogWidget, todas las pantallas auth, Profile, Progress, Training, Onboarding.
+- **Haptics**: `Light` en acciones menores (agua +250ml, ejercicio completado), `Medium` en acciones de progreso, `Success` al completar sesión de entrenamiento y al terminar onboarding.
+- **Bottom sheets**: `Gesture.Pan` con rubber-banding (resistencia cuando se arrastra hacia arriba) y velocity handoff en TrainingScreen y ProgressScreen.
+- **Skeleton → crossfade**: Reanimated `FadeIn/FadeOut` al cargar datos en HomeScreen.
+- **Reduced motion**: `ReduceMotion.System` en springs de sheets y `useReducedMotion()` en Toast.
+
+### Agente apple-design como herramienta de desarrollo
+
+El agente `agents/apple-design/` con los skills `apple-design.md` + `animate-expo.md` se usa en dos modos:
+1. **Auditoría** — escanea el frontend y genera `apple-design-audit.md` con hallazgos priorizados.
+2. **Implementación** — aplica tareas atómicas AD-{n} (un archivo por tarea) con verificación de tests 0-regresiones.
+
+---
+
+> Última actualización: 2026-10-11 — Docs Agent (animaciones Reanimated 4, agente apple-design, A-7 completada)

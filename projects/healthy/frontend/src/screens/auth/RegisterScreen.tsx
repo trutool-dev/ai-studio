@@ -8,6 +8,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing }   from '@/theme/spacing';
 import { authService } from '@/services/authService';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -31,7 +32,7 @@ export function RegisterScreen({ navigation }: Props) {
       await authService.register(email.trim(), phone.trim());
       navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (err: any) {
-      setErrors({ general: err.response?.data?.message ?? 'Error al registrar' });
+      setErrors({ general: extractApiError(err, 'Error al registrar') });
     } finally { setLoading(false); }
   };
 
@@ -39,7 +40,13 @@ export function RegisterScreen({ navigation }: Props) {
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>← Volver</Text></TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Volver atrás"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={s.back}>← Volver</Text>
+          </TouchableOpacity>
           <Text style={s.title}>Crea tu cuenta</Text>
           <Text style={s.sub}>Te enviaremos un código de verificación a tu email</Text>
           <Input label="Email"     value={email} onChangeText={(t) => { setEmail(t); setErrors((e) => ({...e, email: ''})); }} keyboardType="email-address" errorMessage={errors.email} inputProps={{ autoCapitalize: 'none' }} />
@@ -68,7 +75,7 @@ const s = StyleSheet.create({
   cta:   { marginTop: spacing.md },
   footer:{ flexDirection: 'row', justifyContent: 'center' },
   footerText: { ...textStyles.bodyNormal, color: colors.neutral.midGray },
-  link:  { ...textStyles.bodyNormal, color: colors.primary.green, fontWeight: '600' },
+  link:  { ...textStyles.bodyNormal, color: colors.primary.darkGreen, fontWeight: '600' },
   legal: { ...textStyles.caption, color: colors.neutral.midGray, textAlign: 'center', lineHeight: 18 },
 });
 export default RegisterScreen;

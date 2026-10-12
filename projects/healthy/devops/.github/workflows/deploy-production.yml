@@ -1,0 +1,165 @@
+name: Deploy to Production (Railway)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "projects/healthy/backend/**"
+
+env:
+  RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_PRODUCTION_SERVICE_ID }}
+
+jobs:
+  # ── 1. Tests con cobertura ──────────────────────────────────────────────────
+  test:
+    name: Tests + cobertura
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: healthy_test
+          POSTGRES_PASSWORD: healthy_test
+          POSTGRES_DB: healthy_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U healthy_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://healthy_test:healthy_test@localhost:5432/healthy_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-secret-not-used-in-production-min-64-chars-padding
+      JWT_REFRESH_SECRET: test-refresh-secret-not-used-in-production-padding
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: projects/healthy/backend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: projects/healthy/backend
+        run: npm ci
+
+      - name: Tests con cobertura (mínimo 80%)
+        working-directory: projects/healthy/backend
+        run: |
+          npx jest \
+            --coverage \
+            --coverageThreshold='{"global":{"lines":80}}' \
+            --forceExit \
+            --passWithNoTests
+
+      - name: Subir informe de cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-production
+          path: projects/healthy/backend/coverage/
+          retention-days: 14
+
+  # ── 2. Migraciones de base de datos ────────────────────────────────────────
+  migrate:
+    name: Prisma migrate deploy
+    runs-on: ubuntu-latest
+    needs: test
+    environment: production
+
+    env:
+      DATABASE_URL: ${{ secrets.RAILWAY_PRODUCTION_DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: projects/healthy/backend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: projects/healthy/backend
+        run: npm ci
+
+      - name: Aplicar migraciones Prisma
+        working-directory: projects/healthy/backend
+        run: npx prisma migrate deploy
+
+  # ── 3. Deploy a Railway producción ─────────────────────────────────────────
+  deploy:
+    name: Deploy to Railway (production)
+    runs-on: ubuntu-latest
+    needs: migrate
+    environment: production
+
+    env:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: a01d9f3d-510b-4529-b75a-d9d7198cbcb5
+      RAILWAY_ENVIRONMENT_ID: 3cb3489e-beda-44bf-9396-bf2618b121f3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy backend to Railway (production)
+        working-directory: projects/healthy/backend
+        run: railway up --service ${{ env.RAILWAY_SERVICE_ID }} --detach
+
+  # ── 4. Smoke test ───────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke test (production)
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Esperar y verificar /health
+        run: |
+          echo "Verificando que la API de producción responde..."
+          for i in $(seq 1 18); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              https://ai-studio-production-1835.up.railway.app/health \
+              --max-time 10 || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "OK: /health devolvio HTTP 200 en el intento $i"
+              break
+            fi
+            echo "Intento $i: HTTP $STATUS — reintentando en 10s..."
+            sleep 10
+            if [ $i -eq 18 ]; then
+              echo "ERROR: /health no respondio 200 tras 180s"
+              exit 1
+            fi
+          done
+
+      - name: Verificar respuesta del health check
+        run: |
+          RESPONSE=$(curl -s \
+            https://ai-studio-production-1835.up.railway.app/health \
+            --max-time 10)
+          echo "Health check: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d.get('success') == True, f'success no es true: {d}'
+          print('Smoke test produccion OK')
+          "

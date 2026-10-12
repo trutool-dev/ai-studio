@@ -19,11 +19,12 @@ const hashPassword = (password) => bcrypt.hash(password, SALT_ROUNDS);
 const comparePassword = (password, hash) => bcrypt.compare(password, hash);
 
 /**
- * Genera un código numérico de 6 dígitos para verificación
+ * Genera un código numérico de 6 dígitos para verificación (criptográficamente seguro)
+ * Usa crypto.randomInt() en lugar de Math.random() para cumplir con estándares de seguridad
  * @returns {string}
  */
 const generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 };
 
 /**

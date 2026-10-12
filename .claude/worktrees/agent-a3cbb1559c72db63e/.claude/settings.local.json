@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\landing\\\\index.html\")",
+      "PowerShell(Start-Process \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\docs\\\\architecture-web.md\")",
+      "PowerShell(Start-Process \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\docs\\\\landing-deploy.md\")",
+      "PowerShell(Start-Process \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\landing\\\\index2.html\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\landing\\\\public\\\\images\")",
+      "PowerShell(Start-Process \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\landing\\\\public\\\\images\\\\logo-icon.svg\")",
+      "Bash(npm install *)",
+      "Bash(npx vite *)",
+      "Bash(wsl *)",
+      "Bash(npx prisma *)",
+      "Bash(node *)",
+      "Bash(ts-node *)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/database/**)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/design/**)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/ai/**)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/backend/**)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/docs/**)",
+      "Bash(dir \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\backend\" /b)",
+      "Bash(dir \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\frontend\" /b)",
+      "Bash(dir \"c:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\security\" /b)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/frontend/**)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/security/**)",
+      "Write(c:/Users/Antonio/Documents/ai-studio/projects/healthy/tests/**)",
+      "Bash(npx jest *)",
+      "Bash(npx --yes jest *)"
+    ]
+  }
+}

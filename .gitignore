@@ -4,3 +4,6 @@ node_modules/
 .env.local
 .env*.local
 .env
+projects/healthy/frontend/dist/
+projects/healthy/frontend/.expo/
+projects/healthy/app.json

@@ -2,23 +2,66 @@
  * ProfileScreen — datos del usuario, resumen del plan y configuración
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Alert, SafeAreaView, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
 } from 'react-native';
-import { useAuthStore }   from '@/stores/authStore';
-import { usePlanStore }   from '@/stores/planStore';
-import { Button }         from '@/components/ui/Button';
-import { colors }         from '@/theme/colors';
-import { textStyles }     from '@/theme/typography';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import { useAuthStore }        from '@/stores/authStore';
+import { usePlanStore }        from '@/stores/planStore';
+import { Button }              from '@/components/ui/Button';
+import { colors }              from '@/theme/colors';
+import { textStyles }          from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
+import api                     from '@/services/api';
+
+// ── Mapas de etiquetas ───────────────────────────────────────────────────────
+
+const GOAL_LABELS: Record<string, string> = {
+  lose_weight:    'Perder peso',
+  gain_muscle:    'Ganar músculo',
+  stay_active:    'Mantenerse activo',
+  improve_habits: 'Mejorar hábitos',
+};
+
+const DIET_LABELS: Record<string, string> = {
+  omnivore:    'Omnívoro',
+  vegetarian:  'Vegetariano',
+  vegan:       'Vegano',
+  gluten_free: 'Sin gluten',
+  keto:        'Cetogénica',
+  other:       'Otra',
+};
+
+// ── Pantalla ─────────────────────────────────────────────────────────────────
 
 export function ProfileScreen() {
-  const { user, clearAuth }            = useAuthStore();
-  const { todayWorkout, streak }       = usePlanStore();
-  const [notifications, setNotif]      = useState(true);
-  const [darkMode, setDarkMode]        = useState(false);
+  const { user, logout }                              = useAuthStore();
+  const { todayWorkout, streak, progressStats,
+          isLoadingProgress, fetchProgress,
+          regeneratePlan }                            = usePlanStore();
+  const [notifications, setNotif]                    = useState(true);
+  const [darkMode, setDarkMode]                      = useState(false);
+  const [regenerating, setRegenerating]              = useState(false);
+  const [profileData, setProfileData]                = useState<any>(null);
+
+  // Cargar estadísticas de progreso al montar la pantalla
+  useEffect(() => {
+    fetchProgress();
+  }, []);
+
+  // Cargar datos de perfil desde el backend
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/user/me/profile');
+        setProfileData(data?.data ?? null);
+      } catch {
+        // si falla, los labels mostrarán '—'
+      }
+    })();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -26,7 +69,31 @@ export function ProfileScreen() {
       '¿Seguro que quieres salir?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Salir',    style: 'destructive', onPress: () => clearAuth() },
+        { text: 'Salir',    style: 'destructive', onPress: () => logout() },
+      ],
+    );
+  };
+
+  const handleRegenerate = () => {
+    Alert.alert(
+      'Regenerar plan',
+      'La IA generará un nuevo plan de entrenamiento y nutrición basado en tu perfil actual. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Regenerar',
+          onPress: async () => {
+            setRegenerating(true);
+            try {
+              await regeneratePlan();
+              Alert.alert('¡Plan regenerado!', 'Tu nuevo plan personalizado está listo. Revisa el inicio para ver los cambios.');
+            } catch {
+              Alert.alert('Error', 'No se pudo regenerar el plan. Inténtalo de nuevo.');
+            } finally {
+              setRegenerating(false);
+            }
+          },
+        },
       ],
     );
   };
@@ -37,6 +104,25 @@ export function ProfileScreen() {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+  // Datos de perfil desde el backend
+  const heightLabel   = profileData?.height_cm         ? `${profileData.height_cm} cm`            : '—';
+  const weightLabel   = profileData?.weight_kg         ? `${profileData.weight_kg} kg`            : '—';
+  const ageLabel      = profileData?.age               ? `${profileData.age} años`                : '—';
+  const dietLabel     = profileData?.diet_type         ? (DIET_LABELS[profileData.diet_type] ?? '—') : '—';
+  const goalLabel     = profileData?.goal              ? (GOAL_LABELS[profileData.goal]      ?? '—') : '—';
+  const sessionsLabel = profileData?.sessions_per_week ? `${profileData.sessions_per_week} días`  : '—';
+
+  // Estadísticas dinámicas desde /progress/stats
+  const workoutsValue = isLoadingProgress
+    ? '…'
+    : `${progressStats?.workoutsCompleted ?? 0}`;
+
+  const kgLostValue = isLoadingProgress
+    ? '…'
+    : progressStats
+      ? `−${progressStats.kgLost.toFixed(1)} kg`
+      : '—';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -56,41 +142,50 @@ export function ProfileScreen() {
 
         {/* Estadísticas rápidas */}
         <View style={styles.statsRow}>
-          <StatBox icon="🔥" value={`${streak}`}  label="Días racha" color="#F59E0B" />
-          <StatBox icon="💪" value="12"            label="Entrenos"   color={colors.primary.green} />
-          <StatBox icon="⚖️" value="−2.6 kg"      label="Perdidos"   color={colors.semantic.info} />
+          <StatBox icon="🔥" value={`${streak}`}     label="Días racha" color="#F59E0B" />
+          <StatBox icon="💪" value={workoutsValue}    label="Entrenos"   color={colors.primary.green} loading={isLoadingProgress} />
+          <StatBox icon="⚖️" value={kgLostValue}     label="Perdidos"   color={colors.semantic.info} loading={isLoadingProgress} />
         </View>
 
         {/* Plan activo */}
         <SectionHeader title="Mi plan" />
         <View style={styles.planCard}>
-          <PlanRow icon="🏋️" label="Hoy"           value={todayWorkout.name} />
+          <PlanRow icon="🏋️" label="Hoy"              value={todayWorkout.name} />
           <Divider />
-          <PlanRow icon="⏱"  label="Duración"      value={`${todayWorkout.durationMinutes} min`} />
+          <PlanRow icon="⏱"  label="Duración"          value={`${todayWorkout.durationMinutes} min`} />
           <Divider />
-          <PlanRow icon="📅" label="Sesiones/semana" value="4 días" />
+          <PlanRow icon="📅" label="Sesiones/semana"   value={sessionsLabel} />
           <Divider />
-          <PlanRow icon="🎯" label="Objetivo"        value="Ganar músculo" />
+          <PlanRow icon="🎯" label="Objetivo"           value={goalLabel} />
         </View>
+
+        {/* Botón regenerar plan */}
+        <Button
+          label={regenerating ? 'Generando plan…' : '✨ Regenerar mi plan'}
+          variant="secondary"
+          onPress={handleRegenerate}
+          disabled={regenerating}
+          style={styles.regenerateBtn}
+        />
 
         {/* Mis datos */}
         <SectionHeader title="Mis datos" />
         <View style={styles.planCard}>
-          <PlanRow icon="📏" label="Altura"   value="178 cm" />
+          <PlanRow icon="📏" label="Altura"   value={heightLabel} />
           <Divider />
-          <PlanRow icon="⚖️" label="Peso"     value="79.9 kg" />
+          <PlanRow icon="⚖️" label="Peso"     value={weightLabel} />
           <Divider />
-          <PlanRow icon="🎂" label="Edad"     value="28 años" />
+          <PlanRow icon="🎂" label="Edad"     value={ageLabel} />
           <Divider />
-          <PlanRow icon="🥗" label="Dieta"    value="Omnívoro" />
+          <PlanRow icon="🥗" label="Dieta"    value={dietLabel} />
         </View>
 
         {/* Configuración */}
         <SectionHeader title="Configuración" />
         <View style={styles.planCard}>
-          <ToggleRow icon="🔔" label="Notificaciones"   value={notifications} onToggle={() => setNotif((v) => !v)} />
+          <ToggleRow icon="🔔" label="Notificaciones" value={notifications} onToggle={() => setNotif((v) => !v)} soon />
           <Divider />
-          <ToggleRow icon="🌙" label="Modo oscuro"       value={darkMode}      onToggle={() => setDarkMode((v) => !v)} />
+          <ToggleRow icon="🌙" label="Modo oscuro"    value={darkMode}      onToggle={() => setDarkMode((v) => !v)} soon />
           <Divider />
           <SettingRow icon="🔒" label="Privacidad y datos" />
           <Divider />
@@ -122,11 +217,18 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={sStyles.header}>{title}</Text>;
 }
 
-function StatBox({ icon, value, label, color }: { icon: string; value: string; label: string; color: string }) {
+function StatBox({
+  icon, value, label, color, loading,
+}: {
+  icon: string; value: string; label: string; color: string; loading?: boolean;
+}) {
   return (
     <View style={[sStyles.statBox, { borderTopColor: color }]}>
       <Text style={sStyles.statIcon}>{icon}</Text>
-      <Text style={[sStyles.statValue, { color }]}>{value}</Text>
+      {loading
+        ? <ActivityIndicator size="small" color={color} style={{ marginVertical: 2 }} />
+        : <Text style={[sStyles.statValue, { color }]}>{value}</Text>
+      }
       <Text style={sStyles.statLabel}>{label}</Text>
     </View>
   );
@@ -142,25 +244,51 @@ function PlanRow({ icon, label, value }: { icon: string; label: string; value: s
   );
 }
 
-function ToggleRow({ icon, label, value, onToggle }: { icon: string; label: string; value: boolean; onToggle: () => void }) {
+function ToggleRow({
+  icon, label, value, onToggle, soon,
+}: {
+  icon: string; label: string; value: boolean; onToggle: () => void; soon?: boolean;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const cfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
   return (
-    <TouchableOpacity style={sStyles.row} onPress={onToggle} activeOpacity={0.7}>
-      <Text style={sStyles.rowIcon}>{icon}</Text>
-      <Text style={sStyles.rowLabel}>{label}</Text>
-      <View style={[sStyles.toggle, value && sStyles.toggleOn]}>
-        <View style={[sStyles.toggleThumb, value && sStyles.toggleThumbOn]} />
-      </View>
-    </TouchableOpacity>
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={sStyles.row}
+        onPress={onToggle}
+        onPressIn={() => { scale.value = withTiming(0.98, cfg); }}
+        onPressOut={() => { scale.value = withTiming(1, cfg); }}
+      >
+        <Text style={sStyles.rowIcon}>{icon}</Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <Text style={sStyles.rowLabel}>{label}</Text>
+          {soon && <Text style={sStyles.soonBadge}>próximamente</Text>}
+        </View>
+        <View style={[sStyles.toggle, value && sStyles.toggleOn]}>
+          <View style={[sStyles.toggleThumb, value && sStyles.toggleThumbOn]} />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 function SettingRow({ icon, label }: { icon: string; label: string }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const cfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
   return (
-    <TouchableOpacity style={sStyles.row} activeOpacity={0.7}>
-      <Text style={sStyles.rowIcon}>{icon}</Text>
-      <Text style={sStyles.rowLabel}>{label}</Text>
-      <Text style={sStyles.chevron}>›</Text>
-    </TouchableOpacity>
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={sStyles.row}
+        onPressIn={() => { scale.value = withTiming(0.98, cfg); }}
+        onPressOut={() => { scale.value = withTiming(1, cfg); }}
+      >
+        <Text style={sStyles.rowIcon}>{icon}</Text>
+        <Text style={sStyles.rowLabel}>{label}</Text>
+        <Text style={sStyles.chevron}>›</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -175,7 +303,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', marginBottom: spacing.xl },
   avatar: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: colors.primary.green,
+    backgroundColor: colors.primary.darkGreen,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: spacing.md,
     ...shadows.button,
@@ -197,6 +325,7 @@ const styles = StyleSheet.create({
     padding: spacing.md, ...shadows.card, marginBottom: spacing.sm, gap: spacing.sm,
   },
   version: { ...textStyles.caption, color: colors.neutral.midGray, textAlign: 'center', marginVertical: spacing.lg },
+  regenerateBtn: { marginBottom: spacing.md },
   logoutBtn: { marginBottom: spacing.md },
 });
 
@@ -218,12 +347,21 @@ const sStyles = StyleSheet.create({
   rowValue: { ...textStyles.bodyNormal, color: colors.neutral.midGray, fontWeight: '600' },
   chevron:  { fontSize: 22, color: colors.neutral.midGray },
 
+  soonBadge: {
+    ...textStyles.caption,
+    color: colors.neutral.midGray,
+    backgroundColor: colors.neutral.lightGray,
+    borderRadius: borderRadius.pill,
+    paddingHorizontal: 6, paddingVertical: 2,
+    overflow: 'hidden',
+  },
+
   toggle: {
     width: 44, height: 26, borderRadius: 13,
     backgroundColor: colors.neutral.lightGray,
     justifyContent: 'center', padding: 2,
   },
-  toggleOn: { backgroundColor: colors.primary.green },
+  toggleOn: { backgroundColor: colors.primary.darkGreen }, // FE-12: contraste
   toggleThumb: {
     width: 22, height: 22, borderRadius: 11,
     backgroundColor: colors.neutral.white,

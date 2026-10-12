@@ -69,6 +69,6 @@ const s = StyleSheet.create({
   spam:   { ...textStyles.caption, color: colors.neutral.midGray, textAlign: 'center' },
   footer: { flexDirection: 'row', justifyContent: 'center' },
   subText:{ ...textStyles.bodyNormal, color: colors.neutral.midGray },
-  link:   { ...textStyles.bodyNormal, color: colors.primary.green, fontWeight: '600' },
+  link:   { ...textStyles.bodyNormal, color: colors.primary.darkGreen, fontWeight: '600' },
 });
 export default ForgotPasswordScreen;

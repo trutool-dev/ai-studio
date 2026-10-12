@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-Object Name)",
+      "Bash(dir /a \"C:\\\\Users\\\\Antonio\\\\Documents\\\\ai-studio\\\\projects\\\\healthy\\\\frontend\")",
+      "Bash(npm audit *)",
+      "Bash(npx expo *)",
+      "Bash(curl -s https://backend-staging-01ee.up.railway.app/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://backend-staging-01ee.up.railway.app/health)",
+      "Bash(curl -s https://backend-staging-01ee.up.railway.app/auth/test-user)",
+      "Bash(curl -s https://backend-staging-01ee.up.railway.app/health/seed)",
+      "Bash(curl -s -o /dev/null -w \"%{time_total}\\\\n\" https://backend-staging-01ee.up.railway.app/health)",
+      "Bash(curl -s -X GET https://backend-staging-01ee.up.railway.app/plans -H \"Content-Type: application/json\")",
+      "Bash(curl -s -X GET https://backend-staging-01ee.up.railway.app/training/today -H \"Content-Type: application/json\")",
+      "Bash(curl -s -X POST https://backend-staging-01ee.up.railway.app/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"test-eval@healthy-test.com\",\"phone\":\"+34666000001\"}')",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm test *)",
+      "Bash(grep -E \"^pg$|^@anthropic\")"
+    ]
+  }
+}

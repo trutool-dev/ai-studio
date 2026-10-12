@@ -1,12 +1,18 @@
 /**
- * HomeScreen — resumen del día: plan activo, calorías, entrenamiento y log diario
+ * HomeScreen — resumen del día: plan activo, calorías, entrenamiento y log diario.
+ * FE-07: GET/PUT /logs/today conectado al DailyLogWidget.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   ScrollView, StyleSheet, Text, View,
   SafeAreaView, Pressable,
 } from 'react-native';
+import ReAnimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing,
+  FadeIn,
+} from 'react-native-reanimated';
+import { useNavigation }               from '@react-navigation/native';
 import { usePlanStore, calcDayTotals } from '@/stores/planStore';
 import { useAuthStore }                from '@/stores/authStore';
 import { MacroCard }                   from '@/components/ui/MacroCard';
@@ -15,17 +21,87 @@ import { colors }                      from '@/theme/colors';
 import { textStyles }                  from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 
+// ── Skeleton ─────────────────────────────────────────────────────────────────
+
+function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number; width?: number | string; style?: object }) {
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      -1,   // infinito
+      true  // reverse
+    );
+  }, []);
+
+  const skeletonStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <ReAnimated.View
+      style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, marginBottom: 8 }, skeletonStyle, style]}
+    />
+  );
+}
+
+// ── Pantalla ──────────────────────────────────────────────────────────────────
+
 export function HomeScreen() {
-  const { todayWorkout, todayMeals, targets, log, streak, logWater } = usePlanStore();
+  const navigation = useNavigation<any>();
+  const {
+    todayWorkout, todayMeals, targets, log, streak,
+    logWater, logSteps, logSleep, fetchTodayTraining, fetchTodayNutrition, fetchTodayLog, submitLog,
+    isLoadingTraining, isLoadingNutrition, isLoadingLog,
+  } = usePlanStore();
   const { user } = useAuthStore();
+
+  useEffect(() => {
+    fetchTodayTraining();
+    fetchTodayNutrition();
+    fetchTodayLog();
+  }, []);
+
   const totals      = calcDayTotals(todayMeals);
   const calPct      = Math.min(totals.calories / targets.calories, 1);
   const completedEx = todayWorkout.exercises.filter((e) => e.completed).length;
   const totalEx     = todayWorkout.exercises.length;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const hour      = new Date().getHours();
+  const greeting  = hour < 12 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
   const firstName = user?.name?.split(' ')[0] ?? 'campeón';
+
+  // Press feedback para la tarjeta de entrenamiento
+  const workoutScale = useSharedValue(1);
+  const workoutAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: workoutScale.value }] }));
+  const workoutTimingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
+
+  const handleAddWater = async (ml: number) => {
+    logWater(ml);
+    try {
+      await submitLog({ waterMl: log.waterMl + ml });
+    } catch {
+      // fallback silencioso — la actualización local ya se hizo
+    }
+  };
+
+  const handleAddSteps = async (steps: number) => {
+    logSteps(steps);
+    try {
+      await submitLog({ steps });
+    } catch {
+      // fallback silencioso
+    }
+  };
+
+  const handleAddSleep = async (hours: number) => {
+    logSleep(hours);
+    try {
+      await submitLog({ sleepHours: hours });
+    } catch {
+      // fallback silencioso
+    }
+  };
+
+  const isLoading = isLoadingTraining && isLoadingNutrition;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -35,7 +111,9 @@ export function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{greeting}, {firstName} 👋</Text>
-            <Text style={styles.date}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+            <Text style={styles.date}>
+              {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
           </View>
           <View style={styles.streakBadge}>
             <Text style={styles.streakFire}>🔥</Text>
@@ -43,75 +121,103 @@ export function HomeScreen() {
           </View>
         </View>
 
-        {/* Anillo de calorías */}
-        <View style={styles.calCard}>
-          <View style={styles.calRing}>
-            <CalRing pct={calPct} />
-            <View style={styles.calCenter}>
-              <Text style={styles.calValue}>{Math.round(totals.calories)}</Text>
-              <Text style={styles.calLabel}>kcal</Text>
+        {/* Skeleton mientras carga */}
+        {isLoading ? (
+          <>
+            <SkeletonBlock height={100} />
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <SkeletonBlock height={80} style={{ flex: 1 }} />
+              <SkeletonBlock height={80} style={{ flex: 1 }} />
+              <SkeletonBlock height={80} style={{ flex: 1 }} />
             </View>
-          </View>
-          <View style={styles.calInfo}>
-            <Text style={styles.calTitle}>Calorías de hoy</Text>
-            <Text style={styles.calSub}>Objetivo: {targets.calories} kcal</Text>
-            <Text style={styles.calRemain}>
-              Restantes: <Text style={{ color: colors.primary.green, fontWeight: '700' }}>
-                {Math.max(targets.calories - Math.round(totals.calories), 0)} kcal
-              </Text>
-            </Text>
-          </View>
-        </View>
-
-        {/* Macros */}
-        <View style={styles.macroRow}>
-          <MacroCard label="Proteína" current={totals.protein} target={targets.protein} color={colors.semantic.info}    />
-          <MacroCard label="Carbos"   current={totals.carbs}   target={targets.carbs}   color={colors.semantic.warning} />
-          <MacroCard label="Grasa"    current={totals.fat}     target={targets.fat}     color={colors.semantic.error}   />
-        </View>
-
-        {/* Entrenamiento del día */}
-        <SectionTitle title="Entrenamiento de hoy" />
-        <Pressable style={styles.workoutCard}>
-          <View style={styles.workoutLeft}>
-            <Text style={styles.workoutIcon}>🏋️</Text>
-            <View>
-              <Text style={styles.workoutName}>{todayWorkout.name}</Text>
-              <Text style={styles.workoutMeta}>
-                {todayWorkout.durationMinutes} min · {todayWorkout.muscleGroups.join(', ')}
-              </Text>
+            <SkeletonBlock height={72} />
+            <SkeletonBlock height={100} />
+          </>
+        ) : (
+          <ReAnimated.View entering={FadeIn.duration(300)}>
+            {/* Anillo de calorías */}
+            <View style={styles.calCard}>
+              <View style={styles.calRing}>
+                <CalRing pct={calPct} />
+                <View style={styles.calCenter}>
+                  <Text style={styles.calValue}>{Math.round(totals.calories)}</Text>
+                  <Text style={styles.calLabel}>kcal</Text>
+                </View>
+              </View>
+              <View style={styles.calInfo}>
+                <Text style={styles.calTitle}>Calorías de hoy</Text>
+                <Text style={styles.calSub}>Objetivo: {targets.calories} kcal</Text>
+                <Text style={styles.calRemain}>
+                  Restantes:{' '}
+                  <Text style={{ color: colors.primary.darkGreen, fontWeight: '700' }}>
+                    {Math.max(targets.calories - Math.round(totals.calories), 0)} kcal
+                  </Text>
+                </Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.workoutProgress}>
-            <Text style={styles.workoutFraction}>{completedEx}/{totalEx}</Text>
-            <Text style={styles.workoutFractionLabel}>ejercicios</Text>
-          </View>
-        </Pressable>
 
-        {/* Mini barra de progreso del workout */}
-        <View style={styles.workoutBar}>
-          <View style={[styles.workoutFill, { width: `${totalEx > 0 ? (completedEx / totalEx) * 100 : 0}%` }]} />
-        </View>
-
-        {/* Comidas */}
-        <SectionTitle title="Comidas" />
-        <View style={styles.mealsRow}>
-          {todayMeals.map((m) => (
-            <View key={m.id} style={[styles.mealChip, m.completed && styles.mealChipDone]}>
-              <Text style={styles.mealChipIcon}>{m.icon}</Text>
-              <Text style={[styles.mealChipName, m.completed && styles.mealChipNameDone]}>{m.name}</Text>
+            {/* Macros */}
+            <View style={styles.macroRow}>
+              <MacroCard label="Proteína" current={totals.protein} target={targets.protein} color={colors.semantic.info}    />
+              <MacroCard label="Carbos"   current={totals.carbs}   target={targets.carbs}   color={colors.semantic.warning} />
+              <MacroCard label="Grasa"    current={totals.fat}     target={targets.fat}     color={colors.semantic.error}   />
             </View>
-          ))}
-        </View>
 
-        {/* Registro diario */}
-        <SectionTitle title="Registro del día" />
-        <DailyLogWidget
-          waterMl={log.waterMl}     waterTarget={targets.waterMl}
-          steps={log.steps}         stepsTarget={targets.steps}
-          sleepHours={log.sleepHours}
-          onAddWater={() => logWater(250)}
-        />
+            {/* Entrenamiento del día */}
+            <SectionTitle title="Entrenamiento de hoy" />
+            <ReAnimated.View style={workoutAnimStyle}>
+            <Pressable
+              style={styles.workoutCard}
+              accessibilityLabel={`Entrenamiento: ${todayWorkout.name}`}
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Training')}
+              onPressIn={() => { workoutScale.value = withTiming(0.98, workoutTimingConfig); }}
+              onPressOut={() => { workoutScale.value = withTiming(1, workoutTimingConfig); }}
+            >
+              <View style={styles.workoutLeft}>
+                <Text style={styles.workoutIcon}>🏋️</Text>
+                <View>
+                  <Text style={styles.workoutName}>{todayWorkout.name}</Text>
+                  <Text style={styles.workoutMeta}>
+                    {todayWorkout.durationMinutes} min · {todayWorkout.muscleGroups.join(', ')}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.workoutProgress}>
+                <Text style={styles.workoutFraction}>{completedEx}/{totalEx}</Text>
+                <Text style={styles.workoutFractionLabel}>ejercicios</Text>
+              </View>
+            </Pressable>
+            </ReAnimated.View>
+
+            {/* Barra de progreso del workout */}
+            <View style={styles.workoutBar}>
+              <View style={[styles.workoutFill, { width: `${totalEx > 0 ? (completedEx / totalEx) * 100 : 0}%` }]} />
+            </View>
+
+            {/* Comidas */}
+            <SectionTitle title="Comidas" />
+            <View style={styles.mealsRow}>
+              {todayMeals.map((m) => (
+                <View key={m.id} style={[styles.mealChip, m.completed && styles.mealChipDone]}>
+                  <Text style={styles.mealChipIcon}>{m.icon}</Text>
+                  <Text style={[styles.mealChipName, m.completed && styles.mealChipNameDone]}>{m.name}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Registro diario */}
+            <SectionTitle title="Registro del día" />
+            <DailyLogWidget
+              waterMl={log.waterMl}      waterTarget={targets.waterMl}
+              steps={log.steps}          stepsTarget={targets.steps}
+              sleepHours={log.sleepHours}
+              onAddWater={handleAddWater}
+              onAddSteps={handleAddSteps}
+              onAddSleep={handleAddSleep}
+            />
+          </ReAnimated.View>
+        )}
 
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
@@ -119,13 +225,12 @@ export function HomeScreen() {
   );
 }
 
-// ── Sub-componentes ──────────────────────────────────────────────────────────
+// ── Sub-componentes ───────────────────────────────────────────────────────────
 
 function SectionTitle({ title }: { title: string }) {
   return <Text style={sStyles.title}>{title}</Text>;
 }
 
-/** Anillo SVG-free: arco simulado con dos View semicirculares */
 function CalRing({ pct }: { pct: number }) {
   const SIZE   = 90;
   const BORDER = 10;
@@ -133,20 +238,10 @@ function CalRing({ pct }: { pct: number }) {
 
   return (
     <View style={{ width: SIZE, height: SIZE, position: 'relative' }}>
-      {/* Pista gris */}
-      <View style={{
-        position: 'absolute', inset: 0,
-        borderRadius: SIZE / 2,
-        borderWidth: BORDER, borderColor: colors.neutral.lightGray,
-      }} />
-      {/* Arco verde — clip izquierdo */}
+      <View style={{ position: 'absolute', inset: 0, borderRadius: SIZE / 2, borderWidth: BORDER, borderColor: colors.neutral.lightGray }} />
       {filled > 0 && (
         <View style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-          <View style={{
-            width: SIZE, height: SIZE, borderRadius: SIZE / 2,
-            borderWidth: BORDER, borderColor: colors.primary.green,
-            transform: [{ rotate: `-${Math.min(filled, 180)}deg` }],
-          }} />
+          <View style={{ width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: BORDER, borderColor: colors.primary.green, transform: [{ rotate: `-${Math.min(filled, 180)}deg` }] }} />
         </View>
       )}
     </View>
@@ -161,67 +256,41 @@ const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: colors.neutral.offWhite },
   scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 
-  // Cabecera
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg },
-  greeting: { ...textStyles.titleSmall, color: colors.neutral.black },
-  date:     { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: 2 },
-  streakBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#FEF3C7', borderRadius: borderRadius.pill,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-  },
+  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg },
+  greeting:    { ...textStyles.titleSmall, color: colors.neutral.black },
+  date:        { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: 2 },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', borderRadius: borderRadius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   streakFire:  { fontSize: 18 },
   streakCount: { ...textStyles.titleSmall, color: '#D97706' },
 
-  // Calorías
-  calCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.lg,
-    backgroundColor: colors.neutral.white, borderRadius: borderRadius.card,
-    padding: spacing.lg, ...shadows.card, marginBottom: spacing.sm,
-  },
-  calRing:   { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  calCenter: { position: 'absolute', alignItems: 'center' },
-  calValue:  { ...textStyles.titleSmall, color: colors.neutral.black },
-  calLabel:  { ...textStyles.caption, color: colors.neutral.midGray },
-  calInfo:   { flex: 1 },
-  calTitle:  { ...textStyles.bodyLarge, fontWeight: '600', color: colors.neutral.black },
-  calSub:    { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: 2 },
-  calRemain: { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: spacing.xs },
+  calCard:  { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, padding: spacing.lg, ...shadows.card, marginBottom: spacing.sm },
+  calRing:  { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  calCenter:{ position: 'absolute', alignItems: 'center' },
+  calValue: { ...textStyles.titleSmall, color: colors.neutral.black },
+  calLabel: { ...textStyles.caption, color: colors.neutral.midGray },
+  calInfo:  { flex: 1 },
+  calTitle: { ...textStyles.bodyLarge, fontWeight: '600', color: colors.neutral.black },
+  calSub:   { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: 2 },
+  calRemain:{ ...textStyles.bodyNormal, color: colors.neutral.midGray, marginTop: spacing.xs },
 
-  // Macros
   macroRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
 
-  // Workout
-  workoutCard: {
-    flexDirection:   'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.neutral.white, borderRadius: borderRadius.card,
-    padding: spacing.md, ...shadows.card,
-  },
-  workoutLeft:     { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  workoutIcon:     { fontSize: 32 },
-  workoutName:     { ...textStyles.bodyLarge, fontWeight: '600', color: colors.neutral.black },
-  workoutMeta:     { ...textStyles.caption, color: colors.neutral.midGray, marginTop: 2 },
-  workoutProgress: { alignItems: 'center' },
-  workoutFraction: { ...textStyles.titleSmall, color: colors.primary.green },
+  workoutCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, padding: spacing.md, ...shadows.card },
+  workoutLeft:          { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  workoutIcon:          { fontSize: 32 },
+  workoutName:          { ...textStyles.bodyLarge, fontWeight: '600', color: colors.neutral.black },
+  workoutMeta:          { ...textStyles.caption, color: colors.neutral.midGray, marginTop: 2 },
+  workoutProgress:      { alignItems: 'center' },
+  workoutFraction:      { ...textStyles.titleSmall, color: colors.primary.darkGreen },
   workoutFractionLabel: { ...textStyles.caption, color: colors.neutral.midGray },
-  workoutBar: {
-    height: 4, backgroundColor: colors.neutral.lightGray,
-    borderRadius: borderRadius.pill, overflow: 'hidden',
-    marginTop: 6, marginBottom: spacing.sm,
-  },
+  workoutBar:  { height: 4, backgroundColor: colors.neutral.lightGray, borderRadius: borderRadius.pill, overflow: 'hidden', marginTop: 6, marginBottom: spacing.sm },
   workoutFill: { height: '100%', backgroundColor: colors.primary.green, borderRadius: borderRadius.pill },
 
-  // Comidas chips
-  mealsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  mealChip: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    backgroundColor: colors.neutral.white, borderRadius: borderRadius.pill,
-    borderWidth: 1.5, borderColor: colors.neutral.lightGray, ...shadows.card,
-  },
+  mealsRow:     { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  mealChip:     { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.neutral.white, borderRadius: borderRadius.pill, borderWidth: 1.5, borderColor: colors.neutral.lightGray, ...shadows.card },
   mealChipDone: { borderColor: colors.primary.green, backgroundColor: colors.primary.lightGreen },
   mealChipIcon: { fontSize: 16 },
-  mealChipName: { ...textStyles.bodyNormal, color: colors.neutral.darkGray },
+  mealChipName:     { ...textStyles.bodyNormal, color: colors.neutral.darkGray },
   mealChipNameDone: { color: colors.primary.darkGreen, fontWeight: '600' },
 });
 

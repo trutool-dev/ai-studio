@@ -1,0 +1,62 @@
+name: Weekly DB Backup
+
+on:
+  schedule:
+    # Cada domingo a las 02:00 UTC
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Entorno a respaldar"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  backup:
+    name: pg_dump → GitHub Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar cliente PostgreSQL
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Crear dump de la base de datos
+        env:
+          ENV: ${{ github.event.inputs.environment || 'staging' }}
+          # Añadir estos secretos en GitHub:
+          # RAILWAY_STAGING_DATABASE_URL  → obtenido de Railway Dashboard → Postgres → Variables → DATABASE_URL
+          # RAILWAY_PRODUCTION_DATABASE_URL → ídem para el proyecto de producción
+          DATABASE_URL: ${{ github.event.inputs.environment == 'production' && secrets.RAILWAY_PRODUCTION_DATABASE_URL || secrets.RAILWAY_STAGING_DATABASE_URL }}
+        run: |
+          DATE=$(date +%Y%m%d)
+          WEEK=$(date +%Y-W%V)
+          FILENAME="healthy-${ENV}-backup-${WEEK}-${DATE}.sql"
+
+          echo "Creando backup: $FILENAME"
+          pg_dump "$DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --format=custom \
+            --file="$FILENAME"
+
+          echo "Backup completado: $(du -h $FILENAME | cut -f1)"
+          echo "filename=$FILENAME" >> $GITHUB_ENV
+
+      - name: Subir backup como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.event.inputs.environment || 'staging' }}-${{ github.run_id }}
+          path: "*.sql"
+          retention-days: 30
+
+      - name: Resumen
+        run: |
+          echo "Backup semanal completado"
+          echo "Entorno: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "Archivo: ${{ env.filename }}"
+          echo "Disponible en: Actions → este workflow → Artifacts"
+          echo "Retención: 30 días"

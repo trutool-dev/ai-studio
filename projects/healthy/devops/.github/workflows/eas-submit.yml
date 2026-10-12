@@ -1,0 +1,91 @@
+name: EAS Submit (production)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  submit:
+    name: Submit to App Store and Google Play
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: projects/healthy/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: projects/healthy/frontend
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build production with EAS
+        working-directory: projects/healthy/frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          echo "Compilando build de produccion para el tag: ${{ github.ref_name }}"
+
+          eas build \
+            --platform all \
+            --profile production \
+            --non-interactive \
+            --wait
+
+      - name: Submit to App Store Connect (iOS)
+        working-directory: projects/healthy/frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # App Store Connect API Key (método recomendado por EAS — NO usar EXPO_APPLE_APP_SPECIFIC_PASSWORD)
+          # Estas tres variables las lee eas-cli automáticamente
+          EXPO_ASC_API_KEY_ID: ${{ secrets.APPLE_APP_STORE_CONNECT_API_KEY_ID }}
+          EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.APPLE_APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          # Contenido del .p8 codificado en base64: base64 < AuthKey_XXXXXXXX.p8
+          EXPO_ASC_API_KEY_P8_CONTENT: ${{ secrets.APPLE_APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          eas submit \
+            --platform ios \
+            --profile production \
+            --non-interactive \
+            --latest
+
+      - name: Submit to Google Play (Android)
+        working-directory: projects/healthy/frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          # Escribir el service account JSON en el working directory
+          # (eas.json submit.production.android.serviceAccountKeyPath apunta a ./google-service-account.json)
+          echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > google-service-account.json
+
+          eas submit \
+            --platform android \
+            --profile production \
+            --non-interactive \
+            --latest
+
+          # Limpiar archivo con credenciales
+          rm -f google-service-account.json
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "Submit completado correctamente para la version ${{ github.ref_name }}"
+          echo "iOS: Disponible en TestFlight en unos minutos"
+          echo "Android: Disponible en Google Play Internal track en unos minutos"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "ERROR: El submit fallo para la version ${{ github.ref_name }}"
+          echo "Revisar los logs del workflow para mas detalles"
+          exit 1

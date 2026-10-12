@@ -1,31 +1,31 @@
 # Healthy App
 
-## Descripción
-Healthy es una aplicación móvil de salud y bienestar personalizada mediante
-IA. A diferencia de apps genéricas como MyFitnessPal o Hevy, Healthy adapta
-cada plan al usuario desde el primer momento a través de un onboarding
-inteligente que recoge su complexión física, nivel de actividad, hábitos
+## Descripciï¿½n
+Healthy es una aplicaciï¿½n mï¿½vil de salud y bienestar personalizada mediante
+IA. A diferencia de apps genï¿½ricas como MyFitnessPal o Hevy, Healthy adapta
+cada plan al usuario desde el primer momento a travï¿½s de un onboarding
+inteligente que recoge su complexiï¿½n fï¿½sica, nivel de actividad, hï¿½bitos
 y objetivo principal.
 
-Con esa información, la IA genera un plan completamente personalizado que
-combina nutrición y entrenamiento, se ajusta visualmente para ser fácil
-de seguir y evoluciona en tiempo real según el progreso del usuario.
+Con esa informaciï¿½n, la IA genera un plan completamente personalizado que
+combina nutriciï¿½n y entrenamiento, se ajusta visualmente para ser fï¿½cil
+de seguir y evoluciona en tiempo real segï¿½n el progreso del usuario.
 
 ## Usuarios objetivo
 Healthy da servicio a 4 perfiles mediante onboarding adaptativo:
 - Personas con sobrepeso que quieren perder peso de forma sostenible
-- Jóvenes que buscan ganar músculo y mejorar su rendimiento físico
+- Jï¿½venes que buscan ganar mï¿½sculo y mejorar su rendimiento fï¿½sico
 - Personas mayores que quieren mantenerse activas y saludables
-- Cualquier persona que quiera mejorar sus hábitos de salud generales
+- Cualquier persona que quiera mejorar sus hï¿½bitos de salud generales
 
 ## Diferenciadores clave
-- IA que personaliza según complexión, edad, peso, altura y objetivos
-- Combina nutrición y entrenamiento en un único plan coherente
+- IA que personaliza segï¿½n complexiï¿½n, edad, peso, altura y objetivos
+- Combina nutriciï¿½n y entrenamiento en un ï¿½nico plan coherente
 - Interfaz simple y visual, sin abrumar al usuario con datos
-- El plan evoluciona automáticamente según el progreso registrado
+- El plan evoluciona automï¿½ticamente segï¿½n el progreso registrado
 - Onboarding inteligente que determina el perfil exacto de cada usuario
 
-## Stack tecnológico
+## Stack tecnolï¿½gico
 - Frontend: React Native + Expo
 - Backend: Node.js + Express
 - Base de datos: PostgreSQL + Redis
@@ -35,16 +35,26 @@ Healthy da servicio a 4 perfiles mediante onboarding adaptativo:
 - CI/CD: GitHub Actions
 
 ## Estructura del proyecto
-- /frontend   ? App móvil React Native
+- /frontend   ? App mï¿½vil React Native
 - /backend    ? API REST Node.js
 - /database   ? Esquema, migraciones y seeds
-- /ai         ? Integración Claude API y lógica de personalización
+- /ai         ? Integraciï¿½n Claude API y lï¿½gica de personalizaciï¿½n
 - /tests      ? Tests unitarios y e2e
 - /devops     ? Docker, CI/CD y despliegue
-- /security   ? Auditoría, validaciones y cumplimiento RGPD
+- /security   ? Auditorï¿½a, validaciones y cumplimiento RGPD
+
+## Memoria del proyecto
+
+El archivo `ORCHESTRATOR_STATUS.log` es la memoria persistente del proyecto.
+Al inicio de cada sesiÃ³n de trabajo, leerlo para obtener el punto de situaciÃ³n.
+Al final de cada sesiÃ³n, aÃ±adir una entrada con:
+- Fecha de la sesiÃ³n
+- Trabajo realizado
+- Estado actualizado de criterios de go-live
+- Bloqueos activos y prÃ³ximas acciones
 
 ## Reglas generales para todos los agentes
-- Código en inglés, comentarios en español
+- Cï¿½digo en inglï¿½s, comentarios en espaï¿½ol
 - Commits en formato conventional commits (feat:, fix:, docs:, etc.)
 - Nunca modificar archivos fuera de tu carpeta asignada
 - Antes de implementar, revisar si existe algo similar ya creado
@@ -52,8 +62,8 @@ Healthy da servicio a 4 perfiles mediante onboarding adaptativo:
 - Los datos de salud del usuario son sensibles, tratar con RGPD en mente
 
 ## Flujo de ramas
-- main        ? producción
-- develop     ? integración
+- main        ? producciï¿½n
+- develop     ? integraciï¿½n
 - feature/frontend   ? agente frontend
 - feature/backend    ? agente backend
 - feature/database   ? agente base de datos

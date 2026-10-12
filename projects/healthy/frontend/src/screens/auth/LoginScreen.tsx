@@ -9,11 +9,12 @@ import { textStyles }   from '@/theme/typography';
 import { spacing }      from '@/theme/spacing';
 import { useAuthStore } from '@/stores/authStore';
 import { authService }  from '@/services/authService';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
-  const { setAuth } = useAuthStore();
+  const { login } = useAuthStore();
   const [email, setEmail]   = useState('');
   const [pwd, setPwd]       = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -31,10 +32,13 @@ export function LoginScreen({ navigation }: Props) {
     if (!validate()) return;
     setLoading(true);
     try {
-      const { data } = await authService.login(email.trim(), pwd);
-      await setAuth(data.user, data.token);
+      const auth = await authService.login(email.trim(), pwd);
+      await login(auth.user, auth.access_token, auth.refresh_token);
+      // La navegación la gestiona RootNavigator en función de isAuthenticated
     } catch (err: any) {
-      const msg = err.response?.status === 401 ? 'Email o contraseña incorrectos' : err.response?.data?.message ?? 'Error al iniciar sesión';
+      const msg = err.response?.status === 401
+        ? 'Email o contraseña incorrectos'
+        : extractApiError(err, 'Error al iniciar sesión');
       setErrors({ general: msg });
     } finally { setLoading(false); }
   };
@@ -43,18 +47,46 @@ export function LoginScreen({ navigation }: Props) {
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>← Volver</Text></TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Volver atrás"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={s.back}>← Volver</Text>
+          </TouchableOpacity>
           <Text style={s.title}>Bienvenido de nuevo</Text>
           <Text style={s.sub}>Inicia sesión para continuar con tu plan</Text>
-          <Input label="Email" value={email} onChangeText={(t) => { setEmail(t); setErrors({}); }} keyboardType="email-address" errorMessage={errors.email} inputProps={{ autoCapitalize: 'none' }} />
-          <Input label="Contraseña" value={pwd} onChangeText={(t) => { setPwd(t); setErrors({}); }} secureText={!showPwd} errorMessage={errors.pwd} style={s.gap}
-            rightElement={<TouchableOpacity onPress={() => setShowPwd(v => !v)}><Text style={{ fontSize: 18 }}>{showPwd ? '🙈' : '👁'}</Text></TouchableOpacity>} />
+          <Input label="Email" value={email} onChangeText={(t) => { setEmail(t); setErrors({}); }}
+            keyboardType="email-address" errorMessage={errors.email}
+            inputProps={{ autoCapitalize: 'none' }} />
+          <Input label="Contraseña" value={pwd} onChangeText={(t) => { setPwd(t); setErrors({}); }}
+            secureText={!showPwd} errorMessage={errors.pwd} style={s.gap}
+            rightElement={
+              <TouchableOpacity
+                onPress={() => setShowPwd(v => !v)}
+                accessibilityLabel={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ fontSize: 18 }}>{showPwd ? '🙈' : '👁'}</Text>
+              </TouchableOpacity>
+            } />
           {errors.general ? <Text style={s.error}>{errors.general}</Text> : null}
-          <TouchableOpacity style={s.forgot} onPress={() => navigation.navigate('ForgotPassword')}><Text style={s.link}>¿Olvidaste tu contraseña?</Text></TouchableOpacity>
+          <TouchableOpacity
+            style={s.forgot}
+            onPress={() => navigation.navigate('ForgotPassword')}
+            accessibilityLabel="¿Olvidaste tu contraseña?"
+          >
+            <Text style={s.link}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
           <Button label="Iniciar sesión" variant="primary" loading={loading} onPress={handleLogin} style={s.cta} />
           <View style={s.footer}>
             <Text style={s.footerText}>¿No tienes cuenta? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}><Text style={s.link}>Regístrate gratis</Text></TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Register')}
+              accessibilityLabel="Regístrate gratis"
+            >
+              <Text style={s.link}>Regístrate gratis</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -69,9 +101,9 @@ const s = StyleSheet.create({
   title:  { ...textStyles.titleMedium, color: colors.neutral.black },
   sub:    { ...textStyles.bodyNormal, color: colors.neutral.midGray },
   gap:    {},
-  error:  { ...textStyles.caption, color: colors.semantic.error, textAlign: 'center' },
+  error:  { ...textStyles.caption, color: '#DC2626', textAlign: 'center' },
   forgot: { alignSelf: 'flex-end' },
-  link:   { ...textStyles.bodyNormal, color: colors.primary.green, fontWeight: '600' },
+  link:   { ...textStyles.bodyNormal, color: colors.primary.darkGreen, fontWeight: '600' },
   cta:    {},
   footer: { flexDirection: 'row', justifyContent: 'center' },
   footerText: { ...textStyles.bodyNormal, color: colors.neutral.midGray },

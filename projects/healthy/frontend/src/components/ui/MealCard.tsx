@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Meal, calcMealTotals }              from '@/stores/planStore';
 import { colors }                            from '@/theme/colors';
 import { textStyles }                        from '@/theme/typography';
@@ -19,9 +20,14 @@ export function MealCard({ meal, onToggle }: MealCardProps) {
   const totals = calcMealTotals(meal);
 
   return (
-    <View style={[styles.card, meal.completed && styles.cardDone]}>
+    <Animated.View layout={LinearTransition.duration(200)} style={[styles.card, meal.completed && styles.cardDone]}>
       {/* Cabecera — siempre visible */}
-      <Pressable style={styles.header} onPress={() => setExpanded((v) => !v)}>
+      <Pressable
+        style={styles.header}
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityLabel={`${meal.name}, ${totals.calories} kcal, ${meal.completed ? 'completada' : 'pendiente'}`}
+        accessibilityRole="button"
+      >
         <Text style={styles.icon}>{meal.icon}</Text>
 
         <View style={styles.headerText}>
@@ -40,9 +46,13 @@ export function MealCard({ meal, onToggle }: MealCardProps) {
         <Text style={[styles.chevron, expanded && styles.chevronUp]}>›</Text>
       </Pressable>
 
-      {/* Detalle expandible */}
+      {/* Detalle expandible — con FadeIn/FadeOut animado */}
       {expanded && (
-        <View style={styles.detail}>
+        <Animated.View
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(100)}
+          style={styles.detail}
+        >
           <View style={styles.divider} />
           {meal.foods.map((f) => (
             <View key={f.id} style={styles.foodRow}>
@@ -57,14 +67,16 @@ export function MealCard({ meal, onToggle }: MealCardProps) {
           <Pressable
             style={[styles.doneBtn, meal.completed && styles.doneBtnDone]}
             onPress={() => onToggle?.(meal.id)}
+            accessibilityLabel={meal.completed ? `Desmarcar ${meal.name} como completada` : `Marcar ${meal.name} como completada`}
+            accessibilityRole="button"
           >
             <Text style={[styles.doneBtnText, meal.completed && styles.doneBtnTextDone]}>
               {meal.completed ? '✓ Completado' : 'Marcar como completado'}
             </Text>
           </Pressable>
-        </View>
+        </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -126,14 +138,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius:    borderRadius.button,
     borderWidth:     1.5,
-    borderColor:     colors.primary.green,
+    borderColor:     colors.primary.darkGreen,
     alignItems:      'center',
   },
   doneBtnDone: {
     backgroundColor: colors.primary.lightGreen,
     borderColor:     colors.primary.green,
   },
-  doneBtnText:     { ...textStyles.bodyNormal, color: colors.primary.green, fontWeight: '600' },
+  doneBtnText:     { ...textStyles.bodyNormal, color: colors.primary.darkGreen, fontWeight: '600' },
   doneBtnTextDone: { color: colors.primary.darkGreen },
 });
 

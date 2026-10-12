@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
-import { Animated, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors }    from '@/theme/colors';
-import { borderRadius, shadows, spacing, duration, pressedScale } from '@/theme/spacing';
+import { borderRadius, shadows, spacing } from '@/theme/spacing';
 
 export type CardVariant = 'default' | 'elevated' | 'pressable' | 'highlight';
 
@@ -11,15 +12,23 @@ interface CardProps {
 }
 
 export function Card({ children, variant = 'default', onPress, style, contentStyle, noPadding = false }: CardProps) {
-  const scaleAnim  = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const timingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
+
   const isPressable = !!(onPress || variant === 'pressable');
-  const animate = (v: number) => Animated.timing(scaleAnim, { toValue: v, duration: duration.fast, useNativeDriver: true }).start();
   const cardStyle = [styles.base, styles[variant] ?? styles.default, style];
   const innerStyle = [!noPadding && styles.padding, contentStyle];
 
   if (isPressable) return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <Pressable onPress={onPress} onPressIn={() => animate(pressedScale)} onPressOut={() => animate(1)} style={cardStyle} accessibilityRole="button">
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => { scale.value = withTiming(0.97, timingConfig); }}
+        onPressOut={() => { scale.value = withTiming(1, timingConfig); }}
+        style={cardStyle}
+        accessibilityRole="button"
+      >
         <View style={innerStyle}>{children}</View>
       </Pressable>
     </Animated.View>

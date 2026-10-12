@@ -2,11 +2,14 @@
 
 ## Entornos
 
-| Entorno     | Rama      | Infraestructura           |
-|-------------|-----------|---------------------------|
-| development | cualquiera| Docker Compose local      |
-| staging     | develop   | AWS (réplica de producción)|
-| production  | main      | AWS (usuarios reales)     |
+| Entorno     | Rama      | Infraestructura               |
+|-------------|-----------|-------------------------------|
+| development | cualquiera| Docker Compose local          |
+| staging     | develop   | Railway (backend + PG + Redis)|
+| production  | main      | Railway (backend + PG + Redis)|
+
+> **Decisión de infraestructura:** AWS descartado por coste. Toda la infraestructura de backend usa Railway (~$20/mes en producción frente a ~$188/mes en AWS).
+> La landing page sigue usando AWS S3 + CloudFront (coste mínimo, sin cambios).
 
 ---
 
@@ -46,37 +49,40 @@ docker exec -it healthy-postgres psql -U healthy -d healthy_db
 
 ---
 
-## Arquitectura AWS
+## ⚠️ Archivos Terraform deprecados
+
+Los archivos en `infra/` (vpc.tf, ecs.tf, rds.tf, elasticache.tf, alb.tf, etc.) están **deprecados**
+y no se deben usar. Railway fue elegido como plataforma de despliegue por razones de coste.
+El borrado físico de estos archivos se hará manualmente cuando se confirme que no se necesitan como referencia.
+
+---
+
+## Arquitectura Railway (activa)
 
 ```
 Internet
    │
    ▼
-Application Load Balancer (HTTPS)
+Railway Proxy (HTTPS automático)
    │
    ▼
-ECS Fargate — healthy-backend (Node.js)
-   ├── RDS PostgreSQL 16 (Multi-AZ en producción)
-   └── ElastiCache Redis 7
+Railway Service — healthy-backend (Node.js)
+   ├── Railway PostgreSQL 16 (plugin)
+   └── Railway Redis 7 (plugin)
 
-App móvil
-   └── CloudFront CDN
-          ├── S3 — assets estáticos (público)
-          └── S3 — fotos de progreso (privado, pre-signed URLs)
+Landing page
+   └── AWS CloudFront CDN
+          └── AWS S3 — archivos estáticos
 ```
 
-### Servicios AWS utilizados
+### Servicios utilizados
 
-| Servicio        | Uso                                          |
-|-----------------|----------------------------------------------|
-| ECS Fargate     | Contenedor backend sin gestión de servidores |
-| ECR             | Registro privado de imágenes Docker          |
-| RDS PostgreSQL  | Base de datos principal                      |
-| ElastiCache     | Caché Redis y sesiones                       |
-| S3              | Assets y fotos de progreso                   |
-| CloudFront      | CDN para assets estáticos                    |
-| ALB             | Load balancer con terminación TLS            |
-| Secrets Manager | Credenciales y claves API en producción      |
+| Servicio | Proveedor | Uso |
+|----------|-----------|-----|
+| Railway Service | Railway | Backend Node.js (staging y producción) |
+| PostgreSQL 16 plugin | Railway | Base de datos principal |
+| Redis 7 plugin | Railway | Caché y sesiones |
+| S3 + CloudFront | AWS | Landing page estática únicamente |
 
 ---
 
@@ -114,16 +120,19 @@ un revisor debe aprobar manualmente antes de que el job ejecute.
 
 ## Secrets de GitHub requeridos
 
-Configurar en **Settings → Secrets and variables → Actions**:
+Ver `GITHUB_SECRETS.md` para la guía completa. Resumen de los más importantes:
 
-| Secret                    | Descripción                              |
-|---------------------------|------------------------------------------|
-| `AWS_ACCESS_KEY_ID`       | Credencial IAM con permisos ECS + ECR    |
-| `AWS_SECRET_ACCESS_KEY`   | Secreto de la credencial IAM             |
+| Secret | Descripción |
+|--------|-------------|
+| `RAILWAY_TOKEN` | Token Railway CLI (staging y producción) |
+| `RAILWAY_PRODUCTION_SERVICE_ID` | ID del servicio Railway de producción |
+| `RAILWAY_PRODUCTION_DATABASE_URL` | URL de PostgreSQL de producción (para backups) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Solo para la landing (S3 + CloudFront) |
 
-Los secretos de aplicación (Supabase, Anthropic, etc.) se gestionan en
-**AWS Secrets Manager** y se inyectan en ECS Task Definition, nunca en
-variables de entorno del repositorio.
+Los secretos de aplicación (Supabase, Anthropic, JWT, SMTP, etc.) se configuran
+directamente en el panel de Railway como variables de entorno del servicio,
+y también en los GitHub Environments (`staging` / `production`) para que el pipeline
+de migraciones pueda acceder a `DATABASE_URL`.
 
 ---
 
@@ -139,11 +148,12 @@ variables de entorno del repositorio.
 ### `database/Dockerfile`
 - Extiende `postgres:16-alpine`
 - Copia scripts de `database/init/` para inicialización automática
-- Solo usado en desarrollo local; en AWS se usa RDS directamente
+- Solo usado en desarrollo local; en staging/producción se usa el plugin PostgreSQL de Railway directamente
 
 ---
 
 ## Variables de entorno
 
 Ver `.env.example` en la raíz del proyecto para la lista completa.  
-En producción todas las variables sensibles residen en AWS Secrets Manager.
+En staging y producción las variables sensibles se configuran en el panel de Railway
+(Settings → Variables del servicio) y en los GitHub Environments para el pipeline de migraciones.

@@ -1,20 +1,43 @@
 /**
- * ProgressScreen — métricas de evolución: peso, racha, estadísticas y logros
+ * ProgressScreen — métricas, peso, racha, logros y registro de progreso.
+ * FE-06: GET /progress + /progress/stats · POST /progress · POST /plans/regenerate.
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  SafeAreaView, ScrollView, StyleSheet,
-  Text, View, Pressable,
+  Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet,
+  Text, TextInput, View, Pressable,
 } from 'react-native';
-import { usePlanStore }                        from '@/stores/planStore';
-import { ActivityRings, DailyProgressRing }   from '@/components/ui/ProgressRing';
-import { MetricCard, RecoveryScore, MetricGrid } from '@/components/ui/MetricCard';
-import { colors }                              from '@/theme/colors';
-import { textStyles }                          from '@/theme/typography';
-import { spacing, borderRadius, shadows }      from '@/theme/spacing';
+import ReAnimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withSpring,
+  interpolate, Extrapolation, FadeIn, Easing, ReduceMotion,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { scheduleOnRN } from 'react-native-worklets';
+import { usePlanStore }                           from '@/stores/planStore';
+import { ActivityRings, DailyProgressRing }       from '@/components/ui/ProgressRing';
+import { MetricCard, RecoveryScore, MetricGrid }  from '@/components/ui/MetricCard';
+import { Button }                                 from '@/components/ui/Button';
+import { colors }                                 from '@/theme/colors';
+import { textStyles }                             from '@/theme/typography';
+import { spacing, borderRadius, shadows }         from '@/theme/spacing';
 
-// ── Gráfico de barras simple (sin librería externa) ──────────────────────────
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number; width?: number | string; style?: object }) {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1,   duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, opacity, marginBottom: 8 }, style]} />;
+}
+
+// ── Gráfico de barras ─────────────────────────────────────────────────────────
 
 function WeightChart({ entries }: { entries: { date: string; value: number }[] }) {
   if (entries.length === 0) return null;
@@ -25,27 +48,16 @@ function WeightChart({ entries }: { entries: { date: string; value: number }[] }
 
   return (
     <View style={chartStyles.wrapper}>
-      {/* Líneas de referencia */}
       {[0, 0.25, 0.5, 0.75, 1].map((t) => (
         <View key={t} style={[chartStyles.gridLine, { bottom: `${t * 100}%` as any }]} />
       ))}
-
-      {/* Barras */}
       <View style={chartStyles.bars}>
         {entries.map((e, i) => {
           const h      = range > 0 ? ((e.value - min) / range) * 100 : 50;
           const isLast = i === entries.length - 1;
           return (
             <View key={i} style={chartStyles.barCol}>
-              <View
-                style={[
-                  chartStyles.bar,
-                  {
-                    height:          `${h}%` as any,
-                    backgroundColor: isLast ? colors.primary.green : colors.primary.lightGreen,
-                  },
-                ]}
-              >
+              <View style={[chartStyles.bar, { height: `${h}%` as any, backgroundColor: isLast ? colors.primary.green : colors.primary.lightGreen }]}>
                 {isLast && <Text style={chartStyles.barLabel}>{e.value}</Text>}
               </View>
               <Text style={chartStyles.barDate}>{e.date}</Text>
@@ -57,15 +69,12 @@ function WeightChart({ entries }: { entries: { date: string; value: number }[] }
   );
 }
 
-// ── Calendario de racha (últimas 4 semanas) ──────────────────────────────────
+// ── Calendario de racha ───────────────────────────────────────────────────────
 
 function StreakCalendar({ streak }: { streak: number }) {
   const days  = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   const weeks = 4;
-  const cells = Array.from({ length: weeks * 7 }, (_, i) => {
-    const daysAgo = weeks * 7 - 1 - i;
-    return daysAgo < streak;
-  });
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => weeks * 7 - 1 - i < streak);
 
   return (
     <View style={calStyles.grid}>
@@ -77,13 +86,184 @@ function StreakCalendar({ streak }: { streak: number }) {
   );
 }
 
-// ── Pantalla ─────────────────────────────────────────────────────────────────
+// ── Helpers para bottom sheet ─────────────────────────────────────────────────
+
+function projectVelocity(velocity: number, decelerationRate = 0.998): number {
+  'worklet';
+  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
+}
+
+function rubberband(overshoot: number, dimension: number, constant = 0.55): number {
+  'worklet';
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
+const PROGRESS_SHEET_HEIGHT = 360;
+
+// ── Bottom sheet de registro de progreso ──────────────────────────────────────
+
+interface ProgressSheetProps {
+  onSubmit:  (weight: number, notes: string) => void;
+  onClose:   () => void;
+  submitting: boolean;
+}
+
+function ProgressSheet({ onSubmit, onClose, submitting }: ProgressSheetProps) {
+  const [weight, setWeight] = useState('');
+  const [notes,  setNotes]  = useState('');
+
+  const translateY = useSharedValue(PROGRESS_SHEET_HEIGHT);
+  const context    = useSharedValue(0);
+
+  // Abrir al montar
+  useEffect(() => {
+    translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System });
+  }, []);
+
+  const closeSheet = useCallback(() => {
+    translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, overshootClamping: true, reduceMotion: ReduceMotion.System });
+    scheduleOnRN(onClose);
+  }, [onClose]);
+
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-10, 10])
+    .onStart(() => { context.value = translateY.value; })
+    .onUpdate((e) => {
+      const next = context.value + e.translationY;
+      translateY.value = next >= 0 ? next : rubberband(next, PROGRESS_SHEET_HEIGHT);
+    })
+    .onEnd((e) => {
+      const projected = translateY.value + projectVelocity(e.velocityY);
+      if (projected > PROGRESS_SHEET_HEIGHT * 0.4) {
+        translateY.value = withSpring(PROGRESS_SHEET_HEIGHT, { duration: 300, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true, reduceMotion: ReduceMotion.System });
+        scheduleOnRN(onClose);
+      } else {
+        translateY.value = withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY, reduceMotion: ReduceMotion.System });
+      }
+    }), [onClose]);
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateY.value, [0, PROGRESS_SHEET_HEIGHT], [0.5, 0], Extrapolation.CLAMP),
+  }));
+
+  return (
+    <View style={pmStyles.container} pointerEvents="box-none">
+      {/* Fondo oscuro */}
+      <ReAnimated.View style={[pmStyles.backdrop, backdropStyle]} pointerEvents="box-none">
+        <Pressable style={{ flex: 1 }} onPress={closeSheet} accessibilityLabel="Cerrar sheet" />
+      </ReAnimated.View>
+
+      {/* Sheet */}
+      <GestureDetector gesture={pan}>
+        <ReAnimated.View style={[pmStyles.sheet, sheetStyle]}>
+          <View style={pmStyles.handle} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <Text style={pmStyles.title}>Registrar progreso</Text>
+            <View style={pmStyles.field}>
+              <Text style={pmStyles.fieldLabel}>Peso actual (kg) — opcional</Text>
+              <TextInput
+                style={pmStyles.input}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="decimal-pad"
+                placeholder="Ej: 80.5"
+                placeholderTextColor={colors.neutral.midGray}
+                accessibilityLabel="Peso en kilogramos"
+              />
+            </View>
+            <View style={pmStyles.field}>
+              <Text style={pmStyles.fieldLabel}>Notas — opcional</Text>
+              <TextInput
+                style={[pmStyles.input, { height: 80, textAlignVertical: 'top' }]}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                placeholder="¿Cómo te has sentido esta semana?"
+                placeholderTextColor={colors.neutral.midGray}
+                accessibilityLabel="Notas de progreso"
+              />
+            </View>
+            <View style={pmStyles.btns}>
+              <Button label="Cancelar" variant="secondary" onPress={closeSheet} style={{ flex: 1 }} />
+              <Button
+                label="Guardar"
+                variant="primary"
+                loading={submitting}
+                onPress={() => onSubmit(parseFloat(weight) || 0, notes)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </KeyboardAvoidingView>
+        </ReAnimated.View>
+      </GestureDetector>
+    </View>
+  );
+}
+
+// ── Modal de regeneración de plan ─────────────────────────────────────────────
+
+interface RegenModalProps {
+  visible:      boolean;
+  onConfirm:    () => void;
+  onDismiss:    () => void;
+  regenerating: boolean;
+}
+
+function RegenModal({ visible, onConfirm, onDismiss, regenerating }: RegenModalProps) {
+  if (!visible) return null;
+  return (
+    <View style={regenStyles.overlay} pointerEvents="box-none">
+      <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={onDismiss} />
+      <ReAnimated.View entering={FadeIn.duration(200).withInitialValues({ opacity: 0, transform: [{ scale: 0.9 }] })} style={regenStyles.card}>
+        <Text style={{ fontSize: 40, textAlign: 'center' }}>🔄</Text>
+        <Text style={regenStyles.title}>¿Actualizar tu plan?</Text>
+        <Text style={regenStyles.body}>
+          Tu progreso sugiere que tu plan actual podría optimizarse. ¿Quieres que la IA regenere tu plan con los nuevos datos?
+        </Text>
+        <Button label="Sí, regenerar plan" variant="primary" loading={regenerating} onPress={onConfirm} />
+        <Button label="Mantener el actual" variant="ghost"   onPress={onDismiss}    style={{ marginTop: spacing.sm }} />
+      </ReAnimated.View>
+    </View>
+  );
+}
+
+// ── Pantalla principal ────────────────────────────────────────────────────────
 
 const PERIODS = ['Semana', 'Mes', '3 meses'];
 
+const ACHIEVEMENTS = [
+  { id: 'a1', icon: '🌱', label: 'Primera semana',  unlocked: true  },
+  { id: 'a2', icon: '🔥', label: '7 días de racha', unlocked: true  },
+  { id: 'a3', icon: '💪', label: '10 entrenos',     unlocked: true  },
+  { id: 'a4', icon: '⚖️', label: '-5 kg',           unlocked: false },
+  { id: 'a5', icon: '🏆', label: '30 días racha',   unlocked: false },
+  { id: 'a6', icon: '🥗', label: 'Mes perfecto',    unlocked: false },
+];
+
 export function ProgressScreen() {
-  const { weightHistory, streak, todayWorkout, todayMeals } = usePlanStore();
-  const [period, setPeriod] = useState(0);
+  const {
+    weightHistory, streak,
+    todayWorkout, todayMeals,
+    fetchProgress, submitProgress, regeneratePlan,
+    isLoadingProgress,
+  } = usePlanStore();
+
+  const [period, setPeriod]     = useState(0);
+  const [showProgress, setShowProgress] = useState(false);
+  const [showRegen, setShowRegen]       = useState(false);
+  const [submitting,    setSubmitting]  = useState(false);
+  const [regenerating,  setRegenerating] = useState(false);
+
+  // Press feedback para el botón "+ Registrar"
+  const addBtnScale = useSharedValue(1);
+  const addBtnAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: addBtnScale.value }] }));
+  const addBtnCfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
+
+  useEffect(() => { fetchProgress(); }, []);
 
   const lastWeight  = weightHistory.at(-1)?.value ?? 0;
   const firstWeight = weightHistory[0]?.value      ?? 0;
@@ -95,11 +275,47 @@ export function ProgressScreen() {
   const pct            = totalCount > 0 ? exCompleted / totalCount : 0;
   const allDone        = exCompleted === totalCount && totalCount > 0;
 
+  const handleSubmitProgress = async (weight: number, notes: string) => {
+    setSubmitting(true);
+    try {
+      const result = await submitProgress({ weight_kg: weight || undefined, notes: notes || undefined });
+      setShowProgress(false);
+      if (result.needs_plan_regeneration) {
+        setShowRegen(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      await regeneratePlan();
+      setShowRegen(false);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        <Text style={styles.title}>Mi progreso</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Mi progreso</Text>
+          <ReAnimated.View style={addBtnAnimStyle}>
+            <Pressable
+              onPress={() => setShowProgress(true)}
+              onPressIn={() => { addBtnScale.value = withTiming(0.97, addBtnCfg); }}
+              onPressOut={() => { addBtnScale.value = withTiming(1, addBtnCfg); }}
+              style={styles.addBtn}
+              accessibilityLabel="Registrar nuevo progreso"
+            >
+              <Text style={styles.addBtnText}>+ Registrar</Text>
+            </Pressable>
+          </ReAnimated.View>
+        </View>
 
         {/* Score de recuperación protagonista */}
         <RecoveryScore
@@ -118,7 +334,7 @@ export function ProgressScreen() {
               unit:        'kg',
               trend:       weightDiff > 0 ? -weightDiff : weightDiff,
               trendLabel:  'total',
-              accentColor: colors.primary.green,
+              accentColor: colors.primary.darkGreen,
               icon:        '⚖️',
             },
             {
@@ -139,7 +355,7 @@ export function ProgressScreen() {
               label:       'Comidas',
               value:       `${mealsCompleted}`,
               unit:        `/ ${todayMeals.length}`,
-              accentColor: colors.semantic.success,
+              accentColor: '#16A34A',
               icon:        '🥗',
             },
           ]}
@@ -152,13 +368,15 @@ export function ProgressScreen() {
               key={p}
               onPress={() => setPeriod(i)}
               style={[styles.periodBtn, period === i && styles.periodBtnActive]}
+              accessibilityLabel={p}
+              accessibilityState={{ selected: period === i }}
             >
               <Text style={[styles.periodText, period === i && styles.periodTextActive]}>{p}</Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Anillos de actividad centrados */}
+        {/* Anillos de actividad */}
         <View style={styles.ringsWrapper}>
           <ActivityRings
             move={pct}
@@ -168,19 +386,29 @@ export function ProgressScreen() {
           />
         </View>
 
-        {/* Gráfico de peso */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Evolución del peso</Text>
-            <Text style={styles.chartDiff}>
-              {weightDiff > 0
-                ? <Text style={{ color: colors.primary.green }}>↓ -{weightDiff} kg</Text>
-                : <Text style={{ color: colors.semantic.error }}>↑ +{Math.abs(weightDiff)} kg</Text>
-              }
-            </Text>
+        {/* Skeleton si cargando */}
+        {isLoadingProgress && (
+          <View style={{ gap: spacing.sm }}>
+            <SkeletonBlock height={140} />
+            <SkeletonBlock height={80} />
           </View>
-          <WeightChart entries={weightHistory} />
-        </View>
+        )}
+
+        {/* Gráfico de peso */}
+        {!isLoadingProgress && (
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartTitle}>Evolución del peso</Text>
+              <Text style={styles.chartDiff}>
+                {weightDiff > 0
+                  ? <Text style={{ color: colors.primary.darkGreen }}>↓ -{weightDiff} kg</Text>
+                  : <Text style={{ color: '#DC2626' }}>↑ +{Math.abs(weightDiff)} kg</Text>
+                }
+              </Text>
+            </View>
+            <WeightChart entries={weightHistory} />
+          </View>
+        )}
 
         {/* Racha */}
         <View style={styles.sectionCard}>
@@ -195,11 +423,11 @@ export function ProgressScreen() {
           <Text style={styles.streakHint}>¡Sigue así! Cada día cuenta para tu racha.</Text>
         </View>
 
-        {/* Hoy en resumen */}
+        {/* Resumen de hoy */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Resumen de hoy</Text>
           <View style={styles.todaySummary}>
-            <TodayRow icon="🥗" label="Comidas"    value={`${mealsCompleted}/${todayMeals.length}`} done={mealsCompleted === todayMeals.length} />
+            <TodayRow icon="🥗" label="Comidas"    value={`${mealsCompleted}/${todayMeals.length}`}          done={mealsCompleted === todayMeals.length} />
             <TodayRow icon="🏋️" label="Ejercicios" value={`${exCompleted}/${todayWorkout.exercises.length}`} done={exCompleted === todayWorkout.exercises.length} />
           </View>
         </View>
@@ -217,6 +445,23 @@ export function ProgressScreen() {
 
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
+
+      {/* Bottom sheet de progreso */}
+      {showProgress && (
+        <ProgressSheet
+          onSubmit={handleSubmitProgress}
+          onClose={() => setShowProgress(false)}
+          submitting={submitting}
+        />
+      )}
+
+      {/* Modal centrado de regeneración de plan */}
+      <RegenModal
+        visible={showRegen}
+        onConfirm={handleRegenerate}
+        onDismiss={() => setShowRegen(false)}
+        regenerating={regenerating}
+      />
     </SafeAreaView>
   );
 }
@@ -232,24 +477,15 @@ function TodayRow({ icon, label, value, done }: { icon: string; label: string; v
   );
 }
 
-const ACHIEVEMENTS = [
-  { id: 'a1', icon: '🌱', label: 'Primera semana',  unlocked: true  },
-  { id: 'a2', icon: '🔥', label: '7 días de racha', unlocked: true  },
-  { id: 'a3', icon: '💪', label: '10 entrenos',     unlocked: true  },
-  { id: 'a4', icon: '⚖️', label: '-5 kg',           unlocked: false },
-  { id: 'a5', icon: '🏆', label: '30 días racha',   unlocked: false },
-  { id: 'a6', icon: '🥗', label: 'Mes perfecto',    unlocked: false },
-];
-
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: colors.neutral.offWhite },
   scroll: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
-  title:  { ...textStyles.titleMedium, color: colors.neutral.black, marginBottom: spacing.lg },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg },
+  title:     { ...textStyles.titleMedium, color: colors.neutral.black },
+  addBtn:    { backgroundColor: colors.primary.darkGreen, borderRadius: borderRadius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  addBtnText:{ ...textStyles.caption, color: colors.neutral.white, fontWeight: '700' },
 
-  periodRow: {
-    flexDirection: 'row', backgroundColor: colors.neutral.lightGray,
-    borderRadius: borderRadius.pill, padding: 3, marginBottom: spacing.lg,
-  },
+  periodRow:        { flexDirection: 'row', backgroundColor: colors.neutral.lightGray, borderRadius: borderRadius.pill, padding: 3, marginBottom: spacing.lg },
   periodBtn:        { flex: 1, paddingVertical: spacing.sm, alignItems: 'center', borderRadius: borderRadius.pill },
   periodBtnActive:  { backgroundColor: colors.neutral.white, ...shadows.card },
   periodText:       { ...textStyles.bodyNormal, color: colors.neutral.midGray },
@@ -257,18 +493,12 @@ const styles = StyleSheet.create({
 
   ringsWrapper: { alignItems: 'center', marginBottom: spacing.lg },
 
-  chartCard: {
-    backgroundColor: colors.neutral.white, borderRadius: borderRadius.card,
-    padding: spacing.lg, ...shadows.card, marginBottom: spacing.lg,
-  },
+  chartCard: { backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, padding: spacing.lg, ...shadows.card, marginBottom: spacing.lg },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
   chartTitle:  { ...textStyles.bodyLarge, fontWeight: '600', color: colors.neutral.black },
   chartDiff:   { ...textStyles.bodyNormal, fontWeight: '700' },
 
-  sectionCard: {
-    backgroundColor: colors.neutral.white, borderRadius: borderRadius.card,
-    padding: spacing.lg, ...shadows.card, marginBottom: spacing.lg,
-  },
+  sectionCard:  { backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, padding: spacing.lg, ...shadows.card, marginBottom: spacing.lg },
   sectionTitle: { ...textStyles.bodyLarge, fontWeight: '600', color: colors.neutral.black, marginBottom: spacing.md },
 
   streakHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
@@ -281,17 +511,12 @@ const styles = StyleSheet.create({
 
   achievementsTitle: { ...textStyles.titleSmall, color: colors.neutral.black, marginBottom: spacing.md },
   achievementsRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  achievement: {
-    alignItems: 'center', gap: spacing.xs, flex: 1, minWidth: 80,
-    backgroundColor: colors.neutral.white, borderRadius: borderRadius.card,
-    padding: spacing.md, ...shadows.card,
-    borderWidth: 1.5, borderColor: colors.primary.lightGreen,
-  },
-  achievementLocked:      { borderColor: colors.neutral.lightGray, backgroundColor: colors.neutral.offWhite },
-  achievementIcon:        { fontSize: 28 },
-  achievementIconLocked:  { opacity: 0.3 },
-  achievementLabel:       { ...textStyles.caption, color: colors.neutral.darkGray, fontWeight: '600', textAlign: 'center' },
-  achievementLabelLocked: { color: colors.neutral.midGray },
+  achievement: { alignItems: 'center', gap: spacing.xs, flex: 1, minWidth: 80, backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, padding: spacing.md, ...shadows.card, borderWidth: 1.5, borderColor: colors.primary.lightGreen },
+  achievementLocked:       { borderColor: colors.neutral.lightGray, backgroundColor: colors.neutral.offWhite },
+  achievementIcon:         { fontSize: 28 },
+  achievementIconLocked:   { opacity: 0.3 },
+  achievementLabel:        { ...textStyles.caption, color: colors.neutral.darkGray, fontWeight: '600', textAlign: 'center' },
+  achievementLabelLocked:  { color: colors.neutral.midGray },
 });
 
 const chartStyles = StyleSheet.create({
@@ -316,8 +541,38 @@ const todayStyles = StyleSheet.create({
   icon:      { fontSize: 20, width: 28, textAlign: 'center' },
   label:     { ...textStyles.bodyNormal, color: colors.neutral.darkGray, flex: 1 },
   value:     { ...textStyles.bodyNormal, color: colors.neutral.midGray, fontWeight: '700' },
-  valueDone: { color: colors.primary.green },
-  check:     { color: colors.primary.green, fontWeight: '700', fontSize: 16 },
+  valueDone: { color: colors.primary.darkGreen },
+  check:     { color: colors.primary.darkGreen, fontWeight: '700', fontSize: 16 },
+});
+
+const pmStyles = StyleSheet.create({
+  // Overlay de pantalla completa para el sheet
+  container:  { position: 'absolute', bottom: 0, left: 0, right: 0, top: 0 },
+  backdrop:   { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: colors.neutral.white,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: spacing.xl, paddingTop: spacing.md,
+    gap: spacing.lg,
+  },
+  handle: {
+    alignSelf: 'center', width: 36, height: 4,
+    borderRadius: 2, backgroundColor: colors.neutral.lightGray,
+    marginBottom: spacing.md,
+  },
+  title:      { ...textStyles.titleSmall, color: colors.neutral.black },
+  field:      { gap: spacing.xs },
+  fieldLabel: { ...textStyles.caption, color: colors.neutral.midGray, fontWeight: '600' },
+  input:      { borderRadius: borderRadius.input, borderWidth: 1.5, borderColor: colors.neutral.lightGray, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...textStyles.bodyNormal, color: colors.neutral.darkGray },
+  btns:       { flexDirection: 'row', gap: spacing.md },
+});
+
+const regenStyles = StyleSheet.create({
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  card:    { backgroundColor: colors.neutral.white, borderRadius: 24, padding: spacing.xl, gap: spacing.lg, width: '100%' },
+  title:   { ...textStyles.titleSmall, color: colors.neutral.black, textAlign: 'center' },
+  body:    { ...textStyles.bodyNormal, color: colors.neutral.midGray, textAlign: 'center', lineHeight: 22 },
 });
 
 export default ProgressScreen;

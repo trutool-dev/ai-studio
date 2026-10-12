@@ -23,6 +23,8 @@ model User {
   email_verified   Boolean  @default(false)
   phone_verified   Boolean  @default(false)
   status        UserStatus @default(pending_verification)
+  health_consent_given_at DateTime?
+  health_consent_version  String?   @default("1.0")
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
@@ -43,6 +45,7 @@ model User {
   meals                  Meal[]
   progress_logs          ProgressLog[]
   daily_logs             DailyLog[]
+  token_usage_logs       TokenUsageLog[]
 
   @@map("users")
 }
@@ -589,4 +592,27 @@ model DailyLog {
   @@index([user_id])
   @@index([log_date])
   @@map("daily_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOGS DE USO DE TOKENS DE IA (AI-07)
+// ─────────────────────────────────────────────────────────────
+
+model TokenUsageLog {
+  id                 String   @id @default(uuid())
+  user_id            String
+  request_type       String
+  input_tokens       Int
+  output_tokens      Int
+  cache_read_tokens  Int      @default(0)
+  cache_write_tokens Int      @default(0)
+  model_version      String
+  cost_usd           Decimal  @db.Decimal(10, 6)
+  created_at         DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([created_at])
+  @@map("token_usage_logs")
 }

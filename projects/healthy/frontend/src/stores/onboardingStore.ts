@@ -20,8 +20,13 @@ export interface OnboardingData {
   motivation?: { motivations: string[]; previousAttempts: PreviousAttempts; mainChallenge: string };
 }
 
+export type OnboardingStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
 interface OnboardingState {
   data:          OnboardingData;
+  currentStep:   OnboardingStep;
+  completedSteps: Set<OnboardingStep>;
+
   setGoal:       (g: Goal) => void;
   setProfile:    (p: OnboardingData['profile'])    => void;
   setLifestyle:  (l: OnboardingData['lifestyle'])  => void;
@@ -29,11 +34,16 @@ interface OnboardingState {
   setNutrition:  (n: OnboardingData['nutrition'])  => void;
   setHealth:     (h: OnboardingData['health'])     => void;
   setMotivation: (m: OnboardingData['motivation']) => void;
+  setCurrentStep:(s: OnboardingStep) => void;
+  markStepComplete: (s: OnboardingStep) => void;
   reset:         () => void;
 }
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
-  data: {},
+  data:           {},
+  currentStep:    1,
+  completedSteps: new Set<OnboardingStep>(),
+
   setGoal:       (goal)       => set((s) => ({ data: { ...s.data, goal } })),
   setProfile:    (profile)    => set((s) => ({ data: { ...s.data, profile } })),
   setLifestyle:  (lifestyle)  => set((s) => ({ data: { ...s.data, lifestyle } })),
@@ -41,5 +51,12 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   setNutrition:  (nutrition)  => set((s) => ({ data: { ...s.data, nutrition } })),
   setHealth:     (health)     => set((s) => ({ data: { ...s.data, health } })),
   setMotivation: (motivation) => set((s) => ({ data: { ...s.data, motivation } })),
-  reset:         ()           => set({ data: {} }),
+
+  setCurrentStep: (step) => set({ currentStep: step }),
+
+  markStepComplete: (step) => set((s) => ({
+    completedSteps: new Set([...s.completedSteps, step]),
+  })),
+
+  reset: () => set({ data: {}, currentStep: 1, completedSteps: new Set<OnboardingStep>() }),
 }));

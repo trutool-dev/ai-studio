@@ -1,0 +1,2548 @@
+openapi: 3.0.3
+info:
+  title: Healthy API
+  description: |
+    API REST para la app de salud y fitness Healthy.
+    Autenticación mediante JWT Bearer tokens (access token de 15 min + refresh token de 30 días).
+
+    ## Visualizar esta documentación
+    Sin swagger-ui-express instalado, puedes visualizarla con:
+    ```
+    npx @stoplight/spectral-cli lint src/swagger.yaml
+    npx swagger-ui-serve src/swagger.yaml
+    ```
+    O pegar el contenido en https://editor.swagger.io
+
+    ## Formato de respuesta estándar
+    Todos los endpoints responden con la misma estructura:
+    ```json
+    { "success": true, "data": {}, "message": "..." }
+    { "success": false, "error": "ERROR_CODE", "message": "..." }
+    ```
+  version: 1.0.0-rc.1
+  contact:
+    name: Healthy Dev Team
+
+servers:
+  - url: https://backend-staging-01ee.up.railway.app
+    description: Staging (Railway)
+  - url: http://localhost:3000
+    description: Local
+
+# Seguridad global: todos los endpoints la heredan salvo los que la anulan con []
+security:
+  - BearerAuth: []
+
+# ─────────────────────────────────────────────────────────────
+# COMPONENTES REUTILIZABLES
+# ─────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token obtenido en POST /auth/login (expira en 15 min)
+
+  schemas:
+    # ── Respuesta envoltorio ──────────────────────────────────
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Código de error en snake_case mayúsculas
+          example: INVALID_CREDENTIALS
+        message:
+          type: string
+          example: Credenciales incorrectas
+
+    # ── Usuario ───────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+          nullable: true
+        email_verified:
+          type: boolean
+        phone_verified:
+          type: boolean
+        status:
+          type: string
+          enum: [pending_verification, active, suspended]
+        created_at:
+          type: string
+          format: date-time
+        profile:
+          $ref: '#/components/schemas/Profile'
+
+    Profile:
+      type: object
+      properties:
+        name:
+          type: string
+        birthdate:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+          nullable: true
+        weight_kg:
+          type: number
+          format: float
+          nullable: true
+        height_cm:
+          type: number
+          format: float
+          nullable: true
+        goal:
+          type: string
+          enum: [lose_weight, gain_muscle, maintain, general_health]
+          nullable: true
+        activity_level:
+          type: string
+          enum: [sedentary, light, moderate, active, very_active]
+          nullable: true
+
+    # ── Auth tokens ───────────────────────────────────────────
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Segundos hasta expiración del access token
+          example: 900
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            status:
+              type: string
+
+    # ── Plan ─────────────────────────────────────────────────
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [training, nutrition, combined]
+        status:
+          type: string
+          enum: [active, paused, completed]
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        generated_by_ai:
+          type: boolean
+        ai_model_version:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        training_sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrainingSession'
+        meals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Meal'
+
+    # ── Ejercicio (catálogo) ──────────────────────────────────
+    Exercise:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          nullable: true
+          description: ID en la base de datos de ejercicios externa
+        name:
+          type: string
+        category:
+          type: string
+          description: 'Ej: Arms, Legs, Back, Chest, Shoulders, Core, Cardio'
+        bodyPart:
+          type: string
+          nullable: true
+        equipment:
+          type: string
+          nullable: true
+          description: 'Ej: Dumbbell, Body Weight, Barbell, Cable, Resistance Band'
+        target:
+          type: string
+          nullable: true
+          description: Músculo objetivo principal
+        secondaryMuscles:
+          type: array
+          items:
+            type: string
+          nullable: true
+        gifUrl:
+          type: string
+          format: uri
+          nullable: true
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          nullable: true
+
+    ExerciseDetail:
+      allOf:
+        - $ref: '#/components/schemas/Exercise'
+        - type: object
+          description: Todos los campos del ejercicio (sin select parcial)
+
+    # ── Sesión de entrenamiento ───────────────────────────────
+    TrainingSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+          nullable: true
+        scheduled_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, completed, skipped]
+        duration_minutes:
+          type: integer
+          nullable: true
+        calories_burned:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        session_exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionExercise'
+
+    SessionExercise:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        exercise_id:
+          type: string
+          format: uuid
+        order_index:
+          type: integer
+        sets:
+          type: integer
+          nullable: true
+        reps:
+          type: integer
+          nullable: true
+        weight_kg:
+          type: number
+          format: float
+          nullable: true
+        completed:
+          type: boolean
+        exercise:
+          $ref: '#/components/schemas/Exercise'
+
+    # ── Comida / Nutrición ────────────────────────────────────
+    Meal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        type:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        status:
+          type: string
+          enum: [scheduled, completed, skipped]
+        scheduled_date:
+          type: string
+          format: date-time
+        calories:
+          type: integer
+          nullable: true
+        protein_g:
+          type: number
+          format: float
+          nullable: true
+        carbs_g:
+          type: number
+          format: float
+          nullable: true
+        fat_g:
+          type: number
+          format: float
+          nullable: true
+        meal_foods:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealFood'
+
+    MealFood:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meal_id:
+          type: string
+          format: uuid
+        food_id:
+          type: string
+          format: uuid
+        quantity_g:
+          type: number
+          format: float
+        food:
+          $ref: '#/components/schemas/Food'
+
+    # ── Alimento ──────────────────────────────────────────────
+    Food:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        barcode:
+          type: string
+          nullable: true
+        brand:
+          type: string
+          nullable: true
+        calories_per_100g:
+          type: number
+          format: float
+          nullable: true
+        protein_per_100g:
+          type: number
+          format: float
+          nullable: true
+        carbs_per_100g:
+          type: number
+          format: float
+          nullable: true
+        fat_per_100g:
+          type: number
+          format: float
+          nullable: true
+        verified:
+          type: boolean
+
+    # ── Progreso ──────────────────────────────────────────────
+    ProgressLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        log_date:
+          type: string
+          format: date-time
+        weight_kg:
+          type: number
+          format: float
+          nullable: true
+        body_fat_percentage:
+          type: number
+          format: float
+          nullable: true
+        muscle_mass_kg:
+          type: number
+          format: float
+          nullable: true
+        waist_cm:
+          type: number
+          format: float
+          nullable: true
+        hip_cm:
+          type: number
+          format: float
+          nullable: true
+        chest_cm:
+          type: number
+          format: float
+          nullable: true
+        photo_url:
+          type: string
+          format: uri
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    # ── Log diario ────────────────────────────────────────────
+    DailyLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        log_date:
+          type: string
+          format: date
+        water_ml:
+          type: integer
+          nullable: true
+        sleep_hours:
+          type: number
+          format: float
+          nullable: true
+        sleep_quality:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        energy_level:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        mood:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        steps:
+          type: integer
+          nullable: true
+
+  # ── Respuestas comunes ────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Token JWT ausente, inválido o expirado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: UNAUTHORIZED
+            message: Token inválido o expirado
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: NOT_FOUND
+            message: Recurso no encontrado
+
+    ValidationError:
+      description: Error de validación de campos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: VALIDATION_ERROR
+            message: Email inválido
+
+    InternalError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: INTERNAL_ERROR
+            message: Error interno del servidor
+
+# ─────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────
+paths:
+
+  # ════════════════════════════════════════════════════════════
+  # HEALTH CHECK
+  # ════════════════════════════════════════════════════════════
+  /health:
+    get:
+      tags: [System]
+      summary: Estado del servidor
+      description: Verifica conectividad con la base de datos y Redis. No requiere autenticación.
+      security: []
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Servidor operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [ok, degraded]
+                      timestamp:
+                        type: string
+                        format: date-time
+                      version:
+                        type: string
+                      db:
+                        type: string
+                        enum: [connected, error]
+                      redis:
+                        type: string
+                        enum: [connected, error]
+                  message:
+                    type: string
+              example:
+                success: true
+                data:
+                  status: ok
+                  timestamp: '2024-01-15T10:30:00.000Z'
+                  version: 1.0.0
+                  db: connected
+                  redis: connected
+                message: Servidor operativo
+        '503':
+          description: Servidor con problemas (base de datos inaccesible)
+
+  # ════════════════════════════════════════════════════════════
+  # AUTH — sin autenticación salvo /logout y /me
+  # ════════════════════════════════════════════════════════════
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar nuevo usuario
+      description: |
+        Crea una cuenta pendiente de verificación. Envía un código OTP de 6 dígitos al email.
+        Rate limit: 5 req / 15 min por IP.
+        Requiere consentimiento de usuario mayor de 16 años (LOPDGDD Art. 7).
+      security: []
+      operationId: authRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@ejemplo.com
+                phone_number:
+                  type: string
+                  example: '+34612345678'
+                birthdate:
+                  type: string
+                  format: date
+                  description: Necesario para verificar mayoría de edad (16+)
+                  example: '1995-06-15'
+                health_consent_given_at:
+                  type: string
+                  format: date-time
+                  description: Fecha/hora del consentimiento de datos de salud (RGPD Art. 9)
+                  example: '2024-01-15T10:00:00Z'
+      responses:
+        '201':
+          description: Cuenta creada — se envía email con código OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data:
+                  user_id: 550e8400-e29b-41d4-a716-446655440000
+                  email: usuario@ejemplo.com
+                message: Cuenta creada. Revisa tu email para verificarla.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: El email ya está registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: EMAIL_ALREADY_EXISTS
+                message: Ya existe una cuenta con ese email
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verificar email con código OTP
+      description: |
+        Valida el código de 6 dígitos enviado al email. Máximo 3 intentos por código.
+        Rate limit: 5 req / 15 min por IP.
+      security: []
+      operationId: authVerifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@ejemplo.com
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  example: '123456'
+      responses:
+        '200':
+          description: Email verificado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data:
+                  user_id: 550e8400-e29b-41d4-a716-446655440000
+                message: Email verificado. Ahora puedes crear tu contraseña.
+        '400':
+          description: Código inválido, expirado o máximo de intentos superado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/set-password:
+    post:
+      tags: [Auth]
+      summary: Establecer contraseña tras verificar email
+      description: Paso 3 del flujo de registro. Activa la cuenta.
+      security: []
+      operationId: authSetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@ejemplo.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: miContraseña123
+      responses:
+        '200':
+          description: Contraseña establecida y cuenta activada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data: {}
+                message: Contraseña establecida. Ya puedes iniciar sesión.
+        '400':
+          description: Email no verificado o contraseña demasiado corta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      description: |
+        Retorna un access token JWT (15 min) y un refresh token (30 días).
+        Rate limit: 5 req / 15 min por IP.
+      security: []
+      operationId: authLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@ejemplo.com
+                password:
+                  type: string
+                  example: miContraseña123
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TokenPair'
+                  message:
+                    type: string
+              example:
+                success: true
+                data:
+                  access_token: eyJhbGciOiJIUzI1NiIs...
+                  refresh_token: 550e8400-e29b-41d4-...1704067200000
+                  token_type: Bearer
+                  expires_in: 900
+                  user:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    email: usuario@ejemplo.com
+                    status: active
+                message: Sesión iniciada
+        '401':
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: INVALID_CREDENTIALS
+                message: Credenciales incorrectas
+        '403':
+          description: Cuenta inactiva o suspendida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Solicitar restablecimiento de contraseña
+      description: |
+        Envía un email con enlace de restablecimiento (válido 24h).
+        Por seguridad, responde igual si el email existe o no.
+        Rate limit: 5 req / 15 min por IP.
+      security: []
+      operationId: authForgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@ejemplo.com
+      responses:
+        '200':
+          description: Respuesta neutral (anti-enumeración)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data: {}
+                message: Si existe una cuenta con ese email, recibirás instrucciones de recuperación.
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Restablecer contraseña con token
+      description: Invalida el token y todas las sesiones activas del usuario.
+      security: []
+      operationId: authResetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                  description: Token UUID recibido por email
+                  example: 550e8400-e29b-41d4-a716-446655440000
+                password:
+                  type: string
+                  minLength: 8
+                  example: nuevaContraseña456
+      responses:
+        '200':
+          description: Contraseña restablecida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Token inválido, ya usado o expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/resend-code:
+    post:
+      tags: [Auth]
+      summary: Reenviar código OTP de verificación
+      description: Genera un nuevo código y lo envía al email. Rate limit: 5 req / 15 min por IP.
+      security: []
+      operationId: authResendCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@ejemplo.com
+      responses:
+        '200':
+          description: Respuesta neutral (anti-enumeración)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data: {}
+                message: Si el email existe, recibirás un nuevo código.
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar access token
+      description: Rota el refresh token y devuelve un nuevo par de tokens.
+      security: []
+      operationId: authRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+                  example: 550e8400-e29b-41d4-...1704067200000
+      responses:
+        '200':
+          description: Token renovado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      token_type:
+                        type: string
+                      expires_in:
+                        type: integer
+                  message:
+                    type: string
+        '401':
+          description: Refresh token inválido o sesión expirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      description: Elimina la sesión activa del servidor y la caché Redis.
+      operationId: authLogout
+      responses:
+        '200':
+          description: Sesión cerrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data: {}
+                message: Sesión cerrada
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Datos del usuario autenticado
+      description: Devuelve los datos del usuario con su perfil.
+      operationId: authMe
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ════════════════════════════════════════════════════════════
+  # ONBOARDING — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /onboarding/start:
+    post:
+      tags: [Onboarding]
+      summary: Iniciar proceso de onboarding
+      operationId: onboardingStart
+      responses:
+        '200':
+          description: Onboarding iniciado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/profile:
+    put:
+      tags: [Onboarding]
+      summary: Guardar perfil físico del usuario
+      operationId: onboardingProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, birthdate]
+              properties:
+                name:
+                  type: string
+                  example: María García
+                birthdate:
+                  type: string
+                  format: date
+                  example: '1995-06-15'
+                gender:
+                  type: string
+                  enum: [male, female]
+                weight_kg:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 65.5
+                height_cm:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 168.0
+                body_type:
+                  type: string
+                  enum: [ectomorph, mesomorph, endomorph]
+                activity_level:
+                  type: string
+                  enum: [sedentary, light, moderate, active, very_active]
+                goal:
+                  type: string
+                  enum: [lose_weight, gain_muscle, maintain, general_health]
+      responses:
+        '200':
+          description: Perfil guardado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/lifestyle:
+    put:
+      tags: [Onboarding]
+      summary: Guardar perfil de estilo de vida
+      operationId: onboardingLifestyle
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                work_type:
+                  type: string
+                  enum: [office, physical, standing, mixed]
+                work_hours_per_day:
+                  type: integer
+                  minimum: 0
+                  maximum: 24
+                stress_level:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                usual_schedule:
+                  type: string
+                  enum: [morning, afternoon, night]
+                sleep_hours_usual:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 24
+                sleep_quality:
+                  type: string
+                  enum: [good, regular, bad]
+                alcohol_consumption:
+                  type: string
+                  enum: [never, occasional, frequent]
+                smoker:
+                  type: boolean
+                daily_water_glasses:
+                  type: integer
+                  minimum: 0
+      responses:
+        '200':
+          description: Estilo de vida guardado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/training:
+    put:
+      tags: [Onboarding]
+      summary: Guardar preferencias de entrenamiento
+      operationId: onboardingTraining
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [available_days_per_week]
+              properties:
+                available_days_per_week:
+                  type: integer
+                  minimum: 1
+                  maximum: 7
+                  example: 4
+                max_session_duration_minutes:
+                  type: integer
+                  minimum: 1
+                  example: 60
+                preferred_training_time:
+                  type: string
+                  enum: [morning, afternoon, night]
+                has_gym_access:
+                  type: boolean
+                home_equipment:
+                  type: string
+                  enum: [none, dumbbells, bands, machines, full]
+                experience_level:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+      responses:
+        '200':
+          description: Preferencias de entrenamiento guardadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/nutrition:
+    put:
+      tags: [Onboarding]
+      summary: Guardar preferencias de nutrición
+      operationId: onboardingNutrition
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                diet_type:
+                  type: string
+                  enum: [omnivore, vegetarian, vegan, gluten_free, lactose_free]
+                meals_per_day_preferred:
+                  type: integer
+                  minimum: 1
+                  maximum: 8
+                cooks_at_home:
+                  type: boolean
+                eats_out_frequency:
+                  type: string
+                  enum: [never, sometimes, often, always]
+                monthly_food_budget_range:
+                  type: string
+                  enum: [low, medium, high]
+      responses:
+        '200':
+          description: Preferencias de nutrición guardadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/health:
+    put:
+      tags: [Onboarding]
+      summary: Guardar condiciones de salud y restricciones alimentarias
+      operationId: onboardingHealth
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [condition_name]
+                    properties:
+                      condition_name:
+                        type: string
+                        example: diabetes
+                      condition_type:
+                        type: string
+                        example: metabolic
+                      affects_training:
+                        type: boolean
+                      affects_nutrition:
+                        type: boolean
+                food_restrictions:
+                  type: array
+                  items:
+                    type: object
+                    required: [restriction_type, food_name]
+                    properties:
+                      restriction_type:
+                        type: string
+                        enum: [allergy, intolerance, dislike]
+                      food_name:
+                        type: string
+                        example: gluten
+                      severity:
+                        type: string
+                        enum: [mild, moderate, severe]
+      responses:
+        '200':
+          description: Datos de salud guardados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/motivation:
+    put:
+      tags: [Onboarding]
+      summary: Guardar perfil de motivación
+      operationId: onboardingMotivation
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                main_motivation:
+                  type: string
+                  enum: [health, aesthetics, performance, mental_wellbeing]
+                previous_attempts:
+                  type: boolean
+                tracking_preference:
+                  type: string
+                  enum: [detailed, basic, results_only]
+                has_support_network:
+                  type: boolean
+      responses:
+        '200':
+          description: Motivación guardada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/complete:
+    post:
+      tags: [Onboarding]
+      summary: Completar onboarding y generar plan IA
+      description: Dispara la generación del plan personalizado con IA (Claude). Requiere haber completado al menos profile y training.
+      operationId: onboardingComplete
+      responses:
+        '200':
+          description: Plan generado y onboarding completado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Onboarding incompleto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: ONBOARDING_INCOMPLETE
+                message: Debes completar el onboarding primero
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ════════════════════════════════════════════════════════════
+  # PLANES — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /plans:
+    get:
+      tags: [Plans]
+      summary: Obtener plan activo del usuario
+      description: Devuelve el plan activo con las próximas 30 sesiones y las comidas del día.
+      operationId: getActivePlan
+      responses:
+        '200':
+          description: Plan activo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      plan:
+                        $ref: '#/components/schemas/Plan'
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Sin plan activo (onboarding no completado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /plans/{id}:
+    get:
+      tags: [Plans]
+      summary: Obtener plan por ID
+      description: Devuelve el plan completo con todas las sesiones y comidas con sus alimentos.
+      operationId: getPlanById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plan encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      plan:
+                        $ref: '#/components/schemas/Plan'
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plans/{id}/pause:
+    put:
+      tags: [Plans]
+      summary: Pausar plan activo
+      operationId: pausePlan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plan pausado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: El plan ya está pausado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plans/regenerate:
+    post:
+      tags: [Plans]
+      summary: Regenerar plan con IA
+      description: |
+        Genera un nuevo plan personalizado usando Claude AI.
+        Rate limit: máximo 3 regeneraciones por usuario cada 24 horas.
+        El plan anterior queda en estado "paused".
+      operationId: regeneratePlan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Motivo de la regeneración
+                  example: No estoy viendo resultados suficientes
+      responses:
+        '200':
+          description: Plan regenerado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      plan_id:
+                        type: string
+                        format: uuid
+                      generated_plan:
+                        type: object
+                        description: Plan en formato JSON generado por IA
+                  message:
+                    type: string
+        '400':
+          description: Onboarding incompleto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Límite de regeneraciones alcanzado (3 por 24h)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ════════════════════════════════════════════════════════════
+  # ENTRENAMIENTO — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /training/sessions:
+    get:
+      tags: [Training]
+      summary: Listar sesiones de entrenamiento
+      description: Filtra por fecha y/o estado. Sin filtros devuelve todas las sesiones del usuario.
+      operationId: getTrainingSessions
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: 'Filtrar por fecha (ej: 2024-01-15)'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, completed, skipped]
+          description: Filtrar por estado
+      responses:
+        '200':
+          description: Sesiones encontradas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      sessions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TrainingSession'
+                      total:
+                        type: integer
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /training/today:
+    get:
+      tags: [Training]
+      summary: Sesión de entrenamiento para hoy
+      description: Alias de GET /training/sessions?date=HOY
+      operationId: getTodayTrainingSession
+      responses:
+        '200':
+          description: Sesiones del día actual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      sessions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TrainingSession'
+                      total:
+                        type: integer
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /training/sessions/{id}:
+    get:
+      tags: [Training]
+      summary: Detalle de una sesión de entrenamiento
+      operationId: getTrainingSessionById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sesión encontrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      session:
+                        $ref: '#/components/schemas/TrainingSession'
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /training/sessions/{id}/complete:
+    put:
+      tags: [Training]
+      summary: Marcar sesión como completada
+      operationId: completeTrainingSession
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                  example: 45
+                calories_burned:
+                  type: integer
+                  minimum: 0
+                  example: 320
+                notes:
+                  type: string
+                  example: Buena sesión, aumenté peso en press de banca
+      responses:
+        '200':
+          description: Sesión completada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      session:
+                        $ref: '#/components/schemas/TrainingSession'
+                  message:
+                    type: string
+        '400':
+          description: Sesión ya completada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /training/sessions/{id}/exercises/{exerciseId}/complete:
+    post:
+      tags: [Training]
+      summary: Registrar serie de un ejercicio en una sesión
+      description: |
+        Marca el ejercicio como completado y guarda peso y repeticiones.
+        También disponible como POST /training/sessions/{id}/exercises/{exerciseId}/sets
+      operationId: completeSessionExercise
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID de la sesión
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID del ejercicio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reps]
+              properties:
+                reps:
+                  type: integer
+                  minimum: 1
+                  example: 12
+                weight_kg:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 20.5
+                notes:
+                  type: string
+                  example: Sin dificultad
+      responses:
+        '200':
+          description: Serie registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      session_exercise:
+                        $ref: '#/components/schemas/SessionExercise'
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /training/sessions/{id}/exercises/{exerciseId}/sets:
+    post:
+      tags: [Training]
+      summary: Registrar serie (alias de /complete)
+      description: Alias de POST /training/sessions/{id}/exercises/{exerciseId}/complete
+      operationId: completeSessionExerciseSets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reps]
+              properties:
+                reps:
+                  type: integer
+                  minimum: 1
+                weight_kg:
+                  type: number
+                  format: float
+                  minimum: 0
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Serie registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ════════════════════════════════════════════════════════════
+  # NUTRICIÓN — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /nutrition/meals:
+    get:
+      tags: [Nutrition]
+      summary: Obtener comidas del día
+      description: Sin parámetro de fecha devuelve las comidas de hoy. Incluye totales nutricionales.
+      operationId: getNutritionMeals
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: 'Fecha a consultar (ISO 8601, ej: 2024-01-15). Por defecto: hoy.'
+      responses:
+        '200':
+          description: Comidas del día con totales
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      meals:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Meal'
+                      totals:
+                        type: object
+                        properties:
+                          calories:
+                            type: integer
+                          protein_g:
+                            type: number
+                          carbs_g:
+                            type: number
+                          fat_g:
+                            type: number
+                          completed:
+                            type: integer
+                      total_meals:
+                        type: integer
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /nutrition/today:
+    get:
+      tags: [Nutrition]
+      summary: Comidas de hoy (alias)
+      description: Alias de GET /nutrition/meals con la fecha actual
+      operationId: getNutritionToday
+      responses:
+        '200':
+          description: Comidas del día actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /nutrition/meals/{id}/complete:
+    put:
+      tags: [Nutrition]
+      summary: Marcar comida como completada
+      operationId: completeMeal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Comida marcada como completada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      meal:
+                        $ref: '#/components/schemas/Meal'
+                  message:
+                    type: string
+        '400':
+          description: Comida ya completada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ════════════════════════════════════════════════════════════
+  # ALIMENTOS — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /foods/search:
+    get:
+      tags: [Foods]
+      summary: Buscar alimentos por nombre
+      description: |
+        Búsqueda insensible a mayúsculas. Mínimo 2 caracteres.
+        Resultados cacheados en Redis 6 horas.
+        Devuelve máximo 20 resultados ordenados por verificación y nombre.
+      operationId: searchFoods
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Texto a buscar en el nombre del alimento
+          example: pollo
+      responses:
+        '200':
+          description: Alimentos encontrados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      foods:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Food'
+                      total:
+                        type: integer
+                      from_cache:
+                        type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Búsqueda demasiado corta (menos de 2 caracteres)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /foods/barcode/{code}:
+    get:
+      tags: [Foods]
+      summary: Buscar alimento por código de barras
+      operationId: getFoodByBarcode
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Código de barras EAN/UPC
+          example: '8480000123456'
+      responses:
+        '200':
+          description: Alimento encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      food:
+                        $ref: '#/components/schemas/Food'
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ════════════════════════════════════════════════════════════
+  # PROGRESO — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /progress:
+    get:
+      tags: [Progress]
+      summary: Historial de registros de progreso
+      description: Paginado, ordenado del más reciente al más antiguo. Máximo 100 por petición.
+      operationId: getProgress
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Historial de progreso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      logs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProgressLog'
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Progress]
+      summary: Registrar nueva medición de progreso
+      description: Un registro por día. Si ya existe para esa fecha devuelve 409.
+      operationId: createProgress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [log_date]
+              properties:
+                log_date:
+                  type: string
+                  format: date
+                  example: '2024-01-15'
+                weight_kg:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 74.2
+                body_fat_percentage:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 100
+                  example: 18.5
+                muscle_mass_kg:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 36.8
+                waist_cm:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 85.0
+                hip_cm:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 95.0
+                chest_cm:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 100.0
+                photo_url:
+                  type: string
+                  format: uri
+                  example: 'https://cdn.ejemplo.com/foto.jpg'
+                notes:
+                  type: string
+                  example: Me siento con más energía
+      responses:
+        '201':
+          description: Registro de progreso creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      log:
+                        $ref: '#/components/schemas/ProgressLog'
+                      needs_plan_regeneration:
+                        type: boolean
+                        description: True si la IA detecta estancamiento de progreso
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Ya existe un registro para esa fecha
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /progress/stats:
+    get:
+      tags: [Progress]
+      summary: Estadísticas de progreso del usuario
+      description: Devuelve peso inicial/final, cambio total, racha actual y total de registros.
+      operationId: getProgressStats
+      responses:
+        '200':
+          description: Estadísticas calculadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      last_weight:
+                        type: number
+                        nullable: true
+                      first_weight:
+                        type: number
+                        nullable: true
+                      total_change:
+                        type: number
+                        nullable: true
+                        description: Diferencia en kg (negativo = pérdida)
+                      total_change_direction:
+                        type: string
+                        enum: [up, down, stable]
+                        nullable: true
+                      streak:
+                        type: integer
+                        description: Días consecutivos con registro hasta hoy
+                      total_logs:
+                        type: integer
+                      last_log_date:
+                        type: string
+                        format: date-time
+                        nullable: true
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ════════════════════════════════════════════════════════════
+  # LOGS DIARIOS — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /logs/today:
+    get:
+      tags: [Logs]
+      summary: Obtener log diario de hoy
+      description: Crea automáticamente el log del día si no existe.
+      operationId: getLogToday
+      responses:
+        '200':
+          description: Log del día actual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      log:
+                        $ref: '#/components/schemas/DailyLog'
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Logs]
+      summary: Actualizar log diario
+      description: Actualiza agua, sueño, energía, pasos y ánimo del día. Todos los campos son opcionales.
+      operationId: updateLogToday
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                water_ml:
+                  type: integer
+                  minimum: 0
+                  description: Agua consumida en mililitros
+                  example: 2000
+                sleep_hours:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 24
+                  example: 7.5
+                sleep_quality:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Calidad del sueño (1=muy mala, 5=excelente)
+                  example: 4
+                energy_level:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Nivel de energía subjetivo (1=muy bajo, 5=muy alto)
+                  example: 4
+                mood:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Estado de ánimo (1=muy bajo, 5=excelente)
+                  example: 3
+                steps:
+                  type: integer
+                  minimum: 0
+                  example: 8500
+      responses:
+        '200':
+          description: Log actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      log:
+                        $ref: '#/components/schemas/DailyLog'
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /logs/history:
+    get:
+      tags: [Logs]
+      summary: Historial de logs diarios
+      description: Devuelve logs de los últimos N días con promedios calculados. Máximo 365 días.
+      operationId: getLogHistory
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+          description: Número de días hacia atrás a consultar
+      responses:
+        '200':
+          description: Historial con promedios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      logs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DailyLog'
+                      total:
+                        type: integer
+                      days_requested:
+                        type: integer
+                      averages:
+                        type: object
+                        nullable: true
+                        properties:
+                          avg_water_ml:
+                            type: integer
+                          avg_sleep_hours:
+                            type: number
+                          avg_energy_level:
+                            type: number
+                          avg_mood:
+                            type: number
+                          avg_steps:
+                            type: integer
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ════════════════════════════════════════════════════════════
+  # EJERCICIOS (FASE 10) — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /exercises:
+    get:
+      tags: [Exercises]
+      summary: Listar ejercicios del catálogo
+      description: |
+        Consulta el catálogo de ejercicios con filtros opcionales y paginación.
+        Solo incluye ejercicios con `externalId` no nulo (dataset real importado).
+        Ordenados alfabéticamente por nombre.
+      operationId: getExercises
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: 'Categoría del ejercicio. Ej: Arms, Legs, Back, Chest, Shoulders, Core, Cardio'
+          example: Arms
+        - name: equipment
+          in: query
+          schema:
+            type: string
+          description: 'Equipamiento requerido. Ej: Dumbbell, Body Weight, Barbell, Cable'
+          example: Dumbbell
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+          description: Nivel de dificultad
+          example: beginner
+        - name: target
+          in: query
+          schema:
+            type: string
+          description: Músculo objetivo (búsqueda parcial insensible a mayúsculas)
+          example: biceps
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Número máximo de resultados (máx. 100)
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Desplazamiento para paginación
+      responses:
+        '200':
+          description: Ejercicios encontrados con paginación
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      exercises:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Exercise'
+                      total:
+                        type: integer
+                        description: Total de ejercicios que cumplen los filtros
+                        example: 150
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+                  message:
+                    type: string
+                    example: Ejercicios obtenidos correctamente
+              example:
+                success: true
+                data:
+                  exercises:
+                    - id: 550e8400-e29b-41d4-a716-446655440000
+                      externalId: '0001'
+                      name: 3/4 Sit-Up
+                      category: Core
+                      bodyPart: waist
+                      equipment: Body Weight
+                      target: abs
+                      secondaryMuscles: []
+                      gifUrl: 'https://cdn.example.com/0001.gif'
+                      thumbnailUrl: null
+                      difficulty: beginner
+                  total: 150
+                  limit: 20
+                  offset: 0
+                message: Ejercicios obtenidos correctamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /exercises/{id}:
+    get:
+      tags: [Exercises]
+      summary: Detalle completo de un ejercicio
+      description: Devuelve todos los campos del ejercicio por su ID interno (UUID).
+      operationId: getExerciseById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID interno del ejercicio (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Ejercicio encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      exercise:
+                        $ref: '#/components/schemas/ExerciseDetail'
+                  message:
+                    type: string
+              example:
+                success: true
+                data:
+                  exercise:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    externalId: '0001'
+                    name: 3/4 Sit-Up
+                    category: Core
+                    bodyPart: waist
+                    equipment: Body Weight
+                    target: abs
+                    secondaryMuscles: [obliques]
+                    gifUrl: 'https://cdn.example.com/0001.gif'
+                    thumbnailUrl: null
+                    difficulty: beginner
+                message: Ejercicio obtenido correctamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Ejercicio no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: NOT_FOUND
+                message: Ejercicio no encontrado
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ════════════════════════════════════════════════════════════
+  # USUARIO (RGPD) — requiere JWT
+  # ════════════════════════════════════════════════════════════
+  /user/me:
+    delete:
+      tags: [User]
+      summary: Eliminar cuenta (derecho al olvido — RGPD Art. 17)
+      description: Elimina permanentemente la cuenta y todos los datos del usuario.
+      operationId: deleteAccount
+      responses:
+        '200':
+          description: Cuenta eliminada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/me/export:
+    get:
+      tags: [User]
+      summary: Exportar datos del usuario (portabilidad — RGPD Art. 20)
+      description: Devuelve todos los datos personales del usuario en formato JSON.
+      operationId: exportUserData
+      responses:
+        '200':
+          description: Datos del usuario exportados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    description: Todos los datos del usuario (perfil, plan, progreso, logs, etc.)
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+# ─────────────────────────────────────────────────────────────
+# TAGS — orden y descripción en Swagger UI
+# ─────────────────────────────────────────────────────────────
+tags:
+  - name: System
+    description: Estado y monitoreo del servidor
+  - name: Auth
+    description: Registro, verificación, login y gestión de sesiones
+  - name: Onboarding
+    description: Flujo de recogida de datos del usuario para generar el plan personalizado
+  - name: Plans
+    description: Plan de entrenamiento y nutrición personalizado generado por IA
+  - name: Training
+    description: Sesiones de entrenamiento y registro de series
+  - name: Nutrition
+    description: Comidas del plan nutricional
+  - name: Foods
+    description: Catálogo de alimentos con búsqueda por texto y código de barras
+  - name: Progress
+    description: Registro de mediciones corporales y estadísticas de evolución
+  - name: Logs
+    description: Log diario de agua, sueño, energía, pasos y ánimo
+  - name: Exercises
+    description: Catálogo de ejercicios real con filtros por categoría, equipamiento, dificultad y músculo (Fase 10)
+  - name: User
+    description: Gestión de la cuenta de usuario y cumplimiento RGPD

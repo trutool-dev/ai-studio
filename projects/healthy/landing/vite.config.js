@@ -30,7 +30,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     rollupOptions: {
-      input: 'index3.html',
+      input: 'index4.html',
     },
   },
   publicDir: 'public',

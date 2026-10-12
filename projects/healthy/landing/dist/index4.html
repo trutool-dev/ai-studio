@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthy — Tu mejor versión empieza hoy</title>
+  <meta name="description" content="IA personalizada para entrenamiento, nutrición y progreso. Solo para quienes se toman en serio su salud." />
+  <link rel="icon" type="image/svg+xml" href="/images/logo-icon.svg" />
+  <link rel="preload" as="image" href="/assets/frame_0001-DGJpxgF7.jpg" fetchpriority="high" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          borderRadius: { pill: '100px', card: '20px' },
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            sans:  ['Barlow', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --green:       #22C55E;
+      --green-dark:  #16A34A;
+      --green-glow:  rgba(34,197,94,0.22);
+      --green-muted: rgba(34,197,94,0.10);
+      --bg:          #080808;
+      --border:      rgba(255,255,255,0.07);
+      --text-subtle: rgba(255,255,255,0.68);
+      --ease:        cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg); color: #fff;
+      font-family: 'Barlow', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 400; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+    }
+    h1, h2, h3 { font-family: 'Instrument Serif', Georgia, serif; }
+    a { text-decoration: none; color: inherit; }
+    img { display: block; }
+
+    /* ── liquid-glass ── */
+    .liquid-glass {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(20px) saturate(1.6);
+      -webkit-backdrop-filter: blur(20px) saturate(1.6);
+      border-radius: 20px; position: relative;
+    }
+    .liquid-glass::before {
+      content: ''; position: absolute; inset: 0;
+      border-radius: inherit; padding: 1px;
+      background: linear-gradient(135deg,
+        rgba(255,255,255,0.28) 0%,
+        rgba(255,255,255,0.04) 50%,
+        rgba(255,255,255,0.12) 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* ── video sections (HowItWorks, Stats) ── */
+    .video-section { position: relative; overflow: hidden; }
+    .video-section video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; -o-object-fit: cover; object-fit: cover; z-index: 0;
+    }
+    .video-fade-top::after, .video-fade-bottom::before {
+      content: ''; position: absolute; left: 0; right: 0;
+      z-index: 1; pointer-events: none;
+    }
+    .video-fade-top::after {
+      top: 0; height: 180px;
+      background: linear-gradient(to bottom, var(--bg) 0%, transparent 100%);
+    }
+    .video-fade-bottom::before {
+      bottom: 0; height: 180px;
+      background: linear-gradient(to top, var(--bg) 0%, transparent 100%);
+    }
+
+    /* ── badge ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 100px;
+      background: var(--green-muted); border: 1px solid var(--green-glow);
+      font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--green);
+    }
+
+    /* ── buttons ── */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; background: var(--green); color: #000;
+      font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 15px;
+      border-radius: 100px; border: none; cursor: pointer;
+      transition: background 0.2s, transform 0.15s; text-decoration: none;
+    }
+    .btn-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 13px 27px; background: transparent;
+      color: rgba(255,255,255,0.85);
+      font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 15px;
+      border-radius: 100px; border: 1px solid rgba(255,255,255,0.2);
+      cursor: pointer; transition: border-color 0.2s, color 0.2s, transform 0.15s;
+      text-decoration: none;
+    }
+    .btn-outline:hover { border-color: rgba(255,255,255,0.45); color: #fff; transform: translateY(-1px); }
+
+    /* ── list-green ── */
+    .list-green { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .list-green li {
+      position: relative; padding-left: 20px;
+      color: var(--text-subtle); font-size: 15px; line-height: 1.6;
+    }
+    .list-green li::before {
+      content: ''; position: absolute; left: 0; top: 9px;
+      width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    }
+
+    /* ── NAVBAR ── */
+    @keyframes navIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .nav-wrap {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      display: flex; justify-content: center;
+      padding: 1.25rem 1rem 0;
+      animation: navIn 0.6s var(--ease) both;
+    }
+    .nav-inner {
+      display: flex; align-items: center; gap: 2rem;
+      padding: 0.75rem 1.5rem; border-radius: 100px;
+      max-width: 720px; width: 100%;
+      transition: box-shadow 0.3s;
+    }
+    .nav-inner.scrolled { box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+    .nav-logo { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+    .nav-links { display: none; align-items: center; gap: 1.5rem; flex: 1; justify-content: center; }
+    @media (min-width: 768px) { .nav-links { display: flex; } }
+    .nav-link {
+      font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.62);
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: #fff; }
+
+    .hero-overlay {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom,
+        rgba(8,8,8,0.55) 0%, rgba(8,8,8,0.35) 50%, rgba(8,8,8,0.72) 100%);
+    }
+    .hero-content {
+      position: relative; z-index: 3;
+      text-align: center; padding: 6rem 1.5rem 0;
+      max-width: 56rem; margin: 0 auto; width: 100%;
+    }
+
+    /* ── hero animations (immediate on load) ── */
+    @keyframes fadeUpHero {
+      from { opacity: 0; transform: translateY(32px); filter: blur(8px); }
+      to   { opacity: 1; transform: translateY(0);    filter: blur(0px); }
+    }
+    .ha { animation: fadeUpHero 0.9s var(--ease) both; }
+    .ha.d0 { animation-delay: 0s; }
+    .ha.d1 { animation-delay: 0.12s; }
+    .ha.d2 { animation-delay: 0.24s; }
+    .ha.d3 { animation-delay: 0.36s; }
+    .ha.d5 { animation-delay: 0.60s; }
+
+    /* ── scroll-triggered fade-up ── */
+    .fade-up {
+      opacity: 0; transform: translateY(40px); filter: blur(6px);
+      transition: opacity 0.75s var(--ease), transform 0.75s var(--ease), filter 0.75s var(--ease);
+    }
+    .fade-up.visible { opacity: 1; transform: translateY(0); filter: blur(0); }
+    .fd1 { transition-delay: 0.15s; }
+    .fd2 { transition-delay: 0.30s; }
+    .fd3 { transition-delay: 0.45s; }
+
+    /* ── slide in left/right for feature rows ── */
+    .slide-l {
+      opacity: 0; transform: translateX(-40px);
+      transition: opacity 0.85s var(--ease), transform 0.85s var(--ease);
+    }
+    .slide-r {
+      opacity: 0; transform: translateX(40px);
+      transition: opacity 0.85s var(--ease), transform 0.85s var(--ease);
+    }
+    .slide-r.dl, .slide-l.dl { transition-delay: 0.1s; }
+    .slide-l.visible, .slide-r.visible { opacity: 1; transform: translateX(0); }
+
+    /* ── stats card / stat items ── */
+    .fade-card {
+      opacity: 0; transform: translateY(40px);
+      transition: opacity 0.85s var(--ease), transform 0.85s var(--ease);
+    }
+    .fade-card.visible { opacity: 1; transform: translateY(0); }
+    .stat-num {
+      opacity: 0; transform: translateY(20px);
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+    }
+    .stat-num.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── scroll cue ── */
+    @keyframes scrollBounce {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(7px); }
+    }
+    .scroll-dot { animation: scrollBounce 2s ease-in-out infinite; }
+
+    /* ── feature row reverse (Nutrición) ── */
+    @media (min-width: 768px) {
+      .feat-rev > *:first-child { order: 2; }
+      .feat-rev > *:last-child  { order: 1; }
+    }
+
+    /* ── phone mockup shell ── */
+    .phone-wrap {
+      position: relative; margin: 0 auto;
+      width: 260px; height: 520px; border-radius: 44px;
+      overflow: hidden; background: #0e0e0e;
+    }
+    .phone-notch {
+      position: absolute; top: 0.75rem; left: 50%;
+      transform: translateX(-50%); z-index: 10;
+      width: 90px; height: 26px; background: #080808; border-radius: 20px;
+    }
+    .phone-body {
+      position: absolute; inset: 0;
+      padding: 3.5rem 1rem 1rem;
+      display: flex; flex-direction: column; gap: 0.6rem; overflow: hidden;
+    }
+
+    /* ── store buttons ── */
+    .store-btn {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 1.5rem; border-radius: 16px; min-width: 180px;
+      transition: transform 0.15s;
+    }
+    .store-btn:hover { transform: translateY(-2px); }
+
+    /* ── footer links ── */
+    .footer-link { font-size: 14px; color: rgba(255,255,255,0.55); transition: color 0.2s; }
+    .footer-link:hover { color: #fff; }
+
+    /* ── CTA section green glow ── */
+    .cta-bg {
+      background: radial-gradient(ellipse 80% 60% at 50% 100%,
+        rgba(34,197,94,0.10) 0%, transparent 70%), var(--bg);
+    }
+
+    /* ── mensajes scroll-scrub nutrición ── */
+    .nutr-msg { transition: opacity 0.4s ease, transform 0.4s ease; }
+    @media (max-width: 899px) { #nutr-messages { display: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ─────────────────────────── NAVBAR ─────────────────────────── -->
+<header class="nav-wrap">
+  <nav class="nav-inner liquid-glass" id="nav-inner">
+    <a href="#" class="nav-logo">
+      <img src="/images/logo-icon.svg" alt="Healthy" width="28" height="28" />
+      <span style="font-family:'Barlow',sans-serif;font-weight:600;font-size:15px;color:#fff;letter-spacing:-0.015em;">Healthy</span>
+    </a>
+    <div class="nav-links">
+      <a href="#entrenamiento" class="nav-link">Entrenamiento</a>
+      <a href="#nutricion"     class="nav-link">Nutrición</a>
+      <a href="#progreso"      class="nav-link">Progreso</a>
+    </div>
+    <a href="#download" class="btn-primary" style="font-size:13px;padding:0.5rem 1rem;flex-shrink:0;">Descargar</a>
+  </nav>
+</header>
+
+<!-- ─────────────────────────── HERO ─────────────────────────── -->
+<section class="video-section video-fade-top video-fade-bottom"
+  style="min-height:100svh;display:flex;align-items:center;justify-content:center;">
+  <video autoplay muted loop playsinline poster="/images/portada.jpg" aria-hidden="true">
+    <source src="/videos/fitness_workout.mp4" type="video/mp4" />
+  </video>
+  <div class="hero-overlay"></div>
+
+  <div class="hero-content">
+    <div class="ha d0" style="margin-bottom:2rem;">
+      <span class="badge" style="display:inline-flex;">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;"></span>
+        IA de salud personalizada
+      </span>
+    </div>
+
+    <h1 class="ha d1" style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(52px,8vw,96px);color:#fff;line-height:1.05;letter-spacing:-0.025em;margin-bottom:1.5rem;">
+      Tu cuerpo.<br>
+      Tu <em style="color:var(--green);font-style:italic;">mejor</em><br>
+      versión.
+    </h1>
+
+    <p class="ha d2" style="font-family:'Barlow',sans-serif;font-weight:300;font-size:clamp(17px,2.5vw,20px);color:rgba(255,255,255,0.78);line-height:1.55;max-width:36rem;margin:0 auto 2.5rem;">
+      IA que aprende cómo eres, diseña tu entrenamiento,
+      optimiza tu nutrición y mide tu progreso real.
+    </p>
+
+    <div class="ha d3" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem;">
+      <a href="#download" class="btn-primary">Descargar Healthy →</a>
+      <a href="#como-funciona" class="btn-outline">Ver cómo funciona</a>
+    </div>
+
+    <!-- scroll cue -->
+    <div class="ha d5" style="margin-top:4rem;color:rgba(255,255,255,0.3);">
+      <svg width="20" height="32" viewBox="0 0 20 32" fill="none" style="margin:0 auto;" aria-hidden="true">
+        <rect x="1" y="1" width="18" height="30" rx="9" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="9" y="7" width="2" height="6" rx="1" fill="currentColor" class="scroll-dot"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── HOW IT WORKS ─────────────────────────── -->
+<section id="como-funciona" class="video-section video-fade-top video-fade-bottom"
+  style="min-height:70vh;display:flex;align-items:center;padding:120px 0;">
+  <video autoplay muted loop playsinline aria-hidden="true">
+    <source src="/videos/runners.mp4" type="video/mp4" />
+  </video>
+  <div class="absolute inset-0" style="background:rgba(8,8,8,0.72);z-index:1;"></div>
+
+  <div class="relative w-full" style="z-index:2;max-width:72rem;margin:0 auto;padding:0 1.5rem;" id="how-root">
+    <div class="text-center fade-up" style="margin-bottom:4rem;">
+      <span class="badge" style="display:inline-flex;margin-bottom:1.25rem;">Cómo funciona</span>
+      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(36px,5vw,58px);color:#fff;line-height:1.25;letter-spacing:-0.025em;">
+        Tres pasos para empezar.
+      </h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="liquid-glass fade-up fd1" style="padding:2rem;">
+        <span style="font-family:'Barlow',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;color:var(--green);display:block;margin-bottom:1rem;">01</span>
+        <h3 style="font-family:'Instrument Serif',serif;font-size:24px;color:#fff;line-height:1.25;margin-bottom:1rem;">Cuéntanos cómo eres</h3>
+        <p style="color:rgba(255,255,255,0.62);font-weight:300;line-height:1.6;font-size:15px;">Completa tu perfil en 3 minutos: objetivos, nivel de actividad, restricciones alimentarias y horarios. Sin formularios interminables.</p>
+      </div>
+      <div class="liquid-glass fade-up fd2" style="padding:2rem;">
+        <span style="font-family:'Barlow',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;color:var(--green);display:block;margin-bottom:1rem;">02</span>
+        <h3 style="font-family:'Instrument Serif',serif;font-size:24px;color:#fff;line-height:1.25;margin-bottom:1rem;">La IA diseña tu plan</h3>
+        <p style="color:rgba(255,255,255,0.62);font-weight:300;line-height:1.6;font-size:15px;">Nuestro modelo genera un plan de entrenamiento y nutrición completamente personalizado, ajustado a tu cuerpo y tu día a día.</p>
+      </div>
+      <div class="liquid-glass fade-up fd3" style="padding:2rem;">
+        <span style="font-family:'Barlow',sans-serif;font-weight:600;font-size:13px;letter-spacing:0.1em;color:var(--green);display:block;margin-bottom:1rem;">03</span>
+        <h3 style="font-family:'Instrument Serif',serif;font-size:24px;color:#fff;line-height:1.25;margin-bottom:1rem;">Progresa y mejora</h3>
+        <p style="color:rgba(255,255,255,0.62);font-weight:300;line-height:1.6;font-size:15px;">Cada sesión retroalimenta el sistema. Tu plan evoluciona contigo: más duro cuando estás en racha, más suave cuando lo necesitas.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FEATURES ─────────────────────────── -->
+<div style="width:100%;background:var(--bg);">
+
+  <!-- Entrenamiento -->
+  <section id="entrenamiento" style="width:100%;max-width:72rem;margin:0 auto;padding:6rem 1.5rem;">
+    <div class="grid md:grid-cols-2 gap-16 items-center" id="feat-train">
+      <div class="slide-l">
+        <span class="badge" style="display:inline-flex;margin-bottom:1.25rem;">Entrenamiento</span>
+        <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(32px,4.5vw,52px);color:#fff;line-height:1.25;letter-spacing:-0.025em;margin-bottom:1.25rem;">Cada sesión,<br>diseñada para ti.</h2>
+        <p style="color:rgba(255,255,255,0.65);font-weight:300;line-height:1.65;max-width:420px;font-size:16px;margin-bottom:1.75rem;">La IA analiza tu historial, tu nivel actual y tu disponibilidad para crear el entrenamiento exacto que necesitas hoy.</p>
+        <ul class="list-green">
+          <li>Planes de fuerza, HIIT, yoga y cardio</li>
+          <li>Ajuste dinámico según tu progresión</li>
+          <li>Timer de descanso y feedback en tiempo real</li>
+          <li>Vídeos guía para cada ejercicio</li>
+        </ul>
+      </div>
+      <div class="slide-r dl" style="display:flex;justify-content:center;align-items:center;">
+        <div class="liquid-glass phone-wrap">
+          <div class="phone-notch"></div>
+          <div class="phone-body">
+            <div style="color:var(--green);font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Hoy — Fuerza A</div>
+            <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:20px;color:#fff;line-height:1.2;">4 ejercicios · 52 min</div>
+            <div style="display:flex;flex-direction:column;gap:0.4rem;margin-top:0.25rem;">
+              <div class="liquid-glass" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.9rem;border-radius:12px;">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;flex-shrink:0;">1</div>
+                <span style="font-size:13px;color:#fff;">Sentadilla 4×8</span>
+              </div>
+              <div class="liquid-glass" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.9rem;border-radius:12px;">
+                <div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);flex-shrink:0;">2</div>
+                <span style="font-size:13px;color:rgba(255,255,255,0.5);">Press banca 3×10</span>
+              </div>
+              <div class="liquid-glass" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.9rem;border-radius:12px;">
+                <div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);flex-shrink:0;">3</div>
+                <span style="font-size:13px;color:rgba(255,255,255,0.5);">Peso muerto 3×6</span>
+              </div>
+              <div class="liquid-glass" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.9rem;border-radius:12px;">
+                <div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);flex-shrink:0;">4</div>
+                <span style="font-size:13px;color:rgba(255,255,255,0.5);">Dominadas 3×AMRAP</span>
+              </div>
+            </div>
+            <div style="margin-top:auto;">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px;"><span>Progreso</span><span>1/4</span></div>
+              <div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;">
+                <div style="width:25%;height:100%;background:var(--green);border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nutrición — scroll-scrub canvas -->
+  <section id="nutricion" style="position:relative;height:250vh;width:100%;">
+    <div style="position:sticky;top:0;height:100svh;overflow:hidden;display:flex;align-items:center;">
+      <canvas id="nutr-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
+      <!-- overlay: oscuro en bordes, más claro en centro para que el video se vea -->
+      <div style="position:absolute;inset:0;z-index:1;pointer-events:none;
+        background:radial-gradient(ellipse 70% 60% at 50% 50%, rgba(8,8,8,0.30) 0%, rgba(8,8,8,0.72) 100%);"></div>
+      <!-- fades top/bottom -->
+      <div style="position:absolute;top:0;left:0;right:0;height:180px;z-index:2;pointer-events:none;
+        background:linear-gradient(to bottom,var(--bg) 0%,transparent 100%);"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:180px;z-index:2;pointer-events:none;
+        background:linear-gradient(to top,var(--bg) 0%,transparent 100%);"></div>
+      <!-- texto alineado a la izquierda -->
+      <div style="position:relative;z-index:3;max-width:72rem;margin:0 auto;padding:0 1.5rem;width:100%;">
+        <div style="max-width:480px;background:linear-gradient(to right,rgba(8,8,8,0.55) 0%,transparent 100%);padding:2rem 2rem 2rem 0;border-radius:16px;" class="slide-r">
+          <span class="badge" style="display:inline-flex;margin-bottom:1.25rem;">Nutrición</span>
+          <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(32px,4.5vw,52px);color:#fff;line-height:1.25;letter-spacing:-0.025em;margin-bottom:1.25rem;">Come bien.<br>Sin contar calorías.</h2>
+          <p style="color:rgba(255,255,255,0.75);font-weight:300;line-height:1.65;max-width:420px;font-size:16px;margin-bottom:1.75rem;">Describe lo que comes con lenguaje natural. La IA interpreta, registra y te sugiere ajustes sin obsesionarte con los números.</p>
+          <ul class="list-green">
+            <li>Registro por voz o texto libre</li>
+            <li>Balance de macros automático</li>
+            <li>Recetas personalizadas a tus gustos</li>
+            <li>Plan de comidas semanal</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── ejemplos de registro de comidas ── -->
+      <div id="nutr-messages" style="position:absolute;left:75%;top:58%;transform:translate(-50%,-50%);z-index:4;width:min(440px,44vw);pointer-events:none;">
+
+        <!-- spacer invisible: le da altura al contenedor (altura de un grupo) -->
+        <div aria-hidden="true" style="visibility:hidden;display:flex;flex-direction:column;gap:0.75rem;">
+          <div style="padding:1.25rem 1.5rem;font-size:16px;line-height:1.55;">placeholder<br>placeholder</div>
+          <div style="padding:1rem 1.25rem;font-size:15px;">placeholder<br>placeholder<br>placeholder</div>
+        </div>
+
+        <!-- Grupo 1: Almuerzo (5 – 36 %) — superpuesto en top:0 -->
+        <div style="position:absolute;top:0;left:0;width:100%;display:flex;flex-direction:column;gap:0.75rem;">
+          <div class="nutr-msg liquid-glass" data-from="0.05" data-to="0.36"
+            style="padding:1.25rem 1.5rem;border-radius:20px;opacity:0;transform:translateY(16px);">
+            <div style="font-size:13px;color:var(--green);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.6rem;">Tú · Almuerzo</div>
+            <p style="font-size:16px;color:rgba(255,255,255,0.9);line-height:1.55;">"Me he comido un bocadillo de jamón serrano con queso y un zumo de naranja natural"</p>
+          </div>
+          <div class="nutr-msg liquid-glass" data-from="0.13" data-to="0.36"
+            style="padding:1rem 1.25rem;border-radius:18px;opacity:0;transform:translateY(16px);border:1px solid rgba(34,197,94,0.25);">
+            <div style="font-size:13px;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.6rem;">Healthy IA</div>
+            <div style="display:flex;flex-direction:column;gap:4px;font-size:15px;color:rgba(255,255,255,0.85);">
+              <div style="display:flex;justify-content:space-between;"><span>Bocadillo jamón y queso</span><span style="color:var(--green);font-weight:500;">520 kcal</span></div>
+              <div style="display:flex;justify-content:space-between;"><span>Zumo de naranja natural</span><span style="color:var(--green);font-weight:500;">110 kcal</span></div>
+            </div>
+            <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid rgba(255,255,255,0.07);font-size:14px;color:rgba(255,255,255,0.4);">Proteína 28g · Carbs 62g · Grasa 18g</div>
+          </div>
+        </div>
+
+        <!-- Grupo 2: Cena (42 – 70 %) — superpuesto en top:0 -->
+        <div style="position:absolute;top:0;left:0;width:100%;display:flex;flex-direction:column;gap:0.75rem;">
+          <div class="nutr-msg liquid-glass" data-from="0.42" data-to="0.70"
+            style="padding:1.25rem 1.5rem;border-radius:20px;opacity:0;transform:translateY(16px);">
+            <div style="font-size:13px;color:var(--green);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.6rem;">Tú · Cena</div>
+            <p style="font-size:16px;color:rgba(255,255,255,0.9);line-height:1.55;">"Cené pollo a la plancha con arroz integral, verduras al vapor y una manzana de postre"</p>
+          </div>
+          <div class="nutr-msg liquid-glass" data-from="0.50" data-to="0.70"
+            style="padding:1rem 1.25rem;border-radius:18px;opacity:0;transform:translateY(16px);border:1px solid rgba(34,197,94,0.25);">
+            <div style="font-size:13px;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.6rem;">Healthy IA</div>
+            <div style="display:flex;flex-direction:column;gap:4px;font-size:15px;color:rgba(255,255,255,0.85);">
+              <div style="display:flex;justify-content:space-between;"><span>Pollo + arroz + verduras</span><span style="color:var(--green);font-weight:500;">520 kcal</span></div>
+              <div style="display:flex;justify-content:space-between;"><span>Manzana</span><span style="color:var(--green);font-weight:500;">80 kcal</span></div>
+            </div>
+            <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid rgba(255,255,255,0.07);font-size:14px;color:rgba(255,255,255,0.4);">Proteína 45g · Carbs 68g · Grasa 8g</div>
+          </div>
+        </div>
+
+        <!-- Grupo 3: Desayuno (76 – 97 %) — superpuesto en top:0 -->
+        <div style="position:absolute;top:0;left:0;width:100%;display:flex;flex-direction:column;gap:0.75rem;">
+          <div class="nutr-msg liquid-glass" data-from="0.76" data-to="0.97"
+            style="padding:1.25rem 1.5rem;border-radius:20px;opacity:0;transform:translateY(16px);">
+            <div style="font-size:13px;color:var(--green);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.6rem;">Tú · Desayuno</div>
+            <p style="font-size:16px;color:rgba(255,255,255,0.9);line-height:1.55;">"Café con leche semidesnatada, dos tostadas con aceite de oliva virgen extra y tomate natural"</p>
+          </div>
+          <div class="nutr-msg liquid-glass" data-from="0.83" data-to="0.97"
+            style="padding:1rem 1.25rem;border-radius:18px;opacity:0;transform:translateY(16px);border:1px solid rgba(34,197,94,0.25);">
+            <div style="font-size:13px;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.6rem;">Healthy IA</div>
+            <div style="display:flex;flex-direction:column;gap:4px;font-size:15px;color:rgba(255,255,255,0.85);">
+              <div style="display:flex;justify-content:space-between;"><span>Café con leche semi</span><span style="color:var(--green);font-weight:500;">80 kcal</span></div>
+              <div style="display:flex;justify-content:space-between;"><span>Tostadas con AOVE y tomate</span><span style="color:var(--green);font-weight:500;">290 kcal</span></div>
+            </div>
+            <div style="margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid rgba(255,255,255,0.07);font-size:14px;color:rgba(255,255,255,0.4);">Proteína 9g · Carbs 42g · Grasa 12g</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Progreso -->
+  <section id="progreso" style="width:100%;max-width:72rem;margin:0 auto;padding:0 1.5rem 6rem;">
+    <div class="grid md:grid-cols-2 gap-16 items-center" id="feat-prog">
+      <div class="slide-l">
+        <span class="badge" style="display:inline-flex;margin-bottom:1.25rem;">Progreso</span>
+        <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(32px,4.5vw,52px);color:#fff;line-height:1.25;letter-spacing:-0.025em;margin-bottom:1.25rem;">Mide lo que<br>de verdad importa.</h2>
+        <p style="color:rgba(255,255,255,0.65);font-weight:300;line-height:1.65;max-width:420px;font-size:16px;margin-bottom:1.75rem;">Más allá del peso: recuperación, energía, sueño y métricas de rendimiento. Una vista completa de tu salud real.</p>
+        <ul class="list-green">
+          <li>Score de recuperación diario</li>
+          <li>Evolución de fuerza y resistencia</li>
+          <li>Fotos de progreso privadas</li>
+          <li>Informes semanales con insights IA</li>
+        </ul>
+      </div>
+      <div class="slide-r dl" style="display:flex;justify-content:center;align-items:center;">
+        <div class="liquid-glass phone-wrap">
+          <div class="phone-notch"></div>
+          <div class="phone-body">
+            <div style="color:var(--green);font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;">Recuperación</div>
+            <div style="display:flex;align-items:baseline;gap:0.5rem;">
+              <span style="font-family:'Instrument Serif',serif;font-style:italic;font-size:52px;color:#fff;line-height:1;">94</span>
+              <span style="font-size:13px;color:rgba(255,255,255,0.45);">/ 100 · Excelente</span>
+            </div>
+            <!-- bar chart: L72 M85 X61 J90 V78 S88 D94, max=94 -->
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:3px;height:80px;margin-top:0.5rem;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:54px;background:rgba(255,255,255,0.1);border-radius:4px;"></div><span style="font-size:9px;color:rgba(255,255,255,0.35);">L</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:63px;background:rgba(255,255,255,0.1);border-radius:4px;"></div><span style="font-size:9px;color:rgba(255,255,255,0.35);">M</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:46px;background:rgba(255,255,255,0.1);border-radius:4px;"></div><span style="font-size:9px;color:rgba(255,255,255,0.35);">X</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:67px;background:rgba(255,255,255,0.1);border-radius:4px;"></div><span style="font-size:9px;color:rgba(255,255,255,0.35);">J</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:58px;background:rgba(255,255,255,0.1);border-radius:4px;"></div><span style="font-size:9px;color:rgba(255,255,255,0.35);">V</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:65px;background:rgba(255,255,255,0.1);border-radius:4px;"></div><span style="font-size:9px;color:rgba(255,255,255,0.35);">S</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;"><div style="width:100%;height:70px;background:var(--green);border-radius:4px;"></div><span style="font-size:9px;color:var(--green);">D</span></div>
+            </div>
+            <div class="liquid-glass" style="display:flex;justify-content:space-between;padding:0.55rem 0.9rem;border-radius:10px;"><span style="font-size:13px;color:rgba(255,255,255,0.55);">Sueño</span><span style="font-size:13px;color:#fff;font-weight:500;">7h 42m</span></div>
+            <div class="liquid-glass" style="display:flex;justify-content:space-between;padding:0.55rem 0.9rem;border-radius:10px;"><span style="font-size:13px;color:rgba(255,255,255,0.55);">Pasos</span><span style="font-size:13px;color:#fff;font-weight:500;">11 204</span></div>
+            <div class="liquid-glass" style="display:flex;justify-content:space-between;padding:0.55rem 0.9rem;border-radius:10px;"><span style="font-size:13px;color:rgba(255,255,255,0.55);">HRV</span><span style="font-size:13px;color:#fff;font-weight:500;">58 ms</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ─────────────────────────── STATS ─────────────────────────── -->
+<section class="video-section video-fade-top video-fade-bottom"
+  style="min-height:60vh;display:flex;align-items:center;padding:100px 0;">
+  <video autoplay muted loop playsinline aria-hidden="true" style="filter:grayscale(1) brightness(0.35);">
+    <source src="/videos/healthy_food.mp4" type="video/mp4" />
+  </video>
+  <div class="absolute inset-0" style="background:rgba(8,8,8,0.55);z-index:1;"></div>
+
+  <div class="relative w-full" style="z-index:2;max-width:64rem;margin:0 auto;padding:0 1.5rem;" id="stats-root">
+    <div class="liquid-glass fade-card" style="padding:3rem 4rem;">
+      <p class="text-center" style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(26px,3.5vw,38px);color:#fff;margin-bottom:3rem;">
+        Resultados que hablan por sí solos.
+      </p>
+      <div class="grid grid-cols-2 md:grid-cols-4" style="gap:2rem;">
+        <div class="text-center stat-num" style="transition-delay:0.15s;">
+          <div style="font-family:'Barlow',sans-serif;font-weight:600;font-size:clamp(36px,5vw,52px);color:#fff;line-height:1;margin-bottom:0.5rem;">50<span style="color:var(--green);">K+</span></div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.5);">Usuarios activos</div>
+        </div>
+        <div class="text-center stat-num" style="transition-delay:0.25s;">
+          <div style="font-family:'Barlow',sans-serif;font-weight:600;font-size:clamp(36px,5vw,52px);color:#fff;line-height:1;margin-bottom:0.5rem;">4<span style="color:var(--green);">.9★</span></div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.5);">Valoración media</div>
+        </div>
+        <div class="text-center stat-num" style="transition-delay:0.35s;">
+          <div style="font-family:'Barlow',sans-serif;font-weight:600;font-size:clamp(36px,5vw,52px);color:#fff;line-height:1;margin-bottom:0.5rem;">2<span style="color:var(--green);">M+</span></div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.5);">Entrenamientos completados</div>
+        </div>
+        <div class="text-center stat-num" style="transition-delay:0.45s;">
+          <div style="font-family:'Barlow',sans-serif;font-weight:600;font-size:clamp(36px,5vw,52px);color:#fff;line-height:1;margin-bottom:0.5rem;">92<span style="color:var(--green);">%</span></div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.5);">Repiten tras el primer mes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── TESTIMONIALS ─────────────────────────── -->
+<section style="width:100%;padding:7rem 1.5rem;background:var(--bg);" id="testimonials-root">
+  <div style="max-width:72rem;margin:0 auto;">
+    <div class="text-center fade-up" style="margin-bottom:3.5rem;">
+      <span class="badge" style="display:inline-flex;margin-bottom:1.25rem;">Lo que dicen</span>
+      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(32px,4.5vw,52px);color:#fff;line-height:1.15;">
+        Personas reales,<br>resultados reales.
+      </h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <!-- stars helper macro -->
+      <div class="liquid-glass fade-up fd1" style="padding:2rem;display:flex;flex-direction:column;gap:1.5rem;">
+        <div style="display:flex;gap:3px;" aria-label="5 estrellas">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+        </div>
+        <p style="color:rgba(255,255,255,0.78);font-weight:300;line-height:1.65;font-size:15px;flex:1;">"Llevaba años intentando ser constante con el gym. Con Healthy por fin lo conseguí — los planes se adaptan a mi vida, no al revés."</p>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.07);">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--green-muted);border:1px solid var(--green-glow);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:var(--green);flex-shrink:0;">L</div>
+          <div><div style="font-size:14px;color:#fff;font-weight:500;">Laura M.</div><div style="font-size:12px;color:rgba(255,255,255,0.4);">Diseñadora · Madrid</div></div>
+        </div>
+      </div>
+
+      <div class="liquid-glass fade-up fd2" style="padding:2rem;display:flex;flex-direction:column;gap:1.5rem;">
+        <div style="display:flex;gap:3px;" aria-label="5 estrellas">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+        </div>
+        <p style="color:rgba(255,255,255,0.78);font-weight:300;line-height:1.65;font-size:15px;flex:1;">"El módulo de nutrición es lo mejor. Escribo lo que como en lenguaje normal y la app lo entiende todo. Sin apps de conteo de calorías eternas."</p>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.07);">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--green-muted);border:1px solid var(--green-glow);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:var(--green);flex-shrink:0;">C</div>
+          <div><div style="font-size:14px;color:#fff;font-weight:500;">Carlos R.</div><div style="font-size:12px;color:rgba(255,255,255,0.4);">Ingeniero · Barcelona</div></div>
+        </div>
+      </div>
+
+      <div class="liquid-glass fade-up fd3" style="padding:2rem;display:flex;flex-direction:column;gap:1.5rem;">
+        <div style="display:flex;gap:3px;" aria-label="5 estrellas">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.545 5.18H13L9.468 7.82L10.955 12L7 9.36L3.045 12L4.532 7.82L1 5.18H5.455L7 1Z" fill="#22C55E"/></svg>
+        </div>
+        <p style="color:rgba(255,255,255,0.78);font-weight:300;line-height:1.65;font-size:15px;flex:1;">"Lo que más me sorprende es cómo detecta cuando estoy cansado y ajusta el entrenamiento automáticamente. Parece que te conoce de verdad."</p>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.07);">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--green-muted);border:1px solid var(--green-glow);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:var(--green);flex-shrink:0;">A</div>
+          <div><div style="font-size:14px;color:#fff;font-weight:500;">Ana P.</div><div style="font-size:12px;color:rgba(255,255,255,0.4);">Médica · Sevilla</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── CTA ─────────────────────────── -->
+<section id="download" class="cta-bg" style="width:100%;padding:7rem 1.5rem;">
+  <div style="max-width:42rem;margin:0 auto;text-align:center;" id="cta-root">
+    <div class="fade-card">
+      <span class="badge" style="display:inline-flex;margin-bottom:1.5rem;">Disponible ahora</span>
+      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(38px,6vw,68px);color:#fff;line-height:1.25;letter-spacing:-0.025em;margin-bottom:1.25rem;">
+        Descarga Healthy.<br><em style="color:var(--green);">Es gratis.</em>
+      </h2>
+      <p style="color:rgba(255,255,255,0.6);font-weight:300;font-size:17px;line-height:1.55;max-width:380px;margin:0 auto 2.5rem;">
+        Empieza con tu plan personalizado en menos de 5 minutos. Sin tarjeta de crédito.
+      </p>
+      <div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;">
+        <a href="#" class="liquid-glass store-btn">
+          <span style="color:#fff;flex-shrink:0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          </span>
+          <span style="font-family:'Barlow',sans-serif;">
+            <span style="display:block;font-size:11px;color:rgba(255,255,255,0.5);">Descargar en</span>
+            <span style="display:block;font-size:17px;font-weight:600;color:#fff;">App Store</span>
+          </span>
+        </a>
+        <a href="#" class="liquid-glass store-btn">
+          <span style="color:#fff;flex-shrink:0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-17c0-.83.94-1.3 1.6-.8l14 8.5c.6.36.6 1.24 0 1.6l-14 8.5c-.66.5-1.6.03-1.6-.8z"/></svg>
+          </span>
+          <span style="font-family:'Barlow',sans-serif;">
+            <span style="display:block;font-size:11px;color:rgba(255,255,255,0.5);">Disponible en</span>
+            <span style="display:block;font-size:17px;font-weight:600;color:#fff;">Google Play</span>
+          </span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── FOOTER ─────────────────────────── -->
+<footer style="border-top:1px solid rgba(255,255,255,0.07);background:var(--bg);padding:4rem 1.5rem;">
+  <div style="max-width:72rem;margin:0 auto;">
+    <div class="grid md:grid-cols-4 gap-10" style="margin-bottom:3rem;">
+      <div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+          <img src="/images/logo-icon.svg" alt="Healthy" width="24" height="24" />
+          <span style="font-family:'Barlow',sans-serif;font-weight:600;font-size:15px;color:#fff;">Healthy</span>
+        </div>
+        <p style="font-size:14px;color:rgba(255,255,255,0.45);font-weight:300;line-height:1.65;">IA personalizada para tu salud. Entrenamiento, nutrición y progreso — todo en una app.</p>
+      </div>
+      <div>
+        <p style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:1rem;">Producto</p>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <a href="#" class="footer-link">Entrenamiento</a>
+          <a href="#" class="footer-link">Nutrición</a>
+          <a href="#" class="footer-link">Progreso</a>
+          <a href="#" class="footer-link">Planes y precios</a>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:1rem;">Compañía</p>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <a href="#" class="footer-link">Sobre nosotros</a>
+          <a href="#" class="footer-link">Blog</a>
+          <a href="#" class="footer-link">Prensa</a>
+          <a href="#" class="footer-link">Carreras</a>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:1rem;">Soporte</p>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <a href="#" class="footer-link">Centro de ayuda</a>
+          <a href="#" class="footer-link">Privacidad</a>
+          <a href="#" class="footer-link">Términos</a>
+          <a href="#" class="footer-link">Contacto</a>
+        </div>
+      </div>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pt-8"
+      style="border-top:1px solid rgba(255,255,255,0.07);">
+      <p style="font-size:13px;color:rgba(255,255,255,0.3);">© 2026 Healthy. Todos los derechos reservados.</p>
+      <p style="font-size:13px;color:rgba(255,255,255,0.2);">Hecho con ❤️ en España</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  /* ─── CANVAS SCROLL-SCRUB — sección Nutrición ───────────────── */
+  const FRAME_COUNT = 151;
+  const FRAMES_PATH = 'public/frames';
+  const FRAME_EXT   = 'jpg';
+
+  const canvas  = document.getElementById('nutr-canvas');
+  const ctx     = canvas.getContext('2d');
+  const nutrSec = document.getElementById('nutricion');
+
+  function resizeCanvas() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const f = frames[lastDrawnIdx];
+    if (f && f.naturalWidth) drawCover(f);
+  }
+
+  function drawCover(img) {
+    if (!img || !img.naturalWidth) return;
+    const cw = canvas.width, ch = canvas.height;
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.max(cw / iw, ch / ih);
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(img, (cw - iw * scale) / 2, (ch - ih * scale) / 2, iw * scale, ih * scale);
+  }
+
+  function frameSrc(i) {
+    return `${FRAMES_PATH}/frame_${String(i + 1).padStart(4, '0')}.${FRAME_EXT}`;
+  }
+
+  function getProgress() {
+    const scrolled  = -nutrSec.getBoundingClientRect().top;
+    const maxScroll = nutrSec.offsetHeight - window.innerHeight;
+    if (maxScroll <= 0) return 0;
+    return Math.max(0, Math.min(1, scrolled / maxScroll));
+  }
+
+  function getTargetIdx() {
+    return Math.min(FRAME_COUNT - 1, Math.floor(getProgress() * FRAME_COUNT));
+  }
+
+  let lastDrawnIdx = 0;
+  let rafPending   = false;
+  const frames     = new Array(FRAME_COUNT);
+
+  const nutrMsgs = document.querySelectorAll('.nutr-msg');
+  function updateMessages(progress) {
+    nutrMsgs.forEach(el => {
+      const on = progress >= parseFloat(el.dataset.from) && progress <= parseFloat(el.dataset.to);
+      el.style.opacity   = on ? '1' : '0';
+      el.style.transform = on ? 'translateY(0)' : 'translateY(16px)';
+    });
+  }
+
+  function renderFrame() {
+    rafPending = false;
+    const progress = getProgress();
+    const idx = Math.min(FRAME_COUNT - 1, Math.floor(progress * FRAME_COUNT));
+    const img = frames[idx];
+    if (img && img.complete && img.naturalWidth) {
+      drawCover(img);
+      lastDrawnIdx = idx;
+    }
+    updateMessages(progress);
+  }
+
+  function scheduleRender() {
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(renderFrame);
+    }
+  }
+
+  frames[0] = new Image();
+  frames[0].onload = () => {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    drawCover(frames[0]);
+    lastDrawnIdx = 0;
+  };
+  frames[0].src = frameSrc(0);
+
+  function loadSeq(i) {
+    if (i >= FRAME_COUNT) return;
+    const img = new Image();
+    img.onload = () => {
+      if (getTargetIdx() === i) scheduleRender();
+      loadSeq(i + 1);
+    };
+    img.src = frameSrc(i);
+    frames[i] = img;
+  }
+  loadSeq(1);
+
+  window.addEventListener('scroll', scheduleRender, { passive: true });
+  window.addEventListener('resize', () => { resizeCanvas(); scheduleRender(); }, { passive: true });
+
+  /* ─── NAV ─────────────────────────────────────────────────────── */
+  const navInner = document.getElementById('nav-inner');
+  window.addEventListener('scroll', () => {
+    navInner.classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+
+  /* ─── SCROLL ANIMATIONS ───────────────────────────────────────── */
+  const ioOpts = { threshold: 0.12, rootMargin: '0px 0px -60px 0px' };
+  const animObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('visible');
+      animObs.unobserve(e.target);
+    });
+  }, ioOpts);
+
+  document.querySelectorAll(
+    '.fade-up, .fade-card, .stat-num, .slide-l, .slide-r'
+  ).forEach(el => animObs.observe(el));
+</script>
+</body>
+</html>

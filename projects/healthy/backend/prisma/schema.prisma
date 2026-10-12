@@ -3,7 +3,7 @@
 // Generador: prisma-client-js
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -43,6 +43,11 @@ model User {
   meals                  Meal[]
   progress_logs          ProgressLog[]
   daily_logs             DailyLog[]
+  token_usage_logs       TokenUsageLog[]
+
+  // RGPD — consentimiento de datos de salud (Art. 9)
+  health_consent_given_at DateTime?
+  health_consent_version  String?   @default("1.0")
 
   @@map("users")
 }
@@ -443,18 +448,32 @@ enum SessionStatus {
 }
 
 model Exercise {
-  id             String          @id @default(uuid())
-  name           String
-  muscle_group   String
+  id               String          @id @default(uuid())
+  externalId       Int?            @unique  // ID del dataset hasaneyldrm/exercises-dataset
+  name             String
+  category         String?         // Arms, Back, Chest, Legs, Shoulders, Waist
+  bodyPart         String?         // Upper Arms, Upper Legs, etc.
+  equipment        String?         // Body Weight, Dumbbell, Barbell, Cable, Machine, Kettlebell, Band, etc.
+  target           String?         // músculo objetivo principal
+  secondaryMuscles String[]        // músculos secundarios (array)
+  instructionsEs   String?         // instrucciones en español
+  instructionsEn   String?         // instrucciones en inglés
+  gifUrl           String?         // URL del GIF animado
+  thumbnailUrl     String?         // URL de la miniatura 180x180
+  difficulty       ExperienceLevel @default(beginner)
+  // Campos legacy (mantener compatibilidad)
+  muscle_group     String?
   equipment_needed String?
-  difficulty     ExperienceLevel
-  instructions   String?
-  video_url      String?
+  instructions     String?
+  video_url        String?
+  createdAt        DateTime        @default(now())
 
   session_exercises SessionExercise[]
 
   @@index([muscle_group])
   @@index([difficulty])
+  @@index([category])
+  @@index([target])
   @@map("exercises")
 }
 
@@ -589,4 +608,27 @@ model DailyLog {
   @@index([user_id])
   @@index([log_date])
   @@map("daily_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOGS DE USO DE TOKENS DE IA (AI-07)
+// ─────────────────────────────────────────────────────────────
+
+model TokenUsageLog {
+  id                 String   @id @default(uuid())
+  user_id            String
+  request_type       String
+  input_tokens       Int
+  output_tokens      Int
+  cache_read_tokens  Int      @default(0)
+  cache_write_tokens Int      @default(0)
+  model_version      String
+  cost_usd           Decimal  @db.Decimal(10, 6)
+  created_at         DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([created_at])
+  @@map("token_usage_logs")
 }

@@ -30,4 +30,64 @@ const sendError = (res, error = 'BAD_REQUEST', message = 'Ha ocurrido un error',
   });
 };
 
-module.exports = { sendSuccess, sendError };
+/**
+ * Respuesta 201 Created para recursos nuevos.
+ */
+const sendCreated = (res, data = {}, message = 'Recurso creado correctamente') => {
+  return sendSuccess(res, data, message, 201);
+};
+
+/**
+ * Respuesta 404 Not Found.
+ */
+const sendNotFound = (res, message = 'Recurso no encontrado') => {
+  return sendError(res, 'NOT_FOUND', message, 404);
+};
+
+/**
+ * Respuesta 401 Unauthorized.
+ */
+const sendUnauthorized = (res, message = 'No autorizado') => {
+  return sendError(res, 'UNAUTHORIZED', message, 401);
+};
+
+/**
+ * Respuesta 403 Forbidden.
+ */
+const sendForbidden = (res, message = 'Acceso denegado') => {
+  return sendError(res, 'FORBIDDEN', message, 403);
+};
+
+/**
+ * Respuesta 422 Unprocessable Entity (errores de validación).
+ * @param {object} res
+ * @param {Array} errors - Lista de errores de validación
+ * @param {string} message
+ */
+const sendValidationError = (res, errors, message = 'Error de validación') => {
+  return res.status(422).json({
+    success: false,
+    data: null,
+    message,
+    error: 'VALIDATION_ERROR',
+    errors,
+  });
+};
+
+/**
+ * Respuesta 500 Internal Server Error.
+ */
+const sendServerError = (res, message = 'Error interno del servidor') => {
+  return sendError(res, 'INTERNAL_ERROR', message, 500);
+};
+
+module.exports = {
+  sendSuccess,
+  sendError,
+  sendCreated,
+  sendNotFound,
+  sendUnauthorized,
+  sendForbidden,
+  sendValidationError,
+  sendServerError,
+};

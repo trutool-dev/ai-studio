@@ -7,6 +7,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles, fontSize } from '@/theme/typography';
 import { spacing, borderRadius } from '@/theme/spacing';
 import { authService } from '@/services/authService';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VerifyEmail'>;
 const CODE_LENGTH = 6;
@@ -31,10 +32,11 @@ export function VerifyEmailScreen({ navigation, route }: Props) {
     if (code.length < CODE_LENGTH) { setError('Introduce los 6 dígitos'); return; }
     setLoading(true);
     try {
+      // Solo verificamos — la contraseña se establece en el siguiente paso
       await authService.verifyEmail(email, code);
       navigation.navigate('SetPassword', { email, code });
     } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Código incorrecto');
+      setError(extractApiError(err, 'Código incorrecto'));
       setDigits(Array(CODE_LENGTH).fill(''));
       refs.current[0]?.focus();
     } finally { setLoading(false); }
@@ -51,24 +53,55 @@ export function VerifyEmailScreen({ navigation, route }: Props) {
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={s.container}>
-          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>← Volver</Text></TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Volver atrás"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={s.back}>← Volver</Text>
+          </TouchableOpacity>
           <Text style={s.title}>Revisa tu email</Text>
           <Text style={s.sub}>Código de 6 dígitos enviado a{'\n'}<Text style={s.email}>{email}</Text></Text>
           <View style={s.codeRow}>
             {digits.map((d, i) => (
-              <TextInput key={i} ref={(r) => { refs.current[i] = r; }}
-                style={[s.digit, d && s.digitFilled, error && s.digitError]}
-                value={d} onChangeText={(t) => handleDigit(t, i)}
-                onKeyPress={({ nativeEvent: { key } }) => { if (key === 'Backspace' && !d && i > 0) refs.current[i-1]?.focus(); }}
-                keyboardType="number-pad" maxLength={1} selectTextOnFocus selectionColor={colors.primary.green} />
+              <TextInput
+                key={i}
+                ref={(r) => { refs.current[i] = r; }}
+                style={[s.digit, d && s.digitFilled, !!error && s.digitError]}
+                value={d}
+                onChangeText={(t) => handleDigit(t, i)}
+                onKeyPress={({ nativeEvent: { key } }) => {
+                  if (key === 'Backspace' && !d && i > 0) refs.current[i-1]?.focus();
+                }}
+                keyboardType="number-pad" maxLength={1} selectTextOnFocus
+                selectionColor={colors.primary.green}
+                accessibilityLabel={`Dígito ${i + 1} del código`}
+              />
             ))}
           </View>
-          {error    ? <Text style={s.error}>{error}</Text>    : null}
+          {error    ? <Text style={s.error}>{error}</Text>     : null}
           {resendMsg? <Text style={s.success}>{resendMsg}</Text>: null}
-          <Button label="Verificar" variant="primary" loading={loading} disabled={digits.join('').length < CODE_LENGTH} onPress={handleVerify} style={s.cta} />
+          <Button
+            label="Verificar"
+            variant="primary"
+            loading={loading}
+            disabled={digits.join('').length < CODE_LENGTH}
+            onPress={handleVerify}
+            style={s.cta}
+          />
           <View style={s.resendRow}>
             <Text style={s.resendText}>¿No recibiste el código? </Text>
-            {resending ? <ActivityIndicator size="small" color={colors.primary.green} /> : <TouchableOpacity onPress={handleResend}><Text style={s.link}>Reenviar</Text></TouchableOpacity>}
+            {resending
+              ? <ActivityIndicator size="small" color={colors.primary.green} />
+              : (
+                <TouchableOpacity
+                  onPress={handleResend}
+                  accessibilityLabel="Reenviar código de verificación"
+                >
+                  <Text style={s.link}>Reenviar</Text>
+                </TouchableOpacity>
+              )
+            }
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -83,15 +116,15 @@ const s = StyleSheet.create({
   title: { ...textStyles.titleMedium, color: colors.neutral.black, marginBottom: spacing.sm },
   sub:   { ...textStyles.bodyNormal, color: colors.neutral.midGray, marginBottom: spacing.xl, lineHeight: 22 },
   email: { color: colors.neutral.darkGray, fontWeight: '600' },
-  codeRow:   { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  digit:     { flex: 1, height: 52, borderRadius: borderRadius.input, borderWidth: 1.5, borderColor: colors.neutral.lightGray, backgroundColor: colors.neutral.offWhite, textAlign: 'center', fontSize: fontSize.titleSmall, fontWeight: '700', color: colors.neutral.black },
+  codeRow:    { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  digit:      { flex: 1, height: 52, borderRadius: borderRadius.input, borderWidth: 1.5, borderColor: colors.neutral.lightGray, backgroundColor: colors.neutral.offWhite, textAlign: 'center', fontSize: fontSize.titleSmall, fontWeight: '700', color: colors.neutral.black },
   digitFilled:{ borderColor: colors.primary.green, backgroundColor: colors.primary.lightGreen },
-  digitError: { borderColor: colors.semantic.error },
-  error:   { ...textStyles.caption, color: colors.semantic.error, textAlign: 'center', marginBottom: spacing.md },
-  success: { ...textStyles.caption, color: colors.semantic.success, textAlign: 'center', marginBottom: spacing.md },
+  digitError: { borderColor: '#DC2626' },
+  error:   { ...textStyles.caption, color: '#DC2626', textAlign: 'center', marginBottom: spacing.md },
+  success: { ...textStyles.caption, color: '#16A34A', textAlign: 'center', marginBottom: spacing.md },
   cta:     { marginBottom: spacing.lg },
   resendRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   resendText:{ ...textStyles.bodyNormal, color: colors.neutral.midGray },
-  link:      { ...textStyles.bodyNormal, color: colors.primary.green, fontWeight: '600' },
+  link:      { ...textStyles.bodyNormal, color: colors.primary.darkGreen, fontWeight: '600' },
 });
 export default VerifyEmailScreen;

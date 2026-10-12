@@ -3,9 +3,8 @@
  * Exporta: WorkoutCard, ExerciseRow, RestTimer, WorkoutSummary
  */
 
-import React, { useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
-  Animated,
   ImageBackground,
   ImageSourcePropType,
   Pressable,
@@ -14,8 +13,13 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import ReAnimated, {
+  useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing,
+  interpolateColor,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { colors }                                      from '@/theme/colors';
-import { borderRadius, duration, pressedScale, shadows, spacing } from '@/theme/spacing';
+import { borderRadius, shadows, spacing } from '@/theme/spacing';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -72,12 +76,12 @@ export function WorkoutCard({
   onPress,
   style,
 }: WorkoutCardProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const timingConfig = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
-  const handlePressIn  = () =>
-    Animated.timing(scaleAnim, { toValue: pressedScale, duration: duration.fast, useNativeDriver: true }).start();
-  const handlePressOut = () =>
-    Animated.timing(scaleAnim, { toValue: 1, duration: duration.fast, useNativeDriver: true }).start();
+  const handlePressIn  = () => { scale.value = withTiming(0.97, timingConfig); };
+  const handlePressOut = () => { scale.value = withTiming(1,    timingConfig); };
 
   const isCompact    = variant === 'compact';
   const isInProgress = variant === 'inProgress';
@@ -147,7 +151,7 @@ export function WorkoutCard({
   );
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <ReAnimated.View style={animatedStyle}>
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -157,7 +161,7 @@ export function WorkoutCard({
       >
         {inner}
       </Pressable>
-    </Animated.View>
+    </ReAnimated.View>
   );
 }
 
@@ -170,54 +174,63 @@ export function ExerciseRow({
   active    = false,
   onToggle,
 }: ExerciseRowProps) {
-  const checkAnim = useRef(new Animated.Value(completed ? 1 : 0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  // AD-4f: color del check circle con interpolateColor (Reanimated)
+  const checkProgress = useSharedValue(completed ? 1 : 0);
+  // AD-4g: escala con withSpring para feedback con bounce
+  const scaleProgress = useSharedValue(1);
+
+  // Sincronizar con prop externa
+  useEffect(() => {
+    checkProgress.value = withTiming(completed ? 1 : 0, { duration: 220 });
+  }, [completed]);
 
   const handlePress = () => {
     const next = !completed;
 
-    Animated.parallel([
-      Animated.timing(checkAnim, {
-        toValue:  next ? 1 : 0,
-        duration: 220,
-        useNativeDriver: false,
-      }),
-      Animated.sequence([
-        Animated.timing(scaleAnim, { toValue: 0.92, duration: 80,  useNativeDriver: true }),
-        Animated.timing(scaleAnim, { toValue: 1,    duration: 150, useNativeDriver: true }),
-      ]),
-    ]).start();
+    // Haptic al marcar como completado
+    if (next) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    // AD-4g: bounce spring en confirmación
+    scaleProgress.value = withSpring(0.92, { duration: 80, dampingRatio: 1 }, () => {
+      scaleProgress.value = withSpring(1, { duration: 300, dampingRatio: 0.8 });
+    });
 
     onToggle?.();
   };
 
-  const checkBg = checkAnim.interpolate({
-    inputRange:  [0, 1],
-    outputRange: ['rgba(34,197,94,0)', colors.primary.green],
-  });
+  // AD-4f: color del fondo y opacidad del checkmark via interpolateColor
+  const checkStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      checkProgress.value,
+      [0, 1],
+      ['rgba(34,197,94,0)', colors.primary.green]
+    ),
+    borderColor: interpolateColor(
+      checkProgress.value,
+      [0, 1],
+      [colors.neutral.lightGray, colors.primary.green]
+    ),
+  }));
 
-  const checkOpacity = checkAnim.interpolate({
-    inputRange:  [0, 1],
-    outputRange: [0, 1],
-  });
+  const checkMarkStyle = useAnimatedStyle(() => ({
+    opacity: checkProgress.value,
+  }));
+
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleProgress.value }],
+  }));
 
   return (
-    <Animated.View
-      style={[exStyles.row, active && exStyles.rowActive, { transform: [{ scale: scaleAnim }] }]}
+    <ReAnimated.View
+      style={[exStyles.row, active && exStyles.rowActive, rowStyle]}
     >
       {/* Check circle */}
       <Pressable onPress={handlePress} style={exStyles.checkWrap} accessibilityRole="checkbox">
-        <Animated.View
-          style={[
-            exStyles.check,
-            {
-              backgroundColor: checkBg,
-              borderColor: completed ? colors.primary.green : colors.neutral.lightGray,
-            },
-          ]}
-        >
-          <Animated.Text style={[exStyles.checkMark, { opacity: checkOpacity }]}>✓</Animated.Text>
-        </Animated.View>
+        <ReAnimated.View style={[exStyles.check, checkStyle]}>
+          <ReAnimated.Text style={[exStyles.checkMark, checkMarkStyle]}>✓</ReAnimated.Text>
+        </ReAnimated.View>
       </Pressable>
 
       {/* Info */}
@@ -230,7 +243,7 @@ export function ExerciseRow({
 
       {/* Indicador activo */}
       {active && <View style={exStyles.activeDot} />}
-    </Animated.View>
+    </ReAnimated.View>
   );
 }
 

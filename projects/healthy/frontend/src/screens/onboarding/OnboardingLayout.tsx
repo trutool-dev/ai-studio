@@ -19,7 +19,7 @@ export function OnboardingLayout({ step, title, subtitle, onBack, onContinue, co
   const inner = (
     <>
       <View style={s.header}>
-        <TouchableOpacity onPress={onBack} style={s.backBtn}><Text style={s.backIcon}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={onBack} style={s.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Text style={s.backIcon}>←</Text></TouchableOpacity>
         <ProgressBar current={step} total={TOTAL_STEPS} style={s.progress} />
       </View>
       <Text style={s.title}>{title}</Text>
