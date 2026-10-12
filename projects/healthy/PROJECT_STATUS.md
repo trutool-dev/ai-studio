@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-12d | Sesión: Bugs entrenamiento resueltos (exerciseSelector case, training/today plan activo, daysOffset). Input sueño DailyLogWidget. Timeout regeneratePlan 90s. APK 96aedf25 con icono nuevo.
+> Ultima actualización: 2026-10-12e | Sesión: Agente JailBreak creado (CLAUDE.jailbreak.md). Auditoría MITRE ATLAS completada (auditoria_atlas_mitre.md): 24 tareas SEC-01..SEC-24, 5 críticas (prompt injection, cross-user data, DoS API key). Commit 1ad08bc.
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-12d — Bugs entrenamiento resueltos, input sueño, timeout regeneratePlan, APK 96aedf25 con icono |
-| Rama activa | develop — commit `69da1c8` (fix exerciseSelector case) |
+| Fase actual | Sesión 2026-10-12e — Agente JailBreak + Auditoría MITRE ATLAS (24 tareas SEC-01..SEC-24). Commit 1ad08bc |
+| Rama activa | develop — commit `1ad08bc` (JailBreak agent + auditoría ATLAS) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build `96aedf25` — icono nuevo + rediseño Apple Design + todos los fixes sesión |
@@ -268,6 +268,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-12 | Bug fix crítico `onboarding/complete`: `const→let` en destructuring línea 163 causaba `TypeError: Assignment to constant variable` cuando el usuario enviaba datos del onboarding directamente al endpoint final. Fix commit `72d38af`, desplegado a Railway. Nuevo APK `39e44a5e` con rediseño Apple Design completo generado via EAS Build. Docs actualizados (README, ai-architecture, architecture-web, PROGRESS, PROJECT_STATUS). Tareas M-17/M-18/M-19 añadidas como arranque próxima sesión. Investigación autenticación staging: SMTP no configurado, usar `/auth/dev/auto-verify` con `Content-Type: application/json`. | 72d38af | 2026-10-12 |
 | Sesion 2026-10-12b | **A-8** ✅ Fix scheduled_date: ISO→JS weekday + próxima ocurrencia real (`9441d66`). **A-9** ✅ Nuevo `GET /user/me/profile` + ProfileScreen fetch API (`aa4679d`, `20719e2`). **A-10** ✅ DailyLogWidget con InputModal numérico para agua/pasos/peso + `POST /progress` (`b90074a`). **A-11** ✅ NutritionScreen: fix parsing `data.data.foods` + empty state (`a4b1d65`). **M-4** ✅ Seed 1.324 ejercicios completado en staging. Frontend worktree mergeado a develop + push Railway (`e601547`). Nuevo build EAS pendiente para incorporar todos estos fixes. | e601547 | 2026-10-12 |
 | Sesion 2026-10-12d | **M-16/M-17** ✅ Verificados: `GET /foods/search?q=pollo` devuelve 6 resultados. **A-12** ✅ TrainingScreen "Día de descanso" resuelto: fix `daysOffset < 0` (`44bdf57`), `training/today` filtra plan activo (`ce9204c`), `EQUIPMENT_MAP`/`GOAL_TO_CATEGORIES` en minúsculas para match con BD (`69da1c8`). **A-13** ✅ Input sueño en DailyLogWidget (`18552bf`). **A-14** ✅ Timeout regeneratePlan 90s (`831b223`). **Go-live checklist** revisada: 4 criterios ✅, 1 aplazado (iOS), 2 pendientes (Google Play + tag). **APK `96aedf25`** ✅ con icono nuevo + todos los fixes. | 69da1c8 | 2026-10-12 |
+| Sesion 2026-10-12e | **JailBreak Agent** ✅ `CLAUDE.jailbreak.md` creado en raíz (auditor de seguridad basado en MITRE ATLAS v4.5). **auditoria_atlas_mitre.md** ✅ generada: 16 tácticas auditadas, 30 hallazgos, 24 tareas SEC-01..SEC-24 — 5 🔴 críticas (prompt injection en buildUserContextPrompt, extraContext libre, indirect injection, cross-user userId, DoS via API key), 8 🟠 altas, 7 🟡 medias, 4 🟢 bajas. | 1ad08bc | 2026-10-12 |
 | Sesion 2026-10-12c | **DOC-01..DOC-08** ✅ Verificadas y marcadas como completadas en tasks.md — todos los documentos existían con contenido completo (api-reference, deployment-guide, ai-architecture, rgpd-compliance, README, architecture-web, landing-deploy, landing-content). Commit `e0dde65`. **M-15** ✅ Icono app diseñado: hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada: navbar, footer, sección descarga y favicon usan icono real. Commit `f4dc665`. | f4dc665 | 2026-10-12 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
