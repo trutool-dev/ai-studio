@@ -50,7 +50,7 @@ async function main() {
 
   // Mapear al schema de Prisma
   const mapped = exercises.map(ex => ({
-    externalId: ex.id,
+    externalId: ex.id ? parseInt(ex.id, 10) : null,
     name: ex.name,
     category: ex.category || '',
     bodyPart: ex.bodyPart || '',

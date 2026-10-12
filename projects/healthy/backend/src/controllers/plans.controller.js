@@ -108,6 +108,38 @@ const regeneratePlan = async (req, res, next) => {
       data: { user_id: userId, type: 'combined', start_date: startDate, end_date: endDate, status: 'active', generated_by_ai: newPlan.generated_by_ai, ai_model_version: newPlan.model_version, ai_prompt_used: reason },
     });
 
+    // Crear sesiones de entrenamiento con ejercicios del catálogo
+    const bodyTypeMap = { slim: 'ectomorph', athletic: 'mesomorph', average: 'mesomorph', overweight: 'endomorph' };
+    const equipMap    = { gym: 'full', home: 'dumbbells', outdoors: 'none', none: 'none' };
+    const trainingSessions = [];
+    for (let week = 0; week < newPlan.training_plan.weeks; week++) {
+      for (const daySession of newPlan.training_plan.weekly_schedule) {
+        if (daySession.session_type === 'rest') continue;
+        const sessionDate = new Date(startDate);
+        sessionDate.setDate(startDate.getDate() + (week * 7) + (daySession.day_of_week - 1));
+        trainingSessions.push({ plan_id: savedPlan.id, user_id: userId, scheduled_date: sessionDate, status: 'scheduled', notes: daySession.notes || null });
+      }
+    }
+    if (trainingSessions.length > 0) {
+      await prisma.trainingSession.createMany({ data: trainingSessions });
+      if (catalogExercises.length > 0) {
+        const createdSessions = await prisma.trainingSession.findMany({
+          where: { plan_id: savedPlan.id },
+          orderBy: { scheduled_date: 'asc' },
+          select: { id: true },
+        });
+        const EXERCISES_PER_SESSION = 4;
+        const sessionExercises = [];
+        createdSessions.forEach((session, idx) => {
+          for (let i = 0; i < EXERCISES_PER_SESSION; i++) {
+            const ex = catalogExercises[(idx * EXERCISES_PER_SESSION + i) % catalogExercises.length];
+            sessionExercises.push({ session_id: session.id, exercise_id: ex.id, sets: 3, reps: 12, rest_seconds: 60, order_index: i + 1 });
+          }
+        });
+        await prisma.sessionExercise.createMany({ data: sessionExercises });
+      }
+    }
+
     return sendSuccess(res, { plan_id: savedPlan.id, generated_plan: newPlan }, 'Plan regenerado correctamente');
   } catch (err) { next(err); }
 };
