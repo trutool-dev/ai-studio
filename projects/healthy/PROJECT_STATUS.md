@@ -15,7 +15,7 @@
 | Rama activa | develop — commit `e601547` (merge worktree A-9/A-10/A-11 frontend) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
-| APK Android | ✅ Build `39e44a5e` disponible — rediseño Apple Design completo |
+| APK Android | ✅ Build `1bb08be5` disponible — rediseño Apple Design + fixes A-8/A-9/A-10/A-11 |
 | Siguiente accion inmediata | **M-16** — Seed foods (pendiente Antonio) → **M-17** — Confirmar `GET /foods/search?q=pollo` → **M-18** — Instalar nuevo APK con fixes A-8..A-11 → **M-19** — Google Play Internal Testing |
 
 ---
@@ -30,7 +30,7 @@
 | Landing page | AWS S3 + CloudFront | ✅ OK — produccion |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
 | ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
-| App Android | EAS Build (Expo) | ✅ APK disponible — Build `39e44a5e` (rediseño Apple Design A-7, lanzado 2026-10-12) |
+| App Android | EAS Build (Expo) | ✅ APK disponible — Build `1bb08be5` (rediseño Apple Design + fixes A-8/A-9/A-10/A-11, lanzado 2026-10-12) |
 | App iOS | EAS Build (Expo) | ❌ APLAZADO indefinidamente |
 
 **IDs Railway:**
@@ -64,9 +64,9 @@
 | M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | Pendiente |
 | M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
-| M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | **EN CURSO** — Antonio ejecutando seeds con DATABASE_PUBLIC_URL de Railway |
-| M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | Pendiente — primera acción próxima sesión |
-| M-18 | Instalar nuevo APK (build `39e44a5e`, rediseño Apple Design) y probar: press feedback escala 0.97, tab bar sin bounce, bottom sheets drag-to-dismiss en Training y Progress, stagger onboarding, haptic feedback | IMPORTANTE | Pendiente — APK disponible en expo.dev/accounts/trutool/projects/healthy/builds/39e44a5e-8692-4f98-b46a-3b1077ee935d |
+| M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | ✅ Completada — `/foods/search?q=pollo` devuelve 6 resultados verificados (sesión 2026-10-12) |
+| M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | ✅ Completada — verificado 2026-10-12: 6 alimentos con macros completos |
+| M-18 | Instalar nuevo APK (build `1bb08be5`, con fixes A-8..A-11 + rediseño Apple Design) y probar | IMPORTANTE | Pendiente — APK listo en expo.dev/accounts/trutool/projects/healthy/builds/1bb08be5-d199-44e3-9aca-0b193f705cfe |
 | M-19 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-18) |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
