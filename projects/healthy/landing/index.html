@@ -11,9 +11,8 @@
   <link rel="canonical" href="https://healthy.app" />
 
   <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="alternate icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="/images/app-icon.png" />
+  <link rel="apple-touch-icon" href="/images/app-icon.png" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
@@ -181,8 +180,8 @@
     .nav-logo-icon {
       width:           36px;
       height:          36px;
-      background:      var(--green);
       border-radius:   10px;
+      overflow:        hidden;
       display:         flex;
       align-items:     center;
       justify-content: center;
@@ -1001,8 +1000,8 @@
     .footer-logo-icon {
       width:        30px;
       height:       30px;
-      background:   var(--green);
       border-radius: 8px;
+      overflow:     hidden;
       display:      flex;
       align-items:  center;
       justify-content: center;
@@ -1092,7 +1091,7 @@
   <nav class="nav" id="nav" aria-label="Navegación principal">
     <div class="container">
       <a href="#" class="nav-logo" aria-label="Healthy — inicio">
-        <div class="nav-logo-icon" aria-hidden="true">🌿</div>
+        <img class="nav-logo-icon" src="/images/app-icon.png" alt="" aria-hidden="true" width="36" height="36" style="border-radius:10px;display:block;" />
         Healthy
       </a>
 
@@ -1460,6 +1459,9 @@
   <!-- ── DESCARGA ────────────────────────────────────────────────────────────── -->
   <section class="download-section" id="download">
     <div class="container">
+      <div class="reveal" style="display:flex;justify-content:center;margin-bottom:24px;">
+        <img src="/images/app-icon.png" alt="Icono Healthy" width="100" height="100" style="border-radius:24px;box-shadow:0 8px 32px rgba(0,0,0,0.25);" />
+      </div>
       <p class="label-tag reveal" style="justify-content:center;">Disponible ahora</p>
       <h2 class="download-headline reveal reveal-delay-1">
         Descarga Healthy.<br />Es gratis.
@@ -1497,7 +1499,7 @@
 
         <div class="footer-brand">
           <div class="footer-logo">
-            <div class="footer-logo-icon" aria-hidden="true">🌿</div>
+            <img class="footer-logo-icon" src="/images/app-icon.png" alt="" aria-hidden="true" width="30" height="30" style="border-radius:8px;display:block;" />
             Healthy
           </div>
           <p class="footer-tagline">
