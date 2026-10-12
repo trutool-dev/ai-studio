@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-11 | Sesión: A-7 rediseño Apple Design COMPLETADA — 39 tareas en 7 fases, 454/454 tests
+> Ultima actualización: 2026-10-12 | Sesión: Bug fix onboarding/complete (const→let). Nuevo APK build 39e44a5e con rediseño Apple Design. Docs actualizados.
 
 ---
 
@@ -11,12 +11,12 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-11 CERRADA — A-7 rediseño Apple Design ✅ COMPLETADA (39 tareas, 7 fases) |
-| Rama activa | develop — commit f03a358 (ProfileScreen botón regenerar plan) |
-| Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` |
+| Fase actual | Sesión 2026-10-12 — Bug fix onboarding, nuevo APK con rediseño, docs actualizados |
+| Rama activa | develop — commit `72d38af` (fix onboarding const→let) |
+| Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
-| APK Android | ✅ Build 94110d29 disponible (preview staging) |
-| Siguiente accion inmediata | **M-17** — Confirmar seed foods (`GET /foods/search?q=pollo`) → **M-18** — Probar nuevo APK con rediseño Apple Design → **M-19** — Google Play Internal Testing |
+| APK Android | ✅ Build `39e44a5e` disponible — rediseño Apple Design completo |
+| Siguiente accion inmediata | **M-17** — Confirmar seed foods (`GET /foods/search?q=pollo`) → **M-18** — Probar APK `39e44a5e` en dispositivo → **M-19** — Google Play Internal Testing |
 
 ---
 
@@ -30,7 +30,7 @@
 | Landing page | AWS S3 + CloudFront | ✅ OK — produccion |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
 | ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
-| App Android | EAS Build (Expo) | ✅ APK disponible — Build 94110d29 (con rediseño Apple Design A-7) |
+| App Android | EAS Build (Expo) | ✅ APK disponible — Build `39e44a5e` (rediseño Apple Design A-7, lanzado 2026-10-12) |
 | App iOS | EAS Build (Expo) | ❌ APLAZADO indefinidamente |
 
 **IDs Railway:**
@@ -66,7 +66,7 @@
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | Pendiente — sustituir `assets/icon.png` (1024×1024px) y `assets/adaptive-icon.png` (sin fondo) y lanzar nuevo build EAS |
 | M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | **EN CURSO** — Antonio ejecutando seeds con DATABASE_PUBLIC_URL de Railway |
 | M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | Pendiente — primera acción próxima sesión |
-| M-18 | Instalar nuevo APK (post rediseño Apple Design, build post-`7932a1b`) y probar: press feedback escala 0.97, tab bar sin bounce, bottom sheets drag-to-dismiss en Training y Progress, stagger onboarding, haptic feedback | IMPORTANTE | Pendiente (depende del nuevo EAS Build lanzado 2026-10-11) |
+| M-18 | Instalar nuevo APK (build `39e44a5e`, rediseño Apple Design) y probar: press feedback escala 0.97, tab bar sin bounce, bottom sheets drag-to-dismiss en Training y Progress, stagger onboarding, haptic feedback | IMPORTANTE | Pendiente — APK disponible en expo.dev/accounts/trutool/projects/healthy/builds/39e44a5e-8692-4f98-b46a-3b1077ee935d |
 | M-19 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-18) |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
@@ -255,6 +255,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-09 | M-3: build Android 5befc66f in progress (EAS). M-11b confirmada: /health/ai → success:true, IA activa. M-12: CP-01..CP-10 re-ejecutados (score 23/50). IA real confirmada en CP-07 y CP-08. 7 CPs con caché Redis fallback (usuarios eval_20261009_XX heredaron planes del día de la sesión). Causa: cache Redis TTL 24h impide regenerar planes el mismo día. | pendiente | 2026-10-09 |
 | Sesion 2026-10-10a | M-3 ✅ confirmada — APK build 5befc66f (commit 9d8522a) listo. M-7 EN CURSO — APK instalado en emulador Android Studio (adb install). A-Landing ✅ completada — Acc/SEO corregidos. PUBLISHING_GUIDE.md creado. M-15 añadida: diseñar icono de la app. | pendiente | 2026-10-10 |
 | Sesion 2026-10-10b | Investigación BD alimentos: BEDCA bloqueada, USDA ✅ gratuita. Creados `seed-foods.js` (128 alimentos ES, commit 61a3729), `import-usda.js` (200+ ES→USDA, commit 93e470a), `import-openfoodfacts.js` (20 categorías × 60 productos, commit e392cb5 + retry 503 en 1cc12b8). Fix Prisma client path en scripts seed. .gitignore actualizado. M-16 EN CURSO. A-6 planificada. | e8924f1 | 2026-10-10 |
+| Sesion 2026-10-12 | Bug fix crítico `onboarding/complete`: `const→let` en destructuring línea 163 causaba `TypeError: Assignment to constant variable` cuando el usuario enviaba datos del onboarding directamente al endpoint final. Fix commit `72d38af`, desplegado a Railway. Nuevo APK `39e44a5e` con rediseño Apple Design completo generado via EAS Build. Docs actualizados (README, ai-architecture, architecture-web, PROGRESS, PROJECT_STATUS). Tareas M-17/M-18/M-19 añadidas como arranque próxima sesión. Investigación autenticación staging: SMTP no configurado, usar `/auth/dev/auto-verify` con `Content-Type: application/json`. | 72d38af | 2026-10-12 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
