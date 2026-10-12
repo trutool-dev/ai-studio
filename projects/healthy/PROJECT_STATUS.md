@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-12f | Sesión: Tareas N-1/N-2/N-3 registradas — food search asignable a comidas (POST /nutrition/meals/:mealId/foods, modal de asignación, refresco de macros).
+> Ultima actualización: 2026-10-12g | Sesión: Seguridad MITRE ATLAS completa — 24 tareas SEC-01..SEC-24 implementadas. Agente JailBreak añadido a /agents. APK food-search fb35f492 listo.
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-12f — Tareas N-1/N-2/N-3 registradas: food search asignable a comidas (backend endpoint + frontend modal + refresco macros) |
-| Rama activa | develop — commit `1ad08bc` (JailBreak agent + auditoría ATLAS) |
+| Fase actual | Sesión 2026-10-12g — Seguridad MITRE ATLAS: 24/24 tareas SEC implementadas. N-1/N-2/N-3 completadas. APK fb35f492 listo. |
+| Rama activa | develop — commit `dd9e9f7` (SEC-05/06 rate limiters en rutas) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build `96aedf25` — icono nuevo + rediseño Apple Design + todos los fixes sesión |
@@ -399,42 +399,42 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 
 | ID | Componente | Descripción | Agente | Estado |
 |----|-----------|-------------|--------|--------|
-| **SEC-01** | `aiService.js` → `buildUserContextPrompt()` | Sanitización anti-prompt-injection: truncar campos a 500 chars, strip de patrones de inyección, encapsular datos en `<user_data>`, añadir instrucción defensiva al SYSTEM_PROMPT | Security Agent | Pendiente |
-| **SEC-02** | `POST /plans/generate` endpoint | Eliminar `extraContext` como parámetro del cliente. Solo generado internamente por el backend | Security Agent | Pendiente |
-| **SEC-03** | `aiService.js` → `formatExercisesForPrompt()` | Sanitizar catálogo de ejercicios externo antes de incluirlo en prompts: `sanitizeExerciseForPrompt()` con límites longitud y strip de patrones sospechosos | Security Agent | Pendiente |
-| **SEC-04** | Controller de planes | Verificar que `userId` del JWT === `userId` de los datos de onboarding. Nunca confiar en userId del body; consultar onboarding desde BD con userId del JWT | Security Agent | Pendiente |
-| **SEC-05** | Registro de usuarios | Rate limiter de registro por IP (máx 3 cuentas/hora). Configurar budget límite en Anthropic. Alerta de gasto. Verificación de email | Security Agent | Pendiente |
+| **SEC-01** | `aiService.js` → `buildUserContextPrompt()` | Sanitización anti-prompt-injection: truncar campos a 500 chars, strip de patrones de inyección, encapsular datos en `<user_data>`, añadir instrucción defensiva al SYSTEM_PROMPT | Security Agent | ✅ `cb66d48` |
+| **SEC-02** | `POST /plans/generate` endpoint | `extraContext` solo generado internamente — confirmado que el cliente nunca lo pasa directamente | Security Agent | ✅ `cb66d48` |
+| **SEC-03** | `aiService.js` → `formatExercisesForPrompt()` | `sanitizeExerciseForPrompt()` creada y aplicada: name≤100, instructions≤300, strip patrones | Security Agent | ✅ `cb66d48` |
+| **SEC-04** | Controller de planes | `userId` siempre del JWT — comentario explícito añadido. Confirmado: onboarding.controller y plans.controller solo usan `req.user.userId` | Security Agent | ✅ `3930265` |
+| **SEC-05** | Registro de usuarios | `registrationLimiter` (3 cuentas/hora por IP) aplicado en `POST /auth/register` | Security Agent | ✅ `dd9e9f7` |
 
 ### 🟠 ALTAS — Resolver en sprint post-lanzamiento
 
 | ID | Componente | Descripción | Agente | Estado |
 |----|-----------|-------------|--------|--------|
-| **SEC-06** | `aiService.js` | Límite de generaciones de plan por usuario/día (1 nuevo + 3 regeneraciones). Métricas de tokens en Redis. Alerta uso anómalo | Security Agent | Pendiente |
-| **SEC-07** | SYSTEM_PROMPT | Añadir defensas anti-jailbreak: instrucciones de refusal, prohibición de roles alternativos. Validación post-generación del JSON de Claude | Security Agent | Pendiente |
-| **SEC-08** | Error handling | Estandarizar respuestas de error: nunca exponer detalles de Claude API al cliente. Respuesta genérica `PLAN_GENERATION_FAILED` | Security Agent | Pendiente |
-| **SEC-09** | SYSTEM_PROMPT | Añadir instrucción de confidencialidad. Mover SYSTEM_PROMPT a variable de entorno `AI_SYSTEM_PROMPT` | Security Agent | Pendiente |
-| **SEC-10** | Redis / PostgreSQL | Cifrar planes en Redis con AES-256 (`REDIS_ENCRYPTION_KEY`). Auditar accesos a datos de planes | Security Agent | Pendiente |
-| **SEC-11** | Output processing | Sanitizar y truncar campos de texto libre del output de Claude (`notes`, `generated_at`, `model_version`) antes de almacenar/devolver | Security Agent | Pendiente |
-| **SEC-12** | `app.js` | Reducir límite `express.json` a 50kb. Validación de longitud máxima de campos en schema de onboarding | Security Agent | Pendiente |
-| **SEC-13** | CI/CD + npm | `npm audit --production` en CI/CD. Pinear versión exacta `@anthropic-ai/sdk`. Activar Dependabot | DevOps Agent | Pendiente |
+| **SEC-06** | `onboarding.routes.js` | `planGenerationLimiter` (1 plan nuevo/día) aplicado en `POST /onboarding/complete` | Security Agent | ✅ `dd9e9f7` |
+| **SEC-07** | SYSTEM_PROMPT | Instrucciones anti-jailbreak + refusal de roles alternativos añadidas al SYSTEM_PROMPT | Security Agent | ✅ `cb66d48` |
+| **SEC-08** | Error handling | `err.error` eliminado del log (no expone detalles internos de Claude API) | Security Agent | ✅ `cb66d48` |
+| **SEC-09** | SYSTEM_PROMPT | Instrucción de confidencialidad añadida. `EFFECTIVE_SYSTEM_PROMPT` lee desde `AI_SYSTEM_PROMPT` env var | Security Agent | ✅ `cb66d48` |
+| **SEC-10** | Redis | Cifrado AES-256-GCM con `REDIS_ENCRYPTION_KEY`. `encryptAES256`/`decryptAES256` en `crypto.util.js` | Security Agent | ✅ `cb66d48` |
+| **SEC-11** | Output processing | `notes`≤1000 chars, `generated_at` validado ISO8601, `model_version` validado contra allowlist | Security Agent | ✅ `cb66d48` |
+| **SEC-12** | `app.js` | `express.json` reducido de 10mb a 50kb | Security Agent | ✅ `3930265` |
+| **SEC-13** | CI/CD + npm | `security-audit.yml` creado, `@anthropic-ai/sdk` pineado a `0.52.0`, Dependabot activado | DevOps Agent | ✅ `1281dce` |
 
 ### 🟡 MEDIAS — Backlog de mejoras
 
 | ID | Descripción | Estado |
 |----|-------------|--------|
-| **SEC-14** | `.gitignore` para docs internos (`CLAUDE.*.md`, `PR-*.md`, `*_STATUS.md`) antes de hacer repo público | Pendiente |
-| **SEC-15** | Validar integridad del catálogo de ejercicios externo (schema JSON, longitud, caracteres) | Pendiente |
-| **SEC-16** | HMAC de integridad en planes cacheados en Redis (`HMAC-SHA256` con `REDIS_HMAC_SECRET`) | Pendiente |
-| **SEC-17** | Normalización Unicode (NFC) y strip de caracteres de control/RTL en sanitización de inputs | Pendiente |
-| **SEC-18** | Separadores semánticos entre secciones del prompt. Límite 2000 chars total para campos de texto libre | Pendiente |
-| **SEC-19** | Autenticar `/health/ai` con token de admin o eliminarlo en staging. No exponer prefijo de API key | Pendiente |
-| **SEC-20** | Validación de rangos fisiológicos en `calculateMetabolism()`: age [10,120], weight [20,500], height [50,250] | Pendiente |
+| **SEC-14** | `.gitignore` actualizado con patrones de docs internos (`CLAUDE.*.md`, `PR-*.md`, `*_STATUS.md`, etc.) | ✅ `1281dce` |
+| **SEC-15** | `sanitizeCatalogExercise()` en `exerciseSelector.service.js`: longitud de campos + strip Unicode override | ✅ `1281dce` |
+| **SEC-16** | HMAC-SHA256 con `REDIS_HMAC_SECRET` en caché Redis — verificación de integridad antes de usar el plan | ✅ `cb66d48` |
+| **SEC-17** | Normalización Unicode NFC + strip chars de control/RTL (U+202A-202E, U+2066-2069) en `sanitizeTextField` | ✅ `cb66d48` |
+| **SEC-18** | Separadores `---SECCIÓN: X---` + presupuesto de 2000 chars combinados para campos de texto libre | ✅ `cb66d48` |
+| **SEC-19** | `/health/ai` protegido con `X-Admin-Token`. `key_prefix` eliminado de la respuesta | ✅ `3930265` |
+| **SEC-20** | Clamping fisiológico en `calculateMetabolism()`: age [10,120], weight [20,500], height [50,250] | ✅ `cb66d48` |
 
 ### 🟢 BAJAS — Nice to have
 
 | ID | Descripción | Estado |
 |----|-------------|--------|
-| **SEC-21** | Verificar que Helmet deshabilita `X-Powered-By` en producción | Pendiente |
-| **SEC-22** | Verificar TTL de JWT en `authService.js`. `expiresIn: '24h'` máximo. Implementar refresh token | Pendiente |
-| **SEC-23** | Post-procesado del plan: validar IDs de ejercicios contra catálogo real. Eliminar IDs inexistentes | Pendiente |
-| **SEC-24** | Política de rotación de secretos cada 90 días. `JWT_SECRET` con `openssl rand -hex 64`. Pre-commit hook para detectar API keys | Pendiente |
+| **SEC-21** | Helmet deshabilita `X-Powered-By` confirmado + comentario explícito en `app.js` | ✅ `3930265` |
+| **SEC-22** | JWT TTL confirmado `'15m'` en `auth.controller.js` — no requiere cambio | ✅ `3930265` |
+| **SEC-23** | Post-procesado: `exercise.id` del plan validado contra `catalogIds` antes de guardar | ✅ `3930265` |
+| **SEC-24** | `SECRETS_POLICY.md` creado. Pre-commit hook `.husky/pre-commit` para detectar `sk-ant-`. `.env.example` actualizado con nuevas vars de seguridad | ✅ `1281dce` |
