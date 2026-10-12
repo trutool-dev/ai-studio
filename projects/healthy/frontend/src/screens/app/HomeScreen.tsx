@@ -12,6 +12,7 @@ import ReAnimated, {
   useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing,
   FadeIn,
 } from 'react-native-reanimated';
+import { useNavigation }               from '@react-navigation/native';
 import { usePlanStore, calcDayTotals } from '@/stores/planStore';
 import { useAuthStore }                from '@/stores/authStore';
 import { MacroCard }                   from '@/components/ui/MacroCard';
@@ -45,6 +46,7 @@ function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
 export function HomeScreen() {
+  const navigation = useNavigation<any>();
   const {
     todayWorkout, todayMeals, targets, log, streak,
     logWater, fetchTodayTraining, fetchTodayNutrition, fetchTodayLog, submitLog,
@@ -150,6 +152,7 @@ export function HomeScreen() {
               style={styles.workoutCard}
               accessibilityLabel={`Entrenamiento: ${todayWorkout.name}`}
               accessibilityRole="button"
+              onPress={() => navigation.navigate('Training')}
               onPressIn={() => { workoutScale.value = withTiming(0.98, workoutTimingConfig); }}
               onPressOut={() => { workoutScale.value = withTiming(1, workoutTimingConfig); }}
             >
