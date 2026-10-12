@@ -65,6 +65,7 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **BE-08** Rate limiting: authLimiter (5 req/15min en `/auth/*`), apiLimiter (100 req/15min autenticados)
 - [x] **BE-09** Redis cache: planes IA, sesiones JWT, búsqueda de alimentos (6h)
 - [x] **BE-10** `GET /health` → estado real DB + Redis + timestamp + version
+- [ ] **A-15** **Bug: incluir `has_plan` en respuestas de auth** — En `login()` y `getMe()`: `prisma.plan.findFirst({ where: { user_id: user.id, status: 'active' } })` e incluir `has_plan: !!activePlan` en el objeto `user` de la respuesta. Archivo: `backend/src/controllers/auth.controller.js`. **Depende de:** nada.
 
 > ⚠️ Ejecutar en backend/: `npm install @anthropic-ai/sdk zod` antes de arrancar
 > ⚠️ `database/schema.prisma` actualizado con `TokenUsageLog` — requiere nueva migración
@@ -105,6 +106,7 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **FE-12** WCAG AA: colores corregidos en `theme/colors.ts`, Button.tsx fondo `#16A34A`, hitSlop en touchables, accessibilityLabel en todos los componentes
 - [x] **FE-13** TrainingScreen: WorkoutCard inProgress + ExerciseRow + RestTimer + WorkoutSummary integrados
 - [x] **FE-14** ProgressScreen: ActivityRings + RecoveryScore + MetricGrid integrados
+- [ ] **A-16** **Bug: `has_plan` siempre undefined al arrancar app** — En `loadStoredAuth()`: tras cargar tokens de SecureStore y setear `isAuthenticated: true`, llamar a `GET /auth/me`, actualizar el store y re-guardar en SecureStore. Si la llamada falla (sin red), usar el usuario guardado como fallback. Archivo: `frontend/src/stores/authStore.ts`. **Depende de:** A-15.
 
 **Dependencias:** BE-01..BE-09, DS-01..DS-10
 
