@@ -160,7 +160,7 @@ const complete = async (req, res, next) => {
     const userId = req.user.userId;
     const answers = req.body.answers || [];
 
-    const [profile, lifestyle, training, nutrition, healthConditions, foodRestrictions, motivation] = await Promise.all([
+    let [profile, lifestyle, training, nutrition, healthConditions, foodRestrictions, motivation] = await Promise.all([
       prisma.profile.findUnique({ where: { user_id: userId } }),
       prisma.lifestyleProfile.findUnique({ where: { user_id: userId } }),
       prisma.trainingPreferences.findUnique({ where: { user_id: userId } }),
