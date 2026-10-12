@@ -6,7 +6,7 @@ const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
 
-/** GET /nutrition/meals — Comidas del día actual */
+/** GET /nutrition/meals — Comidas del día actual (solo del plan activo) */
 const getMeals = async (req, res, next) => {
   try {
     const userId = req.user.userId;
@@ -15,8 +15,14 @@ const getMeals = async (req, res, next) => {
     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
 
+    const activePlan = await prisma.plan.findFirst({ where: { user_id: userId, status: 'active' } });
+
     const meals = await prisma.meal.findMany({
-      where: { user_id: userId, scheduled_date: { gte: startOfDay, lte: endOfDay } },
+      where: {
+        user_id: userId,
+        scheduled_date: { gte: startOfDay, lte: endOfDay },
+        ...(activePlan ? { plan_id: activePlan.id } : {}),
+      },
       include: { meal_foods: { include: { food: true } } },
       orderBy: { scheduled_date: 'asc' },
     });
