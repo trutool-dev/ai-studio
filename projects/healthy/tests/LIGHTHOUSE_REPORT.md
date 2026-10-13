@@ -17,10 +17,8 @@
 
 ### Por qué no se ejecutó Lighthouse completo
 
-El dominio `https://healthy.app` no responde públicamente. La infraestructura de
-CloudFront + S3 está definida en Terraform (`devops/infra/s3-landing.tf`,
-`devops/infra/route53-landing.tf`) pero el `terraform apply` y la activación del
-dominio son pasos manuales pendientes (tarea M-9: configurar DNS). Este bloqueo
+El dominio `https://healthy.app` no responde públicamente. La landing aún no estaba
+desplegada y la activación del dominio es un paso manual pendiente (configurar DNS). Este bloqueo
 fue documentado previamente en `tests/LIGHTHOUSE_PENDING.md` (2026-07-14) y
 continúa sin resolverse a fecha de esta auditoría.
 
@@ -40,8 +38,8 @@ El análisis se realiza sobre el archivo desplegado: `projects/healthy/landing/i
 | Imágenes | BIEN | Sin elementos `<img>`. Los "mockups" de app son divs CSS puros |
 | Bloqueo de render | BIEN | Sin `<link rel="stylesheet">` externo, sin `<script src>` bloqueante |
 | Animaciones | BIEN | Usa `IntersectionObserver` + CSS transitions, no JavaScript pesado |
-| Cache-Control | BIEN | CloudFront configurado con `max-age=86400` para assets; `no-cache` en index.html |
-| Compresión | PENDIENTE | Depende de la configuración de CloudFront (Brotli/Gzip habilitados por defecto en CF) |
+| Cache-Control | BIEN | nginx configurado con `max-age=86400` para assets; `no-cache` en el HTML |
+| Compresión | BIEN | gzip activado en nginx |
 
 **Riesgo principal:** El CSS inline (~35 KB) no se puede cachear por separado. Sin embargo,
 al ser una landing de página única, el primer paint es la única carga relevante.
@@ -76,8 +74,8 @@ al ser una landing de página única, el primer paint es la única carga relevan
 
 | Factor | Estado | Detalle |
 |--------|--------|---------|
-| HTTPS | BIEN | CloudFront con ACM (certificado en us-east-1, configurado en TF) |
-| Headers de seguridad | BIEN | HSTS, X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy — todos configurados en `cf-security-headers.js` |
+| HTTPS | BIEN | Certificado TLS gestionado por Railway |
+| Headers de seguridad | BIEN | HSTS, X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy — configurados en `landing/nginx.conf.template` (CSP pendiente) |
 | CSP `unsafe-inline` | RIESGO | El CSP permite `script-src 'unsafe-inline'` (necesario por scripts inline) |
 | Imágenes en WebP | N/A | No hay imágenes `<img>` — los visuales son CSS puro |
 | Console errors | ESTIMADO LIMPIO | JS simple (scroll listener + IntersectionObserver) sin APIs deprecadas |
@@ -97,10 +95,10 @@ Migrar los scripts inline a un archivo `.js` externo o usar un `nonce` soluciona
 | `<meta description>` | BIEN | Presente, 97 chars — dentro del rango óptimo |
 | `lang` en `<html>` | BIEN | `lang="es"` |
 | Headings jerárquicos | BIEN | H1 → H2 → H3 |
-| `<link rel="canonical">` | FALTA | No declarado — CloudFront puede servir desde varias URLs |
+| `<link rel="canonical">` | FALTA | No declarado — la landing puede servirse desde varias URLs |
 | Open Graph tags | FALTA | Sin `og:title`, `og:description`, `og:image` |
 | Twitter Card | FALTA | Sin `twitter:card` meta tags |
-| Robots meta | BIEN (implícito) | Sin `noindex` — CloudFront no bloquea crawlers |
+| Robots meta | BIEN (implícito) | Sin `noindex` — nginx no bloquea crawlers |
 | `robots.txt` | DESCONOCIDO | No incluido en el repositorio |
 | `sitemap.xml` | FALTA | No existe en el proyecto |
 | Links con texto descriptivo | PARCIAL | Links footer tienen texto pero apuntan a `#` |
@@ -109,7 +107,7 @@ Migrar los scripts inline a un archivo `.js` externo o usar un `nonce` soluciona
 **Correcciones necesarias para alcanzar >= 95:**
 1. Añadir `<link rel="canonical" href="https://healthy.app/">`
 2. Añadir Open Graph tags (`og:title`, `og:description`, `og:image`, `og:url`)
-3. Crear `robots.txt` y `sitemap.xml` en el bucket S3
+3. Crear `robots.txt` y `sitemap.xml` en `landing/public/`
 4. Añadir favicon (`<link rel="icon">`) — actualmente ausente
 
 ---

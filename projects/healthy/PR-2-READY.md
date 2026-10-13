@@ -99,7 +99,7 @@ repositorio; solo falta ejecutarlos contra la base de datos.
 
 ### Prerequisitos
 
-1. PostgreSQL corriendo (local: Docker; staging/prod: RDS)
+1. PostgreSQL corriendo (local: Docker; staging/prod: Railway)
 2. Archivo `backend/.env` con `DATABASE_URL` válida
 3. PR-2 mergeada en `main`
 
@@ -154,20 +154,11 @@ SQL
 
 ### Escenario B — Rollback en staging / producción
 
-1. **Detener el servicio** (ECS task count → 0) para evitar escrituras durante el rollback:
-   ```bash
-   aws ecs update-service --cluster healthy-staging --service healthy-api --desired-count 0
-   ```
+1. **Detener el servicio** en Railway (servicio backend → Settings → Pause) para evitar escrituras durante el rollback.
 
-2. **Restaurar snapshot RDS pre-deploy** (ARN documentado en `devops/PIPELINE_DRYRUN.md`):
-   ```bash
-   aws rds restore-db-instance-to-point-in-time \
-     --source-db-instance-identifier healthy-staging-db \
-     --target-db-instance-identifier healthy-staging-db-rollback \
-     --restore-time <timestamp-pre-deploy>
-   ```
+2. **Restaurar el backup pre-deploy** de PostgreSQL en Railway (servicio PostgreSQL → Backups → Restore, ver `devops/BACKUP_STRATEGY.md`).
 
-3. Si el snapshot no está disponible, ejecutar el **rollback manual** del Escenario A
+3. Si el backup no está disponible, ejecutar el **rollback manual** del Escenario A
    usando las credenciales de staging/producción.
 
 4. **Revertir el código** al commit anterior al merge de PR-2:
@@ -182,10 +173,7 @@ SQL
    # Debe mostrar solo '20260429210701_init' como Applied
    ```
 
-6. **Restaurar el servicio**:
-   ```bash
-   aws ecs update-service --cluster healthy-staging --service healthy-api --desired-count 2
-   ```
+6. **Restaurar el servicio**: reactivar el servicio backend en Railway.
 
 7. Ejecutar smoke test: `GET /health` debe devolver `200 {"success": true}`.
 
@@ -199,10 +187,10 @@ Las siguientes variables deben estar configuradas antes de ejecutar la migració
 | Variable | Uso |
 |----------|-----|
 | `DATABASE_URL` | Cadena de conexión PostgreSQL (formato: `postgresql://user:pass@host:port/dbname`) |
-| `DIRECT_URL` | Conexión directa a RDS para migraciones (sin pooler) — requerida en AWS con RDS Proxy |
+| `DIRECT_URL` | Conexión directa a PostgreSQL para migraciones (sin pooler) — solo si hay pooler de conexiones |
 | `NODE_ENV` | Entorno de ejecución (`development`, `staging`, `production`) |
 
-> **Importante:** en producción con RDS Proxy, Prisma requiere `DIRECT_URL` para las
+> **Importante:** si se usa un pooler de conexiones, Prisma requiere `DIRECT_URL` para las
 > migraciones porque el pooler de conexiones no soporta las transacciones largas de DDL.
 > Configurar en `schema.prisma` con `directUrl = env("DIRECT_URL")` si aplica.
 

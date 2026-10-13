@@ -9,12 +9,11 @@ agentes puedan desplegar sus cambios de forma automática y segura.
 ## Tecnologías
 - Docker y Docker Compose para contenedores
 - GitHub Actions para CI/CD
-- AWS para infraestructura cloud
-  - EC2 para el backend
-  - RDS para PostgreSQL
-  - ElastiCache para Redis
-  - S3 para fotos de progreso y assets
-  - CloudFront como CDN
+- Railway para infraestructura cloud
+  - Servicio Node.js para el backend
+  - Plugin PostgreSQL
+  - Plugin Redis
+  - Servicio nginx para la landing (`landing/index4.html`)
 - Expo EAS Build para compilar la app móvil
 - Expo EAS Submit para publicar en App Store y Google Play
 
@@ -22,14 +21,13 @@ agentes puedan desplegar sus cambios de forma automática y segura.
 
 ### Entornos
 - development  → local con Docker Compose
-- staging      → AWS (réplica de producción para pruebas)
-- production   → AWS (usuarios reales)
+- staging      → Railway (réplica de producción para pruebas)
+- production   → Railway (usuarios reales)
 
-### Arquitectura AWS
-- Load Balancer → EC2 (backend Node.js) → RDS PostgreSQL
-- EC2 (backend) → ElastiCache Redis
-- App móvil → CloudFront → S3 (assets estáticos)
-- Fotos de progreso → S3 (bucket privado)
+### Arquitectura Railway
+- Railway Proxy (HTTPS) → servicio backend Node.js → plugin PostgreSQL
+- Servicio backend → plugin Redis
+- Railway Proxy (HTTPS) → servicio landing (nginx)
 
 ## Docker
 

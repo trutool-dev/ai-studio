@@ -28,7 +28,7 @@
 | Backend Node.js | Railway healthy-staging | ✅ ACTIVO — verificado 2026-09-06 |
 | PostgreSQL | Railway PostgreSQL plugin | ✅ ACTIVO — db:connected |
 | Redis | Railway Redis plugin | ✅ ACTIVO — redis:connected |
-| Landing page | AWS S3 + CloudFront | ✅ OK — produccion |
+| Landing page | Railway — servicio nginx (`landing/index4.html`, ver `docs/landing-deploy.md`) | ⏳ Despliegue en curso |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
 | ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
 | App Android | EAS Build (Expo) | ✅ APK disponible — Build `96aedf25` (icono nuevo + rediseño Apple Design + todos los fixes, lanzado 2026-10-12) |

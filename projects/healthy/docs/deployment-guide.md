@@ -130,9 +130,6 @@ Staging refleja producción sobre Railway (backend + PostgreSQL + Redis gestiona
 | `SMTP_USER` | Usuario SMTP para emails de verificación (`trutool@gmail.com`) *(pendiente en staging)* |
 | `SMTP_PASS` | Contraseña de aplicación Gmail *(pendiente en staging)* |
 | `ANTHROPIC_API_KEY` | API key de Anthropic |
-| `AWS_ACCESS_KEY_ID` | Credencial AWS (solo para deploy de la landing) |
-| `AWS_SECRET_ACCESS_KEY` | Secret AWS (solo para deploy de la landing) |
-| `CLOUDFRONT_DISTRIBUTION_ID` | ID CloudFront (solo para deploy de la landing) |
 
 ### Deploy automático (push a `develop`)
 
@@ -201,7 +198,7 @@ Producción corre en Railway (servicio `ai-studio`, proyecto `healthy-staging`).
 
 ### Secretos de GitHub requeridos (entorno production)
 
-Los mismos que staging (excepto las claves AWS de landing, que se gestionan por separado):
+Los mismos que staging:
 
 | Secret | Descripción |
 |--------|-------------|

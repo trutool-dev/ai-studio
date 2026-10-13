@@ -80,7 +80,7 @@ el progreso real del usuario.
 - Base de datos: PostgreSQL + Redis
 - IA: Claude API (claude-sonnet-4-6)
 - Auth: Supabase
-- Cloud: AWS
+- Cloud: Railway
 - CI/CD: GitHub Actions + Expo EAS
 
 ## Requisitos no funcionales

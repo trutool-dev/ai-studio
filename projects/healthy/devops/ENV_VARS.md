@@ -18,9 +18,9 @@ Todas las variables necesarias para ejecutar el backend de Healthy.
 
 | Variable | Descripción | Ejemplo/Formato | Cómo obtener |
 |----------|-------------|-----------------|--------------|
-| `DATABASE_URL` | Connection string completa de PostgreSQL | `postgresql://user:pass@host:5432/healthy` | RDS → instancia → endpoint; local: docker-compose |
+| `DATABASE_URL` | Connection string completa de PostgreSQL | `postgresql://user:pass@host:5432/healthy` | Railway → PostgreSQL → Variables → `DATABASE_URL`; local: docker-compose |
 | `DATABASE_POOL_MIN` | Conexiones mínimas en el pool de Prisma | `2` | Ajustar según carga esperada |
-| `DATABASE_POOL_MAX` | Conexiones máximas en el pool de Prisma | `10` | Ajustar según tipo de instancia RDS |
+| `DATABASE_POOL_MAX` | Conexiones máximas en el pool de Prisma | `10` | Ajustar según el plan de PostgreSQL en Railway |
 
 ---
 
@@ -28,9 +28,9 @@ Todas las variables necesarias para ejecutar el backend de Healthy.
 
 | Variable | Descripción | Ejemplo/Formato | Cómo obtener |
 |----------|-------------|-----------------|--------------|
-| `REDIS_URL` | Connection string de Redis/ElastiCache | `redis://host:6379` / `rediss://host:6380` | ElastiCache → cluster → Primary endpoint; local: docker-compose |
-| `REDIS_PASSWORD` | Contraseña de autenticación Redis | `str-aleatoria-32-chars` | ElastiCache → Auth token; local: `healthy_redis_pass` |
-| `REDIS_TLS` | Activar TLS para conexiones a ElastiCache en AWS | `true` / `false` | `true` en staging/production, `false` en development |
+| `REDIS_URL` | Connection string de Redis | `redis://host:6379` / `rediss://host:6380` | Railway → Redis → Variables → `REDIS_URL`; local: docker-compose |
+| `REDIS_PASSWORD` | Contraseña de autenticación Redis | `str-aleatoria-32-chars` | Railway → Redis → Variables → `REDISPASSWORD`; local: `healthy_redis_pass` |
+| `REDIS_TLS` | Activar TLS para conexiones a Redis | `true` / `false` | `true` en staging/production, `false` en development |
 
 ---
 
@@ -66,23 +66,12 @@ Todas las variables necesarias para ejecutar el backend de Healthy.
 
 ---
 
-## AWS
-
-| Variable | Descripción | Ejemplo/Formato | Cómo obtener |
-|----------|-------------|-----------------|--------------|
-| `AWS_REGION` | Región AWS donde están los recursos | `eu-west-1` | Fixed para RGPD (datos en Europa) |
-| `AWS_ACCESS_KEY_ID` | ID de la access key de IAM | `AKIAIOSFODNN7EXAMPLE` | AWS Console → IAM → Users → Security credentials → Create access key |
-| `AWS_SECRET_ACCESS_KEY` | Clave secreta de la access key de IAM | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` | Se obtiene una única vez al crear la access key — guardar inmediatamente |
-| `AWS_S3_BUCKET_PROGRESS` | Nombre del bucket S3 para fotos de progreso | `healthy-progress-photos-prod` | Crear manualmente o via Terraform |
-
----
-
 ## Frontend / App
 
 | Variable | Descripción | Ejemplo/Formato | Cómo obtener |
 |----------|-------------|-----------------|--------------|
 | `FRONTEND_URL` | URL del frontend — usada en redirects y CORS | `https://healthy.app` (prod) / `http://localhost:8081` (dev) | La URL real del frontend desplegado |
-| `API_URL` | URL base de la API backend — usada desde la app móvil | `https://api.healthy.app` (prod) / `https://api-staging.healthy.app` (staging) | La URL del ALB o dominio configurado |
+| `API_URL` | URL base de la API backend — usada desde la app móvil | `https://api.healthy.app` (prod) / `https://api-staging.healthy.app` (staging) | Dominio Railway del backend o dominio propio configurado |
 
 ---
 

@@ -64,14 +64,14 @@ El versionado sigue [Semantic Versioning](https://semver.org/lang/es/).
 - Railway staging deploy operativo: `https://backend-staging-01ee.up.railway.app`
 - `devops/PIPELINE_STATUS.md` — resultado del primer deploy verde en GitHub Actions
 - `devops/RAILWAY_VARS_STATUS.md` — estado de variables de entorno en Railway
-- `docs/architecture-web.md` — arquitectura AWS completa con diagrama, estructura del monorepo y configuración Prisma 7
+- `docs/architecture-web.md` — arquitectura de infraestructura con diagrama, estructura del monorepo y configuración Prisma 7
 - `docs/deployment-guide.md` — guía paso a paso para entornos local, staging y producción
 
 ### Fixed
 - `RAILWAY_API_TOKEN` corregido a `RAILWAY_ENVIRONMENT_ID` en workflow `deploy-staging.yml`
 - `REDIS_URL` configurada con URL directa en Railway (reemplaza referencia `${{Redis.REDIS_URL}}` que no resolvía)
 - URL de staging hardcodeada en workflows actualizada a la URL real del servicio Railway
-- Check `Deploy/Build+Push ECR` eliminado de branch protection rules de `main`
+- Check obsoleto `Deploy/Build+Push` eliminado de branch protection rules de `main`
 
 ---
 
@@ -138,8 +138,6 @@ El versionado sigue [Semantic Versioning](https://semver.org/lang/es/).
 ### Added
 - Sistema de diseño completo: tokens, componentes (ProgressRing, WorkoutCard, MetricCard, etc.)
 - Landing page HTML autocontenida en `landing/index.html`
-- Infraestructura AWS: S3 + CloudFront + Route 53 para landing
-- Pipeline GitHub Actions para deploy automático de landing
 
 ---
 

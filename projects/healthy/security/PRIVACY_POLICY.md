@@ -74,7 +74,7 @@ Puedes solicitar en cualquier momento **intervención humana** en las recomendac
 | Proveedor | Servicio | País | Garantía |
 |-----------|----------|------|----------|
 | Supabase | Autenticación | UE (Frankfurt) | Art. 46 RGPD — Cláusulas tipo |
-| AWS (Amazon Web Services) | Almacenamiento en nube (S3, RDS) | UE (Irlanda) | Decisión de adecuación |
+| Railway | Infraestructura cloud (servidores y base de datos) | Pendiente de confirmar | Pendiente de confirmar |
 | Anthropic | Procesamiento IA (Claude API) | EE.UU. | Cláusulas Contractuales Tipo (SCCs) |
 | Redis Cloud | Caché de sesiones | UE | Art. 46 RGPD |
 
@@ -106,10 +106,10 @@ Si consideras que tus derechos no han sido atendidos, puedes **presentar una rec
 Aplicamos las siguientes medidas técnicas y organizativas:
 
 - **Cifrado en tránsito:** HTTPS/TLS 1.3 en todas las comunicaciones.
-- **Cifrado en reposo:** AES-256 para datos almacenados en AWS RDS y S3.
+- **Cifrado en reposo:** según las garantías del proveedor de infraestructura (Railway) — pendiente de confirmar.
 - **Contraseñas:** Hashing con bcrypt (mínimo 12 rounds). Nunca almacenamos contraseñas en texto plano.
 - **Autenticación:** JWT con algoritmo RS256 y expiración de 15 minutos (refresh token: 7 días).
-- **Fotos de progreso:** Almacenadas en buckets S3 privados, acceso por URLs pre-firmadas de corta duración.
+- **Fotos de progreso:** Almacenamiento privado, acceso por URLs pre-firmadas de corta duración.
 - **Sesiones en caché:** Redis con TTL configurado; datos sin información personal identificable.
 - **App móvil:** Tokens almacenados exclusivamente en SecureStore (nunca en AsyncStorage).
 - **Rate limiting:** Protección ante ataques de fuerza bruta en endpoints de autenticación.

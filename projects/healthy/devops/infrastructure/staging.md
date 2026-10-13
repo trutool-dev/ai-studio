@@ -2,7 +2,7 @@
 
 Entorno de staging en **Railway** — réplica de producción para pruebas antes de cada release.
 
-> **Decisión de infraestructura:** AWS descartado por coste. Toda la infraestructura usa Railway.
+> **Plataforma:** toda la infraestructura usa Railway.
 > Staging: ~$0/mes en plan gratuito (con límites). Producción: ~$20/mes en plan Pro.
 
 ---

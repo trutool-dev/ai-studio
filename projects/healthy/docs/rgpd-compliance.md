@@ -104,7 +104,7 @@ Tras el borrado completo de PostgreSQL, se invalida la entrada del usuario en Re
 **Respuesta:** `{ "success": true, "message": "Cuenta eliminada" }`
 
 **Pendiente para v1.1.0:**
-- Eliminación de fotos de progreso en S3 (si se añade la funcionalidad de fotos)
+- Eliminación de fotos de progreso del almacenamiento de objetos (si se añade la funcionalidad de fotos)
 - Log de auditoría de la eliminación (retenido 90 días según Art. 17.3.e para defensa legal)
 - Confirmación por email al usuario tras la eliminación
 
@@ -136,7 +136,7 @@ El usuario puede exportar sus datos en formato estructurado, de uso común y lec
 **Formato de respuesta:** JSON con cabecera `Content-Disposition: attachment; filename="healthy-export-{userId}.json"` que fuerza la descarga en el navegador.
 
 **Pendiente para v1.1.0:**
-- Entrega alternativa por email: presigned URL de S3 con TTL de 24 horas
+- Entrega alternativa por email: enlace de descarga firmado con TTL de 24 horas
 - Exportación adicional en formato CSV
 
 ### Derecho de oposición (Art. 21)
@@ -157,16 +157,16 @@ Los datos enviados a Anthropic para generación de planes no se usan para entren
 |------|--------|
 | Contraseñas | Hash bcrypt (factor de coste ≥ 12), nunca en texto plano |
 | OTP de verificación | `crypto.randomInt()` (no `Math.random()`), hash bcrypt antes de guardar |
-| Datos en RDS PostgreSQL | Cifrado AES-256 en reposo (RDS encryption habilitado) |
-| Fotos de progreso | Bucket S3 privado, acceso solo vía presigned URLs (TTL corto) |
+| Datos en PostgreSQL (Railway) | Cifrado en reposo — pendiente de confirmar las garantías de Railway |
+| Fotos de progreso | Almacenamiento privado, acceso solo vía URLs firmadas (TTL corto) — proveedor pendiente de definir |
 | Datos de salud (`condition_name`, `notes`) | Sin cifrado a nivel de campo en v1.0.0; pendiente para v1.1.0 (VUL-2026-006) |
 
 ### Datos en tránsito
 
-- Todo el tráfico usa HTTPS/TLS 1.2+ (certificado ACM, renovación automática)
-- HSTS activado en CloudFront y ALB (`Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`)
-- Comunicación HTTP sin cifrar bloqueada (redirect 301 a HTTPS en ALB y CloudFront)
-- Conexión a ElastiCache Redis: TLS activado en producción (`REDIS_TLS=true`)
+- Todo el tráfico usa HTTPS/TLS 1.2+ (certificados gestionados por Railway, renovación automática)
+- HSTS activado en el backend vía helmet (`Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`) y en el nginx de la landing
+- Comunicación HTTP sin cifrar redirigida a HTTPS por el proxy de Railway
+- Conexión a Redis: TLS activado en producción (`REDIS_TLS=true`)
 
 ### Minimización de datos
 
@@ -199,10 +199,10 @@ Resumen del registro formal requerido por el Art. 30 RGPD:
 | **Categorías de interesados** | Usuarios mayores de 16 años que usan la aplicación |
 | **Categorías de datos** | Datos de identificación, datos de salud (categoría especial), datos de actividad física y nutricional |
 | **Finalidades** | Prestación del servicio de planes de salud personalizados; generación de planes de entrenamiento y nutrición mediante IA |
-| **Destinatarios** | Anthropic (generación de planes), Supabase (autenticación), AWS (infraestructura EU) |
+| **Destinatarios** | Anthropic (generación de planes), Supabase (autenticación), Railway (infraestructura: backend, PostgreSQL, Redis) |
 | **Transferencias internacionales** | Anthropic (EEUU) — base legal pendiente de documentar (cláusulas contractuales tipo) |
 | **Plazos de supresión** | Ver tabla de retención de datos |
-| **Medidas técnicas** | TLS en tránsito, AES-256 en reposo (RDS), bcrypt para contraseñas, rate limiting |
+| **Medidas técnicas** | TLS en tránsito, cifrado en reposo del proveedor (Railway, pendiente de confirmar), bcrypt para contraseñas, rate limiting |
 
 > **Nota legal:** Este registro debe mantenerse actualizado y estar disponible para la Agencia Española de Protección de Datos (AEPD) si se requiere. Completar con asesor legal antes del lanzamiento.
 
@@ -214,9 +214,9 @@ Resumen del registro formal requerido por el Art. 30 RGPD:
 |-----------|------|--------------------|-----------------|
 | Anthropic (Claude API) | EEUU | Datos de salud anonimizados (userId + métricas de salud sin nombre/email) para generación de planes | Cláusulas Contractuales Tipo (SCCs) — pendiente de formalizar con Anthropic |
 | Supabase | EEUU / EU | Credenciales de autenticación (email, hash de contraseña, OTP) | Comprobar si el proyecto está en región EU; si no, SCCs necesarias |
-| AWS | EU (eu-west-1 — Irlanda) | Todos los datos de la aplicación | Sin transferencia internacional (datos en EU) |
+| Railway | Región del proyecto pendiente de confirmar | Todos los datos de la aplicación | Si la región es EU, sin transferencia de datos almacenados; Railway es empresa de EEUU → revisar DPA/SCCs |
 
-> **Acción pendiente (legal):** Verificar y formalizar las SCCs con Anthropic antes del lanzamiento. Confirmar la región de Supabase Auth.
+> **Acción pendiente (legal):** Verificar y formalizar las SCCs con Anthropic antes del lanzamiento. Confirmar la región de Supabase Auth y la región/DPA de Railway.
 
 ---
 

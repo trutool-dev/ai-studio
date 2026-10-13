@@ -165,7 +165,7 @@ go-live completados.
 |---|----------|--------|
 | 1 | Cobertura tests ≥ 80 % | ✅ COMPLETADO — 88.21 % (253/253 tests, 2026-07-08) |
 | 2 | API p95 < 500 ms | [~] DIFERIDO — decisión del usuario, post-release v1.1.0 |
-| 3 | Lighthouse landing ≥ 95 | ⏳ PENDIENTE — healthy.app inactivo (DNS/CloudFront sin activar) |
+| 3 | Lighthouse landing ≥ 95 | ⏳ PENDIENTE — healthy.app inactivo (DNS sin configurar) |
 | 4 | Seguridad: 0 CRITICAL/HIGH | ✅ COMPLETADO — auditado 2026-07-07 |
 | 5 | Migración Prisma producción | ✅ COMPLETADO — aplicada 2026-06-29 |
 | 6 | Redis staging operativo | ⏳ PENDIENTE — acción manual en Railway dashboard |
@@ -202,7 +202,7 @@ Implementado acto positivo verificable del usuario para procesar datos de salud:
    → Verificar que REDIS_URL apunta al servicio Redis del mismo proyecto
    → Tras guardar: redeploy automático → verificar /health devuelve "redis":"connected"
 
-2. **Lighthouse** — Pendiente activación de healthy.app (DNS + CloudFront)
+2. **Lighthouse** — Pendiente activación de healthy.app (DNS)
    → Instrucciones exactas en: tests/LIGHTHOUSE_PENDING.md
    → Alternativamente: se puede ejecutar contra staging Railway cuando esté activo
 
@@ -231,7 +231,7 @@ por inactividad.
 URLs afectadas:
 - https://backend-staging-01ee.up.railway.app → 404
 - https://ai-studio-production-1835.up.railway.app → 404
-- https://healthy.app → 404 (dominio apunta a Railway, no a S3/CloudFront)
+- https://healthy.app → 404 (dominio sin servicio de landing asociado)
 
 ## Acción requerida (usuario) para desbloquear go-live
 

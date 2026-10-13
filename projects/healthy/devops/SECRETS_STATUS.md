@@ -23,9 +23,6 @@
 |---------|--------|-------|
 | `RAILWAY_TOKEN` | ⏳ | Crear en railway.app → Account Settings → Tokens |
 | `ANTHROPIC_API_KEY` | ⏳ | Obtener en console.anthropic.com → API Keys |
-| `AWS_ACCESS_KEY_ID` | ⏳ | IAM user `ci-cd-user` con política S3+CloudFront mínima |
-| `AWS_SECRET_ACCESS_KEY` | ⏳ | Generado junto con `AWS_ACCESS_KEY_ID` |
-| `CLOUDFRONT_DISTRIBUTION_ID` | ⏳ | Disponible tras aplicar Terraform (`infra/cloudfront-landing.tf`) |
 | `RAILWAY_STAGING_DATABASE_URL` | ⏳ | Railway Dashboard → proyecto staging → Postgres → DATABASE_URL |
 | `RAILWAY_PRODUCTION_DATABASE_URL` | ⏳ | Railway Dashboard → proyecto producción → Postgres → DATABASE_URL |
 
@@ -96,10 +93,8 @@ Paso 1 — Railway
   [ ] Añadir servicio Redis
   [ ] Obtener RAILWAY_TOKEN, RAILWAY_STAGING_DATABASE_URL
 
-Paso 2 — AWS (solo landing)
-  [ ] Crear IAM user ci-cd-user con política S3+CloudFront
-  [ ] Obtener AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-  [ ] Tras aplicar Terraform: obtener CLOUDFRONT_DISTRIBUTION_ID
+Paso 2 — Landing
+  [ ] Crear servicio Railway healthy-landing (root: projects/healthy/landing) — sin secretos
 
 Paso 4 — Email
   [ ] Crear cuenta Mailgun (o usar Gmail con app password)

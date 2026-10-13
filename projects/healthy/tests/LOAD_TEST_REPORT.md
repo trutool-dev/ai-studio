@@ -71,7 +71,7 @@
 2. **Prisma (queries encadenadas en /onboarding/complete):**
    El endpoint hace 7+ queries de BD (profile, lifestyle, training, nutrition, etc.)
    más inserts de sesiones y comidas.
-   - **Estimado:** ~100-300 ms con BD local, ~200-500 ms en RDS.
+   - **Estimado:** ~100-300 ms con BD local, ~200-500 ms en PostgreSQL de Railway.
 
 3. **Redis (caché de planes):**
    La primera llamada genera el plan (mockeado: ~5 ms), la segunda lo sirve de caché.
@@ -88,8 +88,8 @@
 |----------|---------------------|
 | Latencia de Claude en /onboarding/complete | Siempre usar caché Redis; considerar generación async con webhook |
 | Throughput de bcrypt en login | Reducir rounds a 10 en producción si < 250 ms por hash |
-| Escalabilidad | ECS con auto-scaling (mínimo 2 instancias en producción) |
-| Base de datos | RDS Multi-AZ con read replicas para queries de lectura intensiva |
+| Escalabilidad | Réplicas del servicio en Railway (mínimo 2 en producción) |
+| Base de datos | Escalar el plan de PostgreSQL en Railway; read replicas si la lectura lo exige |
 | Rate limiting | authRateLimiter (5 req/15min) protege endpoints críticos de DDoS |
 
 ---
@@ -116,7 +116,7 @@ node tests/load/planGeneration.js
 
 ---
 
-## Objetivos de producción (post-despliegue AWS)
+## Objetivos de producción (post-despliegue)
 
 | Endpoint                      | Objetivo p99 | Objetivo p95 | req/s mínimo |
 |-------------------------------|:------------:|:------------:|:------------:|
@@ -127,5 +127,5 @@ node tests/load/planGeneration.js
 | POST /onboarding/complete     | < 2000 ms    | < 1000 ms    | 5            |
 | POST /plans/regenerate        | < 2000 ms    | < 1500 ms    | 2            |
 
-> Los objetivos de producción se medirán con k6 contra staging (AWS ECS + RDS).
-> Ver `devops/` para configuración de infraestructura AWS.
+> Los objetivos de producción se medirán con k6 contra staging (Railway).
+> Ver `devops/` para configuración de infraestructura.

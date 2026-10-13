@@ -197,7 +197,7 @@ Añadir la entrada de cierre en `projects/healthy/ORCHESTRATOR_STATUS.log`:
     - Load tests en producción (autocannon p95 < 500ms bajo carga real)
     - SEC-03: cifrado at-rest de campos sensibles (condition_name, notes, ai_prompt_used)
     - DOC-01 a DOC-08: completar documentación técnica pendiente
-    - TAREA-5: eliminar check ECR de branch protection en GitHub
+    - TAREA-5: eliminar check obsoleto de branch protection en GitHub
 ```
 
 ### Paso 5 — Crear tag v1.0.0
@@ -238,7 +238,7 @@ Confirmar en:
    - Alertas a `trutool@gmail.com` si el uptime cae del 99%
    - Ver `projects/healthy/devops/MONITORING.md` para instrucciones completas
 
-3. **CloudWatch / Railway Metrics:**
+3. **Railway Metrics:**
    - Revisar CPU y memoria del servicio backend en Railway dashboard
    - Si la memoria supera el 80%: escalar el plan (Hobby → Pro)
 

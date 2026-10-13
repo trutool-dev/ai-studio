@@ -17,9 +17,6 @@ Lista canónica de todos los secretos necesarios para el stack completo. Ningún
 |--------|----------|--------------|
 | `RAILWAY_TOKEN` | `deploy-staging.yml` (Railway CLI) | railway.app → Account Settings → Tokens → Create Token |
 | `ANTHROPIC_API_KEY` | Backend (runtime, inyectado por Railway) | console.anthropic.com → API Keys → Create Key |
-| `AWS_ACCESS_KEY_ID` | `deploy-landing.yml` (S3 sync) | AWS Console → IAM → Users → ci-cd-user → Security credentials |
-| `AWS_SECRET_ACCESS_KEY` | `deploy-landing.yml` (S3 sync) | Generado junto con `AWS_ACCESS_KEY_ID` — guardar inmediatamente |
-| `CLOUDFRONT_DISTRIBUTION_ID` | `deploy-landing.yml` (invalidación) | AWS Console → CloudFront → distribución → Distribution ID (tras aplicar Terraform) |
 | `RAILWAY_STAGING_DATABASE_URL` | `db-backup.yml` (pg_dump) | Railway Dashboard → proyecto staging → Postgres → Variables → DATABASE_URL |
 | `RAILWAY_PRODUCTION_DATABASE_URL` | `db-backup.yml` (pg_dump) | Railway Dashboard → proyecto producción → Postgres → Variables → DATABASE_URL |
 
@@ -72,10 +69,6 @@ assert d.get('success') == True
 assert d.get('data', {}).get('status') == 'ok'
 ```
 
-### `deploy-landing.yml` — environment protection añadido
-
-**Cambio:** Añadido `environment: production` al job `deploy`. Esto activa las protection rules configuradas en GitHub → Settings → Environments → production (required reviewers, deployment branches).
-
 ### `eas-submit.yml` — credenciales Apple y Google Play corregidas
 
 **Bug Apple:** Se usaba `EXPO_APPLE_APP_SPECIFIC_PASSWORD` (para autenticación con Apple ID, método legacy) y se le asignaba el contenido del `.p8` de la API key de App Store Connect. Son dos sistemas de autenticación distintos e incompatibles.
@@ -104,15 +97,7 @@ Completar en orden antes de mergear PR-6.
 
 ### Prerequisito: PR-2 mergeada
 
-- [ ] **PR-2 mergeada** — la migración Prisma (`TokenUsageLog` + `health_consent_given_at`) debe estar aplicada antes de configurar producción. Sin esto, ECS apuntaría a un schema desactualizado.
-
-### Infraestructura AWS
-
-- [ ] Terraform `init` + `plan` + `apply` ejecutado en `devops/infra/` — crea VPC, RDS, ElastiCache, ECS cluster, ALB, S3 bucket, CloudFront, Route 53
-- [ ] Verificar que el certificado SSL en ACM (`us-east-1`) está validado para `healthy.app`
-- [ ] Verificar que la CloudFront distribution está en estado `Deployed`
-- [ ] Verificar que el bucket S3 `healthy-landing-prod` existe y tiene static website hosting activo
-- [ ] Verificar que el registro DNS en Route 53 apunta a la CloudFront distribution
+- [ ] **PR-2 mergeada** — la migración Prisma (`TokenUsageLog` + `health_consent_given_at`) debe estar aplicada antes de configurar producción. Sin esto, el backend apuntaría a un schema desactualizado.
 
 ### Secretos GitHub Actions
 
@@ -131,13 +116,10 @@ Completar en orden antes de mergear PR-6.
 - [ ] Job `deploy` completa sin errores
 - [ ] Job `smoke-test` devuelve `{"success": true, "data": {"status": "ok"}}`
 
-### Pipeline landing (S3 + CloudFront)
+### Landing (Railway)
 
-- [ ] Push a `main` con cambios en `landing/` dispara `deploy-landing.yml`
-- [ ] Job aprobado en GitHub Environments (production reviewers)
-- [ ] `aws s3 sync` sube los archivos correctamente
-- [ ] Invalidación CloudFront completada
-- [ ] Landing carga en `https://healthy.app` con SSL válido y sin errores de consola
+- [ ] Servicio `healthy-landing` desplegado en Railway (ver `docs/landing-deploy.md`)
+- [ ] Landing carga con SSL válido y sin errores de consola
 - [ ] Lighthouse score ≥ 95 en Performance, Accessibility, Best Practices, SEO
 
 ### App móvil (EAS)
@@ -146,46 +128,17 @@ Completar en orden antes de mergear PR-6.
 - [ ] Build perfil `preview` completado en EAS sin errores
 - [ ] Build disponible para instalar vía Expo Go (interno)
 
-### Backup RDS
+### Backup de base de datos
 
-- [ ] Snapshot manual pre-go-live ejecutado (comando abajo)
-- [ ] ARN del snapshot documentado en `devops/PIPELINE_DRYRUN.md`
+- [ ] Backup manual pre-go-live del PostgreSQL de Railway (ver `devops/BACKUP_STRATEGY.md`)
 - [ ] Procedimiento de restauración verificado en entorno staging (test trimestral)
 
 ---
 
-## 4. Comando de backup RDS pre-go-live
+## 4. Backup pre-go-live
 
-Ejecutar este comando manualmente desde una máquina con AWS CLI configurado **antes** de cualquier deploy a producción:
-
-```bash
-# Crear snapshot manual pre-deploy
-SNAPSHOT_ID="healthy-prod-pre-deploy-$(date +%Y%m%d)"
-
-aws rds create-db-snapshot \
-  --db-instance-identifier healthy-prod \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --region eu-west-1
-
-echo "Snapshot iniciado: $SNAPSHOT_ID"
-
-# Esperar a que el snapshot esté disponible (5-15 min)
-aws rds wait db-snapshot-completed \
-  --db-instance-identifier healthy-prod \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --region eu-west-1
-
-# Obtener el ARN del snapshot
-aws rds describe-db-snapshots \
-  --db-snapshot-identifier "$SNAPSHOT_ID" \
-  --query 'DBSnapshots[0].DBSnapshotArn' \
-  --output text \
-  --region eu-west-1
-```
-
-Documentar el ARN resultante en `devops/PIPELINE_DRYRUN.md` bajo "ARN del snapshot".
-
-Para restauración de emergencia, ver el procedimiento completo de 5 pasos en `devops/BACKUP_STRATEGY.md`.
+Antes de cualquier deploy a producción, lanzar un backup manual del PostgreSQL de Railway
+(servicio PostgreSQL → Backups) o un `pg_dump` siguiendo `devops/BACKUP_STRATEGY.md`.
 
 ---
 
@@ -214,18 +167,9 @@ Si el entorno de staging usa el seed (`database/seed.ts`) para datos de prueba, 
 
 ---
 
-## 6. Gap pendiente: deploy-production.yml
+## 6. Deploy a producción
 
-La infraestructura de producción usa AWS ECS (definida en `devops/infra/ecs.tf`) pero no existe un workflow `deploy-production.yml`. Actualmente el único pipeline de deploy automatizado es para Railway staging.
-
-El workflow de producción debería incluir:
-1. Push imagen Docker a ECR (`aws ecr get-login-password | docker login`, `docker build`, `docker push`)
-2. Actualizar task definition de ECS con la nueva imagen
-3. `aws ecs update-service --force-new-deployment`
-4. `aws ecs wait services-stable`
-5. Smoke test contra `https://api.healthy.app/health`
-
-Este workflow debe crearse antes de PR-6 (go-live). Se recomienda como tarea adicional entre PR-5 y PR-6.
+Resuelto después de esta PR: el deploy a producción se hace en Railway (`.github/workflows/deploy.yml`, job de producción con aprobación manual).
 
 ---
 
@@ -233,7 +177,6 @@ Este workflow debe crearse antes de PR-6 (go-live). Se recomienda como tarea adi
 
 ```
 devops/.github/workflows/deploy-staging.yml   MODIFICADO — smoke test assertion corregida
-devops/.github/workflows/deploy-landing.yml   MODIFICADO — environment: production añadido
 devops/.github/workflows/eas-submit.yml       MODIFICADO — credenciales Apple y Google Play corregidas
 devops/GITHUB_SECRETS.md                      MODIFICADO — SUPABASE_KEY, secrets faltantes añadidos
 devops/SECRETS_STATUS.md                      CREADO — inventario de estado de cada secret

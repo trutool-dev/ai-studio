@@ -29,36 +29,12 @@ assert d.get('data', {}).get('status') == 'ok'
 
 ### Gaps identificados
 
-- **No existe `deploy-production.yml`**: el stack de producción usa AWS ECS (Terraform en `infra/`), pero no hay workflow para desplegarlo. Bloqueante para go-live. Se documenta como deuda para PR-6.
+- **No existía `deploy-production.yml`** en el momento del dry-run. Resuelto después: el deploy a producción se hace en Railway (`.github/workflows/deploy.yml`).
 - El `cache: npm` en `actions/setup-node@v4` require `cache-dependency-path` — ✅ ya está presente.
 
 ---
 
-## 2. Workflow `deploy-landing.yml` — S3 sync + CloudFront invalidation
-
-### Análisis estático del workflow
-
-| Step | Estado | Observaciones |
-|------|--------|---------------|
-| `Configure AWS credentials` | ✅ Correcto | Usa `aws-actions/configure-aws-credentials@v4`. Secretos `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `CLOUDFRONT_DISTRIBUTION_ID` referenciados correctamente. |
-| `Upload index.html (no-cache)` | ✅ Correcto | `--cache-control "no-cache"` para garantizar que siempre sirve la versión más reciente. |
-| `Sync static assets` | ✅ Correcto | `--delete` elimina archivos huérfanos. `--exclude "index.html"` evita sobreescribir con cache. |
-| `Invalidate CloudFront cache` | ✅ Correcto | `--paths "/*"` invalida todo el árbol de distribución. |
-| `environment: production` | ✅ **Añadido en PR-5** | Protección de entorno para que production requiera aprobación manual. |
-
-### Verificación de prerequisitos S3/CloudFront
-
-Los siguientes recursos deben existir antes de que el workflow funcione:
-
-- [ ] Bucket S3 `healthy-landing-prod` creado (ver `infra/s3-landing.tf`)
-- [ ] CloudFront distribution creada apuntando al bucket (ver `infra/cloudfront-landing.tf`)
-- [ ] IAM user `ci-cd-user` con política de S3+CloudFront mínima
-- [ ] Registro DNS en Route 53 apuntando al distribution (ver `infra/route53-landing.tf`)
-- [ ] Certificado SSL en ACM (región `us-east-1` — obligatorio para CloudFront)
-
----
-
-## 3. Workflow `eas-build.yml` — build app móvil
+## 2. Workflow `eas-build.yml` — build app móvil
 
 ### Análisis estático del workflow
 
@@ -80,7 +56,7 @@ Los siguientes recursos deben existir antes de que el workflow funcione:
 
 ---
 
-## 4. Workflow `eas-submit.yml` — publicar en tiendas
+## 3. Workflow `eas-submit.yml` — publicar en tiendas
 
 ### Bug crítico corregido: credenciales Apple
 
@@ -95,7 +71,7 @@ Los siguientes recursos deben existir antes de que el workflow funcione:
 
 ---
 
-## 5. Workflow `db-backup.yml` — backup semanal
+## 4. Workflow `db-backup.yml` — backup semanal
 
 ### Análisis estático del workflow
 
@@ -108,28 +84,10 @@ Los siguientes recursos deben existir antes de que el workflow funcione:
 
 ---
 
-## Snapshot RDS pre-go-live
+## Backup pre-go-live
 
-> ⚠️ No ejecutado — no hay instancia RDS real activa aún. La infraestructura Terraform (`infra/rds.tf`) está definida pero no aplicada.
-
-**Comando a ejecutar cuando RDS esté disponible:**
-
-```bash
-aws rds create-db-snapshot \
-  --db-instance-identifier healthy-prod \
-  --db-snapshot-identifier "healthy-prod-pre-deploy-$(date +%Y%m%d)" \
-  --region eu-west-1
-
-# Verificar que el snapshot se creó:
-aws rds describe-db-snapshots \
-  --db-instance-identifier healthy-prod \
-  --query 'DBSnapshots[*].{ID:DBSnapshotIdentifier,Status:Status}' \
-  --output table \
-  --region eu-west-1
-```
-
-**ARN del snapshot:** PENDIENTE — documentar aquí tras go-live:  
-`arn:aws:rds:eu-west-1:<account-id>:snapshot:healthy-prod-pre-deploy-<fecha>`
+Antes del primer deploy a producción, lanzar un backup manual del PostgreSQL de Railway
+(ver `BACKUP_STRATEGY.md`).
 
 ---
 
@@ -140,12 +98,11 @@ aws rds describe-db-snapshots \
 | 1 | Smoke test comprueba campo incorrecto en respuesta `/health` | 🔴 Alta | **Corregido** en `deploy-staging.yml` |
 | 2 | Credenciales Apple mapeadas incorrectamente en `eas-submit.yml` | 🔴 Alta | **Corregido** en `eas-submit.yml` |
 | 3 | Google Play JSON escrito en `/tmp/` (no coincide con `eas.json`) | 🔴 Alta | **Corregido** en `eas-submit.yml` |
-| 4 | `deploy-landing.yml` sin `environment: production` | 🟡 Media | **Corregido** en `deploy-landing.yml` |
 | 5 | `SUPABASE_ANON_KEY` en GITHUB_SECRETS.md vs `SUPABASE_KEY` en backend | 🟡 Media | **Corregido** en `GITHUB_SECRETS.md` |
 | 6 | `SUPABASE_SERVICE_ROLE_KEY` no documentado en GITHUB_SECRETS.md | 🟡 Media | **Añadido** a `GITHUB_SECRETS.md` |
 | 7 | `RAILWAY_*_DATABASE_URL` no documentados en GITHUB_SECRETS.md | 🟡 Media | **Añadidos** a `GITHUB_SECRETS.md` |
-| 8 | No existe `deploy-production.yml` para AWS ECS | 🟠 Pendiente | Gap documentado — crear antes de PR-6 |
-| 9 | Snapshot RDS pre-go-live pendiente de ejecutar | 🟠 Pendiente | Ejecutar cuando RDS esté disponible |
+| 8 | No existía workflow de deploy a producción | 🟢 Resuelto | Deploy a Railway en `.github/workflows/deploy.yml` |
+| 9 | Backup de BD pre-go-live pendiente de ejecutar | 🟠 Pendiente | Backup manual en Railway antes del primer deploy a producción |
 
 ---
 
@@ -153,9 +110,8 @@ aws rds describe-db-snapshots \
 
 ```
 deploy-staging.yml   → ✅ Corregido y listo para prueba real
-deploy-landing.yml   → ✅ Corregido y listo (prerequisito: infra S3/CF aplicada)
 eas-build.yml        → ✅ Sin cambios — correcto
 eas-submit.yml       → ✅ Corregido (credenciales Apple + Google Play path)
 db-backup.yml        → ✅ Correcto (secretos DB pendientes de configurar)
-deploy-production.yml → ⏳ PENDIENTE — crear antes de go-live
+deploy (producción)  → ✅ Railway — .github/workflows/deploy.yml
 ```

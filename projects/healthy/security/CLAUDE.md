@@ -56,7 +56,7 @@ y requieren el máximo nivel de protección.
 - Verificar que las contraseñas usan bcrypt (mínimo 12 rounds)
 - Auditar que los tokens JWT usan algoritmo RS256
 - Verificar cifrado en tránsito (HTTPS/TLS 1.3)
-- Revisar que las fotos de progreso en S3 son privadas
+- Revisar que las fotos de progreso se almacenan de forma privada
 - Auditar que los datos sensibles en Redis tienen TTL
 - Verificar que los logs no contienen datos personales
 
