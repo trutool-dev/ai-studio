@@ -176,9 +176,11 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **DO-07** Crear `devops/MONITORING.md` con UptimeRobot, métricas y logs de Railway y runbook de incidencias
 - [x] **DO-08** Crear `devops/BACKUP_STRATEGY.md` con backups de PostgreSQL en Railway, backup pre-deploy, procedimiento de restauración y workflow `db-backup.yml` (cron: domingo 02:00 UTC)
 - [x] **DO-09** Crear `landing/Dockerfile` + `nginx.conf.template` + `.dockerignore`: nginx sirve `index4.html` en `/` con `public/` (images, videos, frames), puerto `${PORT}` de Railway, caché y cabeceras de seguridad
-- [ ] **DO-10** Crear servicio Railway `healthy-landing` (root `projects/healthy/landing`, builder Dockerfile) y primer deploy
+- [x] **DO-10** Crear servicio Railway `healthy-landing` (root `projects/healthy/landing`, builder Dockerfile) y primer deploy — ✅ 2026-10-14, entorno staging: https://healthy-landing-staging.up.railway.app (subido con `railway up`)
 - [ ] **DO-11** Configurar dominio propio de la landing en Railway (Custom Domain) + CNAME en el proveedor DNS
 - [ ] **DO-12** Deploy automático de la landing: servicio Railway conectado a GitHub, redeploy en push con cambios en `projects/healthy/landing/`
+- [ ] **DO-18** Landing con Lighthouse ≥ 95 en móvil y escritorio — 2026-10-14: móvil 34/90/100/92, escritorio 74/90/100/92 (Perf/Acc/BP/SEO). Ver A-18 en `PROJECT_STATUS.md`
+- [ ] **DO-19** Servicio `healthy-landing` en el entorno production de Railway (tras merge a `main`)
 - [x] **DO-13** Cabeceras de seguridad de la landing en nginx: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
 
 **Dependencias:** SEC-01 (variables de entorno auditadas antes de configurar CI); DO-09 antes de DO-10 antes de DO-11 antes de DO-12

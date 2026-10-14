@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-12g | Sesión: Seguridad MITRE ATLAS completa — 24 tareas SEC-01..SEC-24 implementadas. Agente JailBreak añadido a /agents. APK food-search fb35f492 listo.
+> Ultima actualización: 2026-10-14 | Sesión: Landing `index4.html` publicada en Railway staging (`healthy-landing`). Eliminadas referencias AWS/S3/CloudFront/Terraform y Cloud Run. Lighthouse real ejecutado (no alcanza 95).
 
 ---
 
@@ -11,13 +11,14 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-12g — Seguridad MITRE ATLAS: 24/24 tareas SEC implementadas. N-1/N-2/N-3 completadas. APK fb35f492 listo. |
-| Rama activa | develop — commit `dd9e9f7` (SEC-05/06 rate limiters en rutas) |
+| Fase actual | Sesión 2026-10-13/14 — Landing `index4.html` desplegada en Railway staging; infraestructura 100 % Railway (AWS y Cloud Run eliminados de la documentación). |
+| Rama activa | develop — commit `9f5b847` (landing Railway + limpieza AWS/Cloud Run) + actualización de estado de esta sesión |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (desplegado 2026-10-12) |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build `96aedf25` — icono nuevo + rediseño Apple Design + todos los fixes sesión |
-| Icono app | ✅ Completado — hoja estilizada + ECG blanco. Aplicado en assets/ y landing |
-| Siguiente accion inmediata | **M-18** — Instalar APK `96aedf25` y probar → **M-19** — Google Play Internal Testing → **M-13** — Merge develop→main + tag v1.0.0 |
+| Icono app | ✅ Completado en la app — hoja estilizada + ECG blanco. ⚠️ Aplicado en `landing/index.html`, **no** en `index4.html` (la landing publicada) |
+| Landing | ✅ ACTIVA en staging — https://healthy-landing-staging.up.railway.app (Lighthouse < 95, ver A-18) |
+| Siguiente accion inmediata | Landing: **A-18** (Lighthouse ≥ 95) + **A-19** (auto-deploy GitHub) · App: **M-18** — Instalar APK `96aedf25` y probar → **M-19** — Google Play Internal Testing → **M-13** — Merge develop→main + tag v1.0.0 |
 
 ---
 
@@ -28,7 +29,7 @@
 | Backend Node.js | Railway healthy-staging | ✅ ACTIVO — verificado 2026-09-06 |
 | PostgreSQL | Railway PostgreSQL plugin | ✅ ACTIVO — db:connected |
 | Redis | Railway Redis plugin | ✅ ACTIVO — redis:connected |
-| Landing page | Railway — servicio nginx (`landing/index4.html`, ver `docs/landing-deploy.md`) | ⏳ Despliegue en curso |
+| Landing page | Railway — servicio `healthy-landing` (nginx sirve `landing/index4.html`, ver `docs/landing-deploy.md`) | ✅ ACTIVA en staging — https://healthy-landing-staging.up.railway.app (primer deploy 2026-10-14 vía `railway up`, sin auto-deploy GitHub aún) |
 | CI/CD backend | GitHub Actions → Railway CLI | ✅ OK |
 | ANTHROPIC_API_KEY | Variable Railway staging | ✅ Configurado — créditos activos (M-11b completada) |
 | App Android | EAS Build (Expo) | ✅ APK disponible — Build `96aedf25` (icono nuevo + rediseño Apple Design + todos los fixes, lanzado 2026-10-12) |
@@ -38,6 +39,7 @@
 - Proyecto: `a01d9f3d-510b-4529-b75a-d9d7198cbcb5`
 - Service staging: `fa137c98-5210-4057-a531-f1c7fbf39743`
 - Env staging: `1bc84954-5618-44fd-98fc-5b4190523cf0`
+- Service landing (staging): `a3d40d42-1122-439b-99fd-6e8f9d174a7a` (`healthy-landing`)
 
 **Expo:**
 - Cuenta: `trutool` | Project ID: `aea3d849-76a5-48a2-950f-936ee2422eee`
@@ -58,7 +60,7 @@
 | M-7 | Instalar y probar APK en dispositivo Android real | IMPORTANTE | **EN CURSO** — Antonio probando APK en dispositivo Android |
 | M-8 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-7) — ver docs/PUBLISHING_GUIDE.md |
 | M-9 | Configurar dominio `api.healthy.app` → Railway en panel DNS | PRO FINAL | Pendiente |
-| M-10 | Lighthouse landing | PRO FINAL | ✅ Completada — Acc/SEO corregidos (A-Landing completada). Perf 95-98, Acc 95+, SEO 95+. Lighthouse real con URL pública pendiente de M-9 (DNS) |
+| M-10 | Lighthouse landing | PRO FINAL | ⚠️ Ejecutado 2026-10-14 contra la URL pública de staging — **no alcanza 95**. Móvil: Perf 34 · Acc 90 · BP 100 · SEO 92. Escritorio: Perf 74 · Acc 90 · BP 100 · SEO 92. Correcciones en A-18 |
 | M-11 | Configurar ANTHROPIC_API_KEY en Railway staging variables de entorno | CRITICO | ✅ Completada — configurado en staging |
 | M-11b | Añadir créditos a cuenta Anthropic (console.anthropic.com → Plans & Billing) | CRITICO | ✅ Completada — verificado via /health/ai → success:true |
 | M-12 | Re-ejecutar CP-01..CP-10 con IA activa | IMPORTANTE | ✅ Completada — score 23/50 (2 CPs con IA real: CP-07, CP-08; ver detalle sesión 2026-10-09) |
@@ -69,6 +71,9 @@
 | M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | ✅ Completada — verificado 2026-10-12: 6 alimentos con macros completos |
 | M-18 | Instalar nuevo APK y probar: icono nuevo, ejercicios reales en entrenamiento, regenerar plan funciona, input sueño | IMPORTANTE | Pendiente — APK `96aedf25` listo en expo.dev/accounts/trutool/projects/healthy/builds/96aedf25-a437-40e1-b5fd-10068fcf4f3a |
 | M-19 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | Pendiente (depende M-18) |
+| M-20 | Dominio propio de la landing: elegir dominio, añadirlo en Railway (Settings → Networking → Custom Domain) y crear el CNAME en el proveedor DNS | PRO FINAL | Pendiente |
+| M-21 | Rotar `JWT_SECRET` y `JWT_REFRESH_SECRET`: hay valores reales en `devops/GITHUB_SECRETS.md` desde el commit `414d4c2`. Generar nuevos, actualizarlos en Railway/GitHub Secrets y quitar los valores del documento | CRITICO | Pendiente |
+| M-22 | Confirmar región del proyecto Railway y DPA de Railway (y de Gmail SMTP) — los documentos RGPD (`rgpd-compliance.md`, `DATA_REGISTER.md`, `PRIVACY_POLICY.md`) los marcan como "pendiente de confirmar" | IMPORTANTE | Pendiente |
 
 ## Tareas pendientes — AUTOMATICAS (agentes)
 
@@ -94,6 +99,12 @@
 | **A-17** | **Auditoría de seguridad MITRE ATLAS** — Agente JailBreak completó la auditoría de las 16 tácticas ATLAS v4.5. Ver `auditoria_atlas_mitre.md`. 30 hallazgos, 24 tareas SEC-01..SEC-24 para el orquestador. | JailBreak Agent | ✅ **COMPLETADA** — `CLAUDE.jailbreak.md` + `auditoria_atlas_mitre.md`. Commit `1ad08bc` (sesión 2026-10-12e) | Nada |
 | **N-1** | **Backend: endpoint `POST /nutrition/meals/:mealId/foods`** — Cuerpo: `{ food_id, quantity_g }` (default 100g). Acción: crear registro en `meal_foods`, recalcular y actualizar `meals.calories`, `meals.protein_g`, `meals.carbs_g`, `meals.fat_g` basándose en `foods.calories_per_100g` × (quantity_g / 100). Respuesta: comida actualizada con `meal_foods` y macros. Archivos: `backend/src/controllers/nutrition.controller.js` + `nutrition.routes.js` | Backend Agent | Pendiente | Nada |
 | **N-2** | **Frontend: resultados buscador seleccionables + modal de asignación** — En `FoodSearchBar` (`NutritionScreen.tsx`): cambiar `<View style={srStyles.resultRow}>` por `<TouchableOpacity>` con `onPress`. Al pulsar: modal con nombre del alimento, input cantidad en gramos (default 100), lista de comidas del día (`todayMeals`) para seleccionar, botón "Añadir". Al confirmar: llamar `POST /nutrition/meals/:mealId/foods`. `FoodSearchBar` recibe `todayMeals` como prop desde `NutritionScreen`. | Frontend Agent | Pendiente | N-1 |
+| **A-18** | **Landing: Lighthouse ≥ 95** — Causas detectadas (2026-10-14): peso total ~91 MB (vídeos + 151 frames del canvas cargados de golpe), Tailwind por CDN bloqueante y compilando en runtime (TBT 2,3 s en móvil), JS inline ~1 s, LCP 13,4 s en móvil; contraste insuficiente en textos `rgba(255,255,255,0.45)` y etiquetas de 12px; `aria-label` en `<div>` de estrellas sin rol; falta `robots.txt` (nginx devuelve el HTML). | Frontend + DevOps Agents | Pendiente | Nada |
+| **A-19** | **Landing: auto-deploy desde GitHub** — `railway service source connect --repo trutool-dev/ai-studio --branch develop --service healthy-landing` y Root Directory `projects/healthy/landing` en Settings | DevOps Agent | Pendiente | Nada |
+| **A-20** | **Landing: servicio en el entorno production** de Railway cuando la landing llegue a `main` | DevOps Agent | Pendiente | M-13 |
+| **A-21** | **Landing: aplicar el icono nuevo en `index4.html`** (sigue usando `logo-icon.svg`) y actualizar `docs/landing-content.md`, que aún describe `index.html` | Frontend + Docs Agents | Pendiente | Nada |
+| **A-22** | **Resolver discrepancia de calorías**: el brief dice "-500 kcal/día" y el código implementa "80 % TDEE" | AI + Backend Agents | Pendiente — decidir criterio | Nada |
+| **A-23** | **CI: `deploy.yml` redespliega el backend de staging en cualquier push a `develop`** (sin filtro de rutas). Añadir `paths: projects/healthy/backend/**` para no redesplegar con cambios de docs/landing | DevOps Agent | Pendiente | Nada |
 | **N-3** | **Frontend: refrescar macros de la comida tras añadir alimento** — Tras la llamada exitosa de N-2, llamar `fetchTodayNutrition()` para refrescar `todayMeals` en el store. Los `MacroCard` y el resumen calórico se actualizarán automáticamente al cambiar el store. | Frontend Agent | Pendiente | N-2 |
 
 ---
@@ -239,7 +250,8 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 |----------|----------|--------|
 | Tests lineas | >= 80% | ✅ OK — 96.78% |
 | Tests branches | >= 80% | ✅ OK — 85.01% |
-| Lighthouse landing | >= 95 | ✅ OK — A-Landing completada, Acc/SEO corregidos |
+| Lighthouse landing | >= 95 | ❌ NO — 2026-10-14 móvil 34/90/100/92, escritorio 74/90/100/92 (Perf/Acc/BP/SEO). Ver A-18 |
+| Landing publicada | Activa | ⚠️ Activa en Railway staging; falta producción (A-20) y dominio propio (M-20) |
 | App Android Google Play Internal | Publicada | ⚠️ M-18 pendiente — instalar APK `1bb08be5` con nuevo icono; M-19 pendiente |
 | App iOS TestFlight | Publicada | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | Backend staging operativo | Activo | ✅ ACTIVO |
@@ -275,6 +287,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-12e | **JailBreak Agent** ✅ `CLAUDE.jailbreak.md` creado en raíz (auditor de seguridad basado en MITRE ATLAS v4.5). **auditoria_atlas_mitre.md** ✅ generada: 16 tácticas auditadas, 30 hallazgos, 24 tareas SEC-01..SEC-24 — 5 🔴 críticas (prompt injection en buildUserContextPrompt, extraContext libre, indirect injection, cross-user userId, DoS via API key), 8 🟠 altas, 7 🟡 medias, 4 🟢 bajas. | 1ad08bc | 2026-10-12 |
 | Sesion 2026-10-12f | **Orquestador**: Tareas **N-1/N-2/N-3** registradas — flujo completo "food search asignable a comidas": N-1 backend endpoint `POST /nutrition/meals/:mealId/foods` (crear `meal_foods` + recalcular macros), N-2 frontend `<TouchableOpacity>` en resultados + modal de asignación (cantidad g + selección comida), N-3 frontend `fetchTodayNutrition()` tras confirmar para refrescar macros en pantalla. Contexto técnico: `NutritionScreen.tsx` línea 98 (`<View>` no presionable), tabla `meal_foods` ya existe en schema, tabla `meals` tiene columnas de macros a actualizar. | pendiente | 2026-10-12 |
 | Sesion 2026-10-12c | **DOC-01..DOC-08** ✅ Verificadas y marcadas como completadas en tasks.md — todos los documentos existían con contenido completo (api-reference, deployment-guide, ai-architecture, rgpd-compliance, README, architecture-web, landing-deploy, landing-content). Commit `e0dde65`. **M-15** ✅ Icono app diseñado: hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada: navbar, footer, sección descarga y favicon usan icono real. Commit `f4dc665`. | f4dc665 | 2026-10-12 |
+| Sesion 2026-10-13/14 | **Revisión de estado** del proyecto (agentes, PROJECT_STATUS, git). **Landing**: confirmado que la landing publicada es `landing/index4.html` (HTML + Tailwind CDN, sin build); nuevos `landing/Dockerfile` + `nginx.conf.template` + `.dockerignore` (nginx sirve `index4.html` en `/` con `public/` images/videos/frames, puerto `${PORT}`), probado en local con Docker. **Limpieza**: eliminados `devops/infra/` (Terraform S3/CloudFront/Route 53), `devops/.github/workflows/deploy-landing.yml`, `devops/cloudrun/` y `landing/Dockerfile.txt`; ~50 documentos actualizados de AWS a Railway (`landing-deploy`, `MONITORING`, `BACKUP_STRATEGY` reescritos). Commit `9f5b847` en develop con `[skip ci]` (para no redesplegar el backend de staging). **Railway**: servicio `healthy-landing` creado en `healthy-staging` / entorno staging, primer deploy OK, dominio https://healthy-landing-staging.up.railway.app — verificados 200 en `/`, vídeos y frames + cabeceras de seguridad. **Lighthouse** (M-10) móvil 34/90/100/92, escritorio 74/90/100/92 → A-18. Nuevas tareas M-20..M-22 y A-18..A-23. | 9f5b847 | 2026-10-14 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
 ### Sesion 2026-10-09 — Detalle tecnico
