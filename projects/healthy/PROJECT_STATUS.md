@@ -64,8 +64,8 @@
 | M-11 | Configurar ANTHROPIC_API_KEY en Railway staging variables de entorno | CRITICO | ✅ Completada — configurado en staging |
 | M-11b | Añadir créditos a cuenta Anthropic (console.anthropic.com → Plans & Billing) | CRITICO | ✅ Completada — verificado via /health/ai → success:true |
 | M-12 | Re-ejecutar CP-01..CP-10 con IA activa | IMPORTANTE | ✅ Completada — score 23/50 (2 CPs con IA real: CP-07, CP-08; ver detalle sesión 2026-10-09) |
-| M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | Pendiente |
-| M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | Pendiente (depende M-13) |
+| M-13 | Aprobar y mergear PR develop → main en GitHub | RELEASE | ✅ Completada — PR #7 mergeado, commit `f51a01c` en main (2026-10-17) |
+| M-14 | Crear tag v1.0.0: `git tag v1.0.0 && git push origin v1.0.0` | RELEASE | ✅ Completada — tag v1.0.0 creado y pusheado (2026-10-17) |
 | M-15 | Diseñar e implementar icono de la app | IMPORTANTE | ✅ Completada — icono hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada (navbar, footer, sección descarga, favicon). Commit `f4dc665` (sesión 2026-10-12c) |
 | M-16 | Poblar tabla foods en Railway staging con 3 scripts: `seed-foods.js` (128 alimentos base) + `import-usda.js` (200+ USDA) + `import-openfoodfacts.js` (700+ Open Food Facts, requiere servicio activo). Objetivo: ~1.000 alimentos. | CRITICO | ✅ Completada — `/foods/search?q=pollo` devuelve 6 resultados verificados (sesión 2026-10-12) |
 | M-17 | Confirmar M-16 completada: `GET /foods/search?q=pollo` debe devolver resultados (no `{ foods: [], total: 0 }`) | CRITICO | ✅ Completada — verificado 2026-10-12: 6 alimentos con macros completos |
@@ -82,7 +82,7 @@
 | A-1 | Mejorar branch coverage de 69.57% a 80%+ | Tests Agent | ✅ Completada — 85.01% / 454 tests | Nada |
 | A-2 | Build iOS en EAS: `eas build --platform ios --profile preview` | DevOps Agent | ❌ APLAZADO | Sin publicación iOS por ahora |
 | A-3 | Subir a TestFlight: `eas submit --platform ios` | DevOps Agent | ❌ APLAZADO | Sin publicación iOS por ahora |
-| A-4 | Deploy a Railway tras merge a main | CI/CD GitHub Actions | Pendiente | M-13 |
+| A-4 | Deploy a Railway tras merge a main | CI/CD GitHub Actions | ⏳ Triggered — esperando aprobación manual en GitHub Actions (environment: production) | M-13 |
 | A-5 | Generar documentacion API (Swagger/OpenAPI) con endpoint /exercises | Docs Agent | ✅ Completada — swagger.yaml 40 endpoints | Nada |
 | A-Landing | Corregir Accessibility y SEO landing (scores actuales 82-88 → 95+) | Frontend Agent | ✅ Completada — Acc/SEO corregidos (sesión 2026-10-10) | Nada |
 | A-6 | **Expansión de micronutrientes completos**: (1) Ampliar modelo Prisma `Food` con fiber, sugar, saturated_fat, sodium, potassium, calcium, iron, vitamin_c, vitamin_d, vitamin_b12 + migración; (2) Actualizar `import-usda.js` para capturar todos los nutrientes USDA disponibles; (3) Actualizar `foods.controller.js` para devolver nuevos campos; (4) Modificar frontend `NutritionScreen` y `FoodDetailScreen` para mostrar tabla de micronutrientes (calorías, macros, fibra, azúcares, grasas saturadas, sodio, calcio, hierro, vitaminas). Referencia commits: seed 61a3729, import 93e470a | Backend + Database + Frontend Agents | ✅ Completada — commits `8b0a7a7` (DB schema + migración), `43db3ae` (backend import-usda + foods.controller FOOD_SELECT), `601a80a` (frontend NutritionTable). **PENDIENTE: ejecutar `npx prisma migrate deploy` en Railway staging.** (sesión 2026-10-15) | M-16 |
