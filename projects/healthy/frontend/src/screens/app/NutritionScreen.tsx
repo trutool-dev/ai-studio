@@ -33,12 +33,88 @@ function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number
   return <Animated.View style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, opacity, marginBottom: 8 }, style]} />;
 }
 
+// ── Tabla de micronutrientes (A-6) ────────────────────────────────────────────
+
+interface NutrientRowProps {
+  label: string;
+  value: number | null | undefined;
+  unit: string;
+}
+
+function NutrientRow({ label, value, unit }: NutrientRowProps) {
+  if (value === null || value === undefined) return null;
+  return (
+    <View style={nutriStyles.row}>
+      <Text style={nutriStyles.label}>{label}</Text>
+      <Text style={nutriStyles.value}>{Number(value).toFixed(1)} {unit}</Text>
+    </View>
+  );
+}
+
+interface NutritionTableProps {
+  food: FoodResult;
+}
+
+function NutritionTable({ food }: NutritionTableProps) {
+  return (
+    <View style={nutriStyles.container}>
+      <Text style={nutriStyles.title}>Información nutricional</Text>
+      <Text style={nutriStyles.subtitle}>Por 100 g</Text>
+      {/* Macros principales */}
+      <View style={nutriStyles.section}>
+        <NutrientRow label="Calorías"      value={food.calories_per_100g} unit="kcal" />
+        <NutrientRow label="Proteínas"     value={food.protein_per_100g}  unit="g"    />
+        <NutrientRow label="Carbohidratos" value={food.carbs_per_100g}    unit="g"    />
+        <NutrientRow label="Grasas"        value={food.fat_per_100g}      unit="g"    />
+      </View>
+      {/* Micronutrientes — solo si al menos uno tiene valor */}
+      {(food.fiber_g != null || food.sugar_g != null || food.saturated_fat_g != null ||
+        food.sodium_mg != null || food.potassium_mg != null || food.calcium_mg != null ||
+        food.iron_mg != null || food.vitamin_c_mg != null || food.vitamin_d_mcg != null ||
+        food.vitamin_b12_mcg != null) && (
+        <>
+          <View style={nutriStyles.separator} />
+          <View style={nutriStyles.section}>
+            <NutrientRow label="Fibra"             value={food.fiber_g}         unit="g"   />
+            <NutrientRow label="Azúcares"          value={food.sugar_g}         unit="g"   />
+            <NutrientRow label="Grasas saturadas"  value={food.saturated_fat_g} unit="g"   />
+            <NutrientRow label="Sodio"             value={food.sodium_mg}       unit="mg"  />
+            <NutrientRow label="Potasio"           value={food.potassium_mg}    unit="mg"  />
+            <NutrientRow label="Calcio"            value={food.calcium_mg}      unit="mg"  />
+            <NutrientRow label="Hierro"            value={food.iron_mg}         unit="mg"  />
+            <NutrientRow label="Vitamina C"        value={food.vitamin_c_mg}    unit="mg"  />
+            <NutrientRow label="Vitamina D"        value={food.vitamin_d_mcg}   unit="mcg" />
+            <NutrientRow label="Vitamina B12"      value={food.vitamin_b12_mcg} unit="mcg" />
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 // ── Buscador de alimentos ─────────────────────────────────────────────────────
 
 interface FoodResult {
-  id: string; name: string; calories: number;
-  protein: number; carbs: number; fat: number;
-  from_cache?: boolean;
+  id: string;
+  name: string;
+  brand?: string | null;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+  barcode?: string | null;
+  verified?: boolean;
+  // micronutrientes (A-6)
+  fiber_g?: number | null;
+  sugar_g?: number | null;
+  saturated_fat_g?: number | null;
+  sodium_mg?: number | null;
+  potassium_mg?: number | null;
+  calcium_mg?: number | null;
+  iron_mg?: number | null;
+  vitamin_c_mg?: number | null;
+  vitamin_d_mcg?: number | null;
+  vitamin_b12_mcg?: number | null;
 }
 
 interface FoodSearchBarProps {
@@ -137,7 +213,7 @@ function FoodSearchBar({ meals, onFoodAdded }: FoodSearchBarProps) {
                 <View style={srStyles.resultInfo}>
                   <Text style={srStyles.resultName} numberOfLines={1}>{item.name}</Text>
                   <Text style={srStyles.resultMeta}>
-                    {item.calories} kcal · P:{item.protein}g · C:{item.carbs}g · G:{item.fat}g
+                    {Math.round(Number(item.calories_per_100g))} kcal · P:{Number(item.protein_per_100g).toFixed(1)}g · C:{Number(item.carbs_per_100g).toFixed(1)}g · G:{Number(item.fat_per_100g).toFixed(1)}g
                   </Text>
                 </View>
                 <Text style={{ color: colors.primary.green, fontSize: 22, paddingLeft: 8 }}>+</Text>
@@ -158,6 +234,7 @@ function FoodSearchBar({ meals, onFoodAdded }: FoodSearchBarProps) {
             <View style={modalStyles.card}>
               <Text style={modalStyles.title}>Añadir a comida</Text>
               <Text style={modalStyles.foodName}>{selectedFood.name}</Text>
+              <NutritionTable food={selectedFood} />
               <Text style={modalStyles.label}>Cantidad (gramos)</Text>
               <TextInput
                 style={modalStyles.input}
@@ -404,6 +481,58 @@ const modalStyles = StyleSheet.create({
   btnCancelText:    { ...textStyles.bodyNormal, color: colors.neutral.midGray },
   btnAdd:           { flex: 1, paddingVertical: spacing.md, borderRadius: borderRadius.button, backgroundColor: colors.primary.green, alignItems: 'center' },
   btnAddText:       { ...textStyles.bodyNormal, fontWeight: '700', color: '#FFFFFF' },
+});
+
+// ── Estilos tabla de micronutrientes (A-6) ────────────────────────────────────
+
+const nutriStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E7EB',
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  title: {
+    ...textStyles.titleSmall,
+    color: '#1F2937',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: 2,
+  },
+  subtitle: {
+    ...textStyles.caption,
+    color: colors.neutral.midGray,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  section: {},
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E7EB',
+    marginVertical: spacing.xs,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
+  },
+  label: {
+    ...textStyles.bodyNormal,
+    color: '#1F2937',
+    flex: 1,
+  },
+  value: {
+    ...textStyles.bodyNormal,
+    color: '#1F2937',
+    fontVariant: ['tabular-nums'] as any,
+    textAlign: 'right',
+  },
 });
 
 export default NutritionScreen;
