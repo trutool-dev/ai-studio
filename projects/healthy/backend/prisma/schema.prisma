@@ -545,6 +545,17 @@ model Food {
   fat_per_100g       Decimal  @db.Decimal(6, 2)
   barcode            String?  @unique
   verified           Boolean  @default(false)
+  // micronutrientes (A-6)
+  fiber_g            Float?   // fibra total
+  sugar_g            Float?   // azúcares totales
+  saturated_fat_g    Float?   // grasas saturadas
+  sodium_mg          Float?   // sodio
+  potassium_mg       Float?   // potasio
+  calcium_mg         Float?   // calcio
+  iron_mg            Float?   // hierro
+  vitamin_c_mg       Float?   // vitamina C
+  vitamin_d_mcg      Float?   // vitamina D (microgramos)
+  vitamin_b12_mcg    Float?   // vitamina B12 (microgramos)
 
   meal_foods MealFood[]
 

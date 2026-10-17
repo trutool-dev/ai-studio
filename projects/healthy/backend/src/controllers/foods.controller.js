@@ -1,6 +1,7 @@
 /**
  * Controlador de búsqueda de alimentos (BE-04).
  * Incluye caché Redis por 6h en búsquedas por texto (BE-09).
+ * A-6: devuelve micronutrientes completos en search y barcode.
  */
 
 const { sendSuccess, sendError } = require('../utils/response.util');
@@ -9,6 +10,30 @@ const logger = require('../utils/logger.util');
 const redis = require('../services/redis.service');
 
 const FOOD_SEARCH_TTL = 21600; // 6 horas
+
+// Campos a devolver en todas las respuestas de Food (A-6)
+const FOOD_SELECT = {
+  id:               true,
+  name:             true,
+  brand:            true,
+  calories_per_100g: true,
+  protein_per_100g: true,
+  carbs_per_100g:   true,
+  fat_per_100g:     true,
+  barcode:          true,
+  verified:         true,
+  // micronutrientes
+  fiber_g:          true,
+  sugar_g:          true,
+  saturated_fat_g:  true,
+  sodium_mg:        true,
+  potassium_mg:     true,
+  calcium_mg:       true,
+  iron_mg:          true,
+  vitamin_c_mg:     true,
+  vitamin_d_mcg:    true,
+  vitamin_b12_mcg:  true,
+};
 
 /** GET /foods/search?q= */
 const searchFoods = async (req, res, next) => {
@@ -33,6 +58,7 @@ const searchFoods = async (req, res, next) => {
 
     const foods = await prisma.food.findMany({
       where: { name: { contains: q.trim(), mode: 'insensitive' } },
+      select: FOOD_SELECT,
       take: 20,
       orderBy: [{ verified: 'desc' }, { name: 'asc' }],
     });
@@ -50,7 +76,7 @@ const searchFoods = async (req, res, next) => {
 const getFoodByBarcode = async (req, res, next) => {
   try {
     const { code } = req.params;
-    const food = await prisma.food.findUnique({ where: { barcode: code } });
+    const food = await prisma.food.findUnique({ where: { barcode: code }, select: FOOD_SELECT });
     if (!food) return sendError(res, 'NOT_FOUND', `No se encontró alimento con código de barras: ${code}`, 404);
     return sendSuccess(res, { food }, 'Alimento encontrado');
   } catch (err) { next(err); }
