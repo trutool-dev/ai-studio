@@ -20,7 +20,7 @@
     "import:openfoodfacts": "node prisma/import-openfoodfacts.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.52.0",
+    "@anthropic-ai/sdk": "0.133.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^2.4.3",
