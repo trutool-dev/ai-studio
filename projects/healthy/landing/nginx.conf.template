@@ -18,6 +18,15 @@ server {
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000" always;
 
+    # robots.txt servido directamente desde public/
+    location = /robots.txt {
+        alias /usr/share/nginx/html/public/robots.txt;
+        expires 1d;
+        add_header Cache-Control "public, max-age=86400" always;
+        add_header Content-Type "text/plain" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
     # index4.html carga los frames del canvas con ruta relativa 'public/frames/...'
     location ^~ /public/ {
         alias /usr/share/nginx/html/;
