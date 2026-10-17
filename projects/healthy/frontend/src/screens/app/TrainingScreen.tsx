@@ -335,6 +335,7 @@ export function TrainingScreen() {
                   detail={`${e.sets} × ${e.reps} reps${e.weight ? ` · ${e.weight} kg` : ''}`}
                   completed={e.completed}
                   active={activeExerciseId === e.id}
+                  gifUrl={e.gifUrl}
                   onToggle={() => handleExerciseToggle(e.id)}
                 />
               ))}

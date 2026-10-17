@@ -169,7 +169,7 @@ psql $DATABASE_URL -c "DELETE FROM _prisma_migrations WHERE migration_name = '20
 ```
 
 **En producción (staging/prod):**
-1. Restaurar snapshot RDS pre-deploy (ARN a documentar en `devops/PIPELINE_DRYRUN.md`)
+1. Restaurar el backup de PostgreSQL pre-deploy en Railway (ver `devops/BACKUP_STRATEGY.md`)
 2. Si el snapshot no está disponible, ejecutar rollback manual arriba con credenciales de producción
 3. Hacer rollback del código al commit anterior al merge de PR-2
 4. Verificar con `npx prisma migrate status` que la migración ya no aparece como `Applied`

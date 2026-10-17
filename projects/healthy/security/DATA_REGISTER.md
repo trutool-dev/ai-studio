@@ -37,7 +37,7 @@
 | **Categorías de datos** | Correo electrónico, contraseña (hash bcrypt), nombre/alias, fecha de registro, token de sesión JWT |
 | **Base jurídica** | Art. 6.1.b RGPD — Ejecución de contrato |
 | **Categoría especial** | No |
-| **Destinatarios** | Supabase (proveedor de autenticación), infraestructura AWS interna |
+| **Destinatarios** | Supabase (proveedor de autenticación), infraestructura Railway |
 | **Transferencias internacionales** | Supabase — UE (Frankfurt); cláusulas contractuales tipo Art. 46 RGPD |
 | **Plazo de retención** | Vigencia de la cuenta + 30 días tras eliminación |
 | **Medidas de seguridad** | bcrypt 12 rounds, JWT RS256, rate limiting en login (5 intentos/15 min), HTTPS/TLS 1.3 |
@@ -55,10 +55,10 @@
 | **Categorías de datos** | Edad, sexo biológico, peso actual, altura, nivel de actividad física (sedentario/moderado/activo/muy activo), objetivo principal (perder peso, ganar músculo, mantenimiento, salud general), condiciones de salud relevantes declaradas voluntariamente |
 | **Base jurídica** | Art. 9.2.a RGPD — Consentimiento explícito para datos de categoría especial |
 | **Categoría especial** | **SÍ — Datos de salud (Art. 9 RGPD)** |
-| **Destinatarios** | Infraestructura AWS interna (RDS PostgreSQL cifrado); Anthropic Claude API para generación del plan inicial |
+| **Destinatarios** | Infraestructura Railway (PostgreSQL); Anthropic Claude API para generación del plan inicial |
 | **Transferencias internacionales** | Anthropic (EE.UU.) — Cláusulas Contractuales Tipo (SCCs) vigentes |
 | **Plazo de retención** | Vigencia de la cuenta; borrado completo en 30 días tras eliminación |
-| **Medidas de seguridad** | Cifrado AES-256 en reposo (RDS); cifrado en tránsito TLS 1.3; anonimización parcial en envío a API de IA; acceso restringido por rol interno |
+| **Medidas de seguridad** | Cifrado en reposo del proveedor (Railway, pendiente de confirmar); cifrado en tránsito TLS 1.3; anonimización parcial en envío a API de IA; acceso restringido por rol interno |
 | **Evaluación de riesgo** | **Alto** — datos de salud categoría especial. EIPD realizada (ver sección EIPD) |
 | **Responsable interno** | Equipo Backend + Equipo IA |
 
@@ -92,7 +92,7 @@
 | **Categorías de datos** | Registro de alimentos consumidos (nombre, cantidad, macronutrientes, calorías), fecha y hora del registro, adherencia al plan nutricional |
 | **Base jurídica** | Art. 9.2.a RGPD — Consentimiento explícito |
 | **Categoría especial** | **SÍ — Datos de salud (Art. 9 RGPD)** |
-| **Destinatarios** | AWS RDS PostgreSQL (almacenamiento principal); Anthropic Claude API (ajuste dinámico del plan) |
+| **Destinatarios** | PostgreSQL en Railway (almacenamiento principal); Anthropic Claude API (ajuste dinámico del plan) |
 | **Transferencias internacionales** | Anthropic (EE.UU.) — SCCs |
 | **Plazo de retención** | Vigencia de la cuenta + 30 días |
 | **Medidas de seguridad** | Cifrado AES-256 en reposo; TLS 1.3 en tránsito; acceso autenticado por JWT |
@@ -110,7 +110,7 @@
 | **Categorías de datos** | Tipo de ejercicio, series, repeticiones, peso utilizado, duración, frecuencia cardíaca (si disponible), fecha y hora, percepción subjetiva del esfuerzo |
 | **Base jurídica** | Art. 9.2.a RGPD — Consentimiento explícito |
 | **Categoría especial** | **SÍ — Datos de salud (Art. 9 RGPD)** |
-| **Destinatarios** | AWS RDS PostgreSQL; Anthropic Claude API (ajuste del plan) |
+| **Destinatarios** | PostgreSQL en Railway; Anthropic Claude API (ajuste del plan) |
 | **Transferencias internacionales** | Anthropic (EE.UU.) — SCCs |
 | **Plazo de retención** | Vigencia de la cuenta + 30 días |
 | **Medidas de seguridad** | Cifrado AES-256; TLS 1.3; autenticación JWT por sesión |
@@ -128,10 +128,10 @@
 | **Categorías de datos** | Imágenes fotográficas del cuerpo del usuario, fecha de captura, metadatos EXIF (eliminados automáticamente al subir) |
 | **Base jurídica** | Art. 9.2.a RGPD — Consentimiento explícito específico para esta funcionalidad |
 | **Categoría especial** | **SÍ — Imágenes reveladoras de estado de salud (Art. 9 RGPD)** |
-| **Destinatarios** | AWS S3 (almacenamiento privado) |
-| **Transferencias internacionales** | AWS S3 — región UE (Irlanda); decisión de adecuación |
+| **Destinatarios** | Almacenamiento de objetos privado (proveedor pendiente de definir) |
+| **Transferencias internacionales** | Pendiente — depende del proveedor de almacenamiento elegido |
 | **Plazo de retención** | Vigencia de la cuenta; borrado inmediato si el usuario elimina la foto o la cuenta |
-| **Medidas de seguridad** | Bucket S3 privado (sin acceso público); URLs pre-firmadas con expiración de 15 minutos; metadatos EXIF eliminados en upload; cifrado del bucket AES-256; acceso solo por usuario propietario (validación JWT) |
+| **Medidas de seguridad** | Almacenamiento privado (sin acceso público); URLs pre-firmadas con expiración de 15 minutos; metadatos EXIF eliminados en upload; cifrado en reposo; acceso solo por usuario propietario (validación JWT) |
 | **Evaluación de riesgo** | **Muy Alto** — imágenes corporales sensibles. No se procesan por IA. Acceso exclusivo del usuario. |
 | **Responsable interno** | Equipo Backend + Equipo DevOps |
 
@@ -164,8 +164,8 @@
 | **Categorías de datos** | Dirección IP (truncada a /24 para anonimización), timestamp, endpoint accedido, código de respuesta HTTP, identificador de sesión (no el JWT completo), user-agent |
 | **Base jurídica** | Art. 6.1.f RGPD — Interés legítimo (seguridad del servicio) |
 | **Categoría especial** | No |
-| **Destinatarios** | Infraestructura AWS interna (CloudWatch Logs) |
-| **Transferencias internacionales** | AWS — UE (Irlanda) |
+| **Destinatarios** | Infraestructura Railway (logs del servicio) |
+| **Transferencias internacionales** | Railway (región pendiente de confirmar) |
 | **Plazo de retención** | 90 días; rotación automática |
 | **Medidas de seguridad** | Los logs **no contienen datos de salud ni contenido de las peticiones**; IPs truncadas; acceso restringido al equipo de seguridad y DevOps |
 | **Evaluación de riesgo** | Bajo |
@@ -218,8 +218,8 @@
 | **Categorías de datos** | Correo electrónico, nombre/alias, idioma preferido |
 | **Base jurídica** | Art. 6.1.b RGPD — Ejecución de contrato (comunicaciones esenciales del servicio) |
 | **Categoría especial** | No |
-| **Destinatarios** | Proveedor de envío de correo transaccional (AWS SES o equivalente) |
-| **Transferencias internacionales** | AWS SES — UE (Irlanda) |
+| **Destinatarios** | Proveedor de envío de correo transaccional (Gmail SMTP — Google) |
+| **Transferencias internacionales** | Google (Gmail SMTP) — revisar ubicación de datos y DPA |
 | **Plazo de retención** | Vigencia de la cuenta |
 | **Medidas de seguridad** | Los correos no contienen datos de salud; SPF, DKIM y DMARC configurados |
 | **Evaluación de riesgo** | Bajo |
@@ -244,7 +244,7 @@ Conforme al Art. 35 RGPD, se ha realizado una EIPD para los tratamientos de **ca
 | Filtración de datos en tránsito hacia IA | Pseudoanonimización + TLS 1.3 | Implementado |
 | Almacenamiento indefinido de datos sensibles | TTL automático + política de retención | Implementado |
 | Decisiones de salud automatizadas sin supervisión | Disclaimer médico + opción de revisión humana | Implementado |
-| Fotos corporales expuestas | S3 privado + URLs pre-firmadas 15 min | Implementado |
+| Fotos corporales expuestas | Almacenamiento privado + URLs pre-firmadas 15 min | Pendiente — proveedor por definir |
 | Logs con datos de salud | Logs solo técnicos, sin payload de datos | Implementado |
 | Brecha de datos masiva | Protocolo INCIDENT_RESPONSE.md activo | Documentado |
 
@@ -261,7 +261,7 @@ El tratamiento es necesario y proporcional. Los riesgos residuales son aceptable
 | Subencargado | Servicio | País | Contrato firmado | Garantías |
 |-------------|----------|------|-----------------|-----------|
 | Supabase | Autenticación y gestión de usuarios | UE (Frankfurt) | ✅ DPA firmado | SCCs Art. 46 |
-| AWS (Amazon) | Infraestructura cloud, RDS, S3, SES | UE (Irlanda) | ✅ DPA firmado | Decisión de adecuación |
+| Railway | Infraestructura cloud (backend, PostgreSQL, Redis, landing) | Pendiente de confirmar | ⏳ DPA pendiente | Pendiente — Railway es empresa de EEUU |
 | Anthropic | Procesamiento IA (Claude API) | EE.UU. | ✅ DPA firmado | SCCs vigentes |
 | Redis Cloud | Caché de sesiones | UE | ✅ DPA firmado | SCCs Art. 46 |
 | Stripe | Procesamiento de pagos | EE.UU. | ✅ DPA firmado | SCCs + PCI-DSS L1 |

@@ -8,14 +8,14 @@ continua funcionan de forma fiable, segura y escalable.
 ## Tecnologías disponibles
 - Docker y Docker Compose para contenedores
 - GitHub Actions para CI/CD
-- AWS para infraestructura cloud
+- Railway para infraestructura cloud (servicios, PostgreSQL, Redis, sitios estáticos)
 - Expo EAS Build para apps móviles
 - Expo EAS Submit para publicar en stores
 
 ## Entornos estándar
 - development  → local con Docker Compose
-- staging      → AWS (réplica de producción)
-- production   → AWS (usuarios reales)
+- staging      → Railway (réplica de producción)
+- production   → Railway (usuarios reales)
 
 ## Cómo trabajas
 1. Lee el archivo tasks.md del proyecto actual
@@ -35,5 +35,5 @@ continua funcionan de forma fiable, segura y escalable.
 - NUNCA hardcodear credenciales o secretos
 - Zero-downtime deployments en producción
 - Todo deploy a producción requiere pasar CI completo
-- Secretos en AWS Secrets Manager, nunca en GitHub
+- Secretos en variables de entorno de Railway y GitHub Secrets, nunca en el repositorio
 - Dockerfiles multi-stage para imágenes mínimas

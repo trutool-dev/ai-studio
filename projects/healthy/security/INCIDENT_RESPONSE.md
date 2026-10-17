@@ -22,7 +22,7 @@
 ### 1.1 Canales de detección
 - Alertas automáticas del sistema de monitoreo (logs de errores, picos de tráfico)
 - Reporte de usuario o tercero
-- Notificación de proveedor de infraestructura (AWS, Supabase)
+- Notificación de proveedor de infraestructura (Railway, Supabase)
 - Resultado de auditoría de seguridad periódica
 - Bug bounty / responsible disclosure (ver `VULNERABILITIES.md`)
 
@@ -39,7 +39,7 @@
 - [ ] Si hay exfiltración de base de datos: rotar credenciales `DATABASE_URL` e invalidar conexiones
 - [ ] Si hay compromiso de JWT_SECRET: rotar el secreto, invalidar TODAS las sesiones activas
 - [ ] Si hay abuso de API de IA: rotar `ANTHROPIC_API_KEY` y establecer límite de gasto en Anthropic Console
-- [ ] Si hay acceso a almacenamiento de fotos: revocar acceso al bucket S3/Supabase Storage
+- [ ] Si hay acceso a almacenamiento de fotos: revocar acceso al almacenamiento de fotos
 - [ ] Documentar acciones tomadas con timestamp exacto
 
 **Paso 3 — Preservar evidencias (15 min)**
@@ -298,7 +298,7 @@ Documentar en `SECURITY_AUDIT.md` las lecciones aprendidas y las mejoras impleme
 | Incident Manager principal | [PLACEHOLDER] | [email] / [teléfono] | 24/7 |
 | DPO (Delegado de Protección de Datos) | [PLACEHOLDER] | dpo@healthy-app.es / [teléfono] | Horario laboral + guardia |
 | CTO / Responsable técnico | [PLACEHOLDER] | [email] / [teléfono] | 24/7 |
-| Proveedor de hosting (AWS/Supabase) | Soporte enterprise | [panel de soporte] | 24/7 |
+| Proveedor de hosting (Railway/Supabase) | Soporte del plan contratado | [panel de soporte] | 24/7 |
 | Asesoría legal externa | [PLACEHOLDER] | [email] / [teléfono] | Horario laboral |
 | AEPD — Consultas | AEPD | 901 100 099 | Horario laboral |
 | AEPD — Notificaciones urgentes | AEPD Sede Electrónica | https://sedeagpd.gob.es | 24/7 (portal) |

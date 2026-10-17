@@ -16,8 +16,8 @@ El foco actual es conectar las piezas y llevarlo a producción.
 | Base datos  | PostgreSQL + Redis                     |
 | IA          | Claude API (claude-sonnet-4-6)         |
 | Auth        | Supabase                               |
-| Landing     | HTML/CSS/JS estático — S3 + CloudFront |
-| Cloud       | AWS (ECS, RDS, ElastiCache, S3, CloudFront, Route 53) |
+| Landing     | HTML estático (`landing/index4.html`) — nginx en Railway |
+| Cloud       | Railway (backend, PostgreSQL, Redis, landing) |
 | CI/CD       | GitHub Actions + Expo EAS              |
 
 ---
@@ -31,7 +31,7 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - **design**   → revisión visual final y modo oscuro
 - **tests**    → ampliar cobertura hasta ≥ 80 % y tests E2E
 - **security** → auditoría RGPD y variables de entorno
-- **devops**   → variables de entorno reales y despliegue AWS
+- **devops**   → variables de entorno reales y despliegue en Railway
 - **docs**     → documentación técnica de la API y guía de despliegue
 
 ---
@@ -167,29 +167,23 @@ El foco actual es conectar las piezas y llevarlo a producción.
 ### DevOps
 > Carpeta: `projects/healthy/devops/`
 
-- [x] **DO-01** Crear `devops/ENV_VARS.md` con todas las variables por categoría (DB, Redis, JWT, Supabase, AI, SMTP, AWS, App) y actualizar `backend/.env.example`
+- [x] **DO-01** Crear `devops/ENV_VARS.md` con todas las variables por categoría (DB, Redis, JWT, Supabase, AI, SMTP, App) y actualizar `backend/.env.example`
 - [x] **DO-02** Crear `devops/GITHUB_SECRETS.md` con lista completa de secretos GitHub Actions separados por staging/producción con instrucciones paso a paso
-- [x] **DO-03** Crear `devops/infrastructure/staging.md` con diagrama ASCII de arquitectura + security groups + sizing; crear `infra/vpc.tf`, `infra/rds.tf`, `infra/elasticache.tf`, `infra/ecs.tf`, `infra/alb.tf`
-- [x] **DO-04** Crear `.github/workflows/deploy-staging.yml` con jobs: test (cobertura 80%), build (ECR), deploy (ECS), smoke-test (/health con retry)
+- [x] **DO-03** Crear `devops/infrastructure/staging.md` con diagrama ASCII de arquitectura + sizing (Railway)
+- [x] **DO-04** Crear `.github/workflows/deploy-staging.yml` con jobs: test (cobertura 80%), deploy (Railway CLI), smoke-test (/health con retry)
 - [x] **DO-05** Crear `frontend/eas.json` con perfiles development/preview/production y `devops/EAS_BUILD.md` con instrucciones completas + workflow `eas-build.yml`
 - [x] **DO-06** Crear `devops/EAS_SUBMIT.md` con requisitos Apple/Google, pasos para generar credenciales, y workflow `eas-submit.yml` (trigger: tag `v*.*.*`)
-- [x] **DO-07** Crear `devops/MONITORING.md` con UptimeRobot, CloudWatch Alarms (CPU/RAM/RDS/5xx), logs `/ecs/healthy-api` con retención 30 días, comandos `aws logs tail` y dashboard CloudWatch
-- [x] **DO-08** Crear `devops/BACKUP_STRATEGY.md` con RDS automated backups 7 días, snapshots pre-deploy, procedimiento de restauración 5 pasos, y workflow `db-backup.yml` (cron: domingo 02:00 UTC)
-- [x] **DO-09** Crear bucket S3 `healthy-landing-prod` para sitio estático: activar static website hosting, bucket policy de acceso público, bloquear uploads directos (solo CI)
-- [x] **DO-10** Configurar CloudFront distribution frente al bucket S3: certificado SSL via ACM, dominio personalizado (`healthy.app`), compresión gzip/brotli, redirección HTTP → HTTPS, TTL de caché `86400` para assets
-- [x] **DO-11** Configurar DNS en Route 53: registrar o delegar dominio `healthy.app`, crear registro A alias apuntando a la CloudFront distribution
-- [x] **DO-12** Añadir job `deploy-landing` en el pipeline GitHub Actions: se dispara en push a `main` con cambios en `landing/`; ejecuta `aws s3 sync landing/ s3://healthy-landing-prod --delete` seguido de `aws cloudfront create-invalidation --paths "/*"`
-- [x] **DO-13** Configurar cabeceras de seguridad en CloudFront para la landing vía Lambda@Edge o CloudFront Functions: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
+- [x] **DO-07** Crear `devops/MONITORING.md` con UptimeRobot, métricas y logs de Railway y runbook de incidencias
+- [x] **DO-08** Crear `devops/BACKUP_STRATEGY.md` con backups de PostgreSQL en Railway, backup pre-deploy, procedimiento de restauración y workflow `db-backup.yml` (cron: domingo 02:00 UTC)
+- [x] **DO-09** Crear `landing/Dockerfile` + `nginx.conf.template` + `.dockerignore`: nginx sirve `index4.html` en `/` con `public/` (images, videos, frames), puerto `${PORT}` de Railway, caché y cabeceras de seguridad
+- [x] **DO-10** Crear servicio Railway `healthy-landing` (root `projects/healthy/landing`, builder Dockerfile) y primer deploy — ✅ 2026-10-14, entorno staging: https://healthy-landing-staging.up.railway.app (subido con `railway up`)
+- [ ] **DO-11** Configurar dominio propio de la landing en Railway (Custom Domain) + CNAME en el proveedor DNS
+- [ ] **DO-12** Deploy automático de la landing: servicio Railway conectado a GitHub, redeploy en push con cambios en `projects/healthy/landing/`
+- [ ] **DO-18** Landing con Lighthouse ≥ 95 en móvil y escritorio — 2026-10-14: móvil 34/90/100/92, escritorio 74/90/100/92 (Perf/Acc/BP/SEO). Ver A-18 en `PROJECT_STATUS.md`
+- [ ] **DO-19** Servicio `healthy-landing` en el entorno production de Railway (tras merge a `main`)
+- [x] **DO-13** Cabeceras de seguridad de la landing en nginx: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
 
-#### Google Cloud Run — Landing (alternativa serverless a S3+CloudFront)
-> Carpeta de trabajo: `projects/healthy/devops/cloudrun/`
-
-- [x] **DO-14** Crear `devops/cloudrun/Dockerfile` — imagen `nginx:alpine` que sirve los archivos estáticos de `landing/`. Puerto 8080 (estándar Cloud Run). Incluir `nginx.conf` con cabeceras de seguridad, compresión gzip y caché inmutable para assets con hash.
-- [x] **DO-15** Crear `devops/cloudrun/.dockerignore` — excluir `node_modules`, `.git`, `src/`, archivos de configuración de build (vite, postcss, tailwind) y credenciales (`.env`).
-- [x] **DO-16** Crear `devops/cloudrun/deploy.sh` — script con los comandos de Google Cloud: `gcloud builds submit` (construye y publica imagen en Container Registry) y `gcloud run deploy` (despliega el servicio con `--allow-unauthenticated`, `--port 8080`, `--memory 256Mi`, `--min-instances 0`). El script lee `PROJECT_ID` de la config de gcloud o de una variable de entorno exportada. Al finalizar imprime la URL pública del servicio.
-- [x] **DO-17** Crear `devops/cloudrun/README.md` — guía paso a paso para que Antonio pueda ejecutar el despliegue: prerrequisitos (gcloud CLI, Cloud Build API habilitada, facturación activa), configurar `PROJECT_ID`, ejecutar `./deploy.sh` y verificar la URL resultante. Incluir comandos de rollback y limpieza.
-
-**Dependencias:** SEC-01 (variables de entorno auditadas antes de configurar CI); DO-09 antes de DO-10 antes de DO-11 antes de DO-12; DO-14 antes de DO-15 antes de DO-16 antes de DO-17
+**Dependencias:** SEC-01 (variables de entorno auditadas antes de configurar CI); DO-09 antes de DO-10 antes de DO-11 antes de DO-12
 
 ---
 
@@ -201,8 +195,8 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **DOC-03** Documentar arquitectura de la IA: cómo se construye el prompt, qué datos entran, qué JSON sale
 - [x] **DOC-04** Actualizar documentación RGPD con los flujos reales implementados (consentimiento, exportación, borrado)
 - [x] **DOC-05** Escribir README del proyecto con requisitos, instalación, variables de entorno y comandos principales
-- [x] **DOC-06** Crear `docs/architecture-web.md`: diagrama de la arquitectura AWS completa — flujo usuario → Route 53 → CloudFront → S3 (landing) y Route 53 → ALB → ECS → API → RDS/Redis (backend). Incluir decisiones de red (VPC, subnets, security groups) y estimación de costes mensuales
-- [x] **DOC-07** Crear `docs/landing-deploy.md`: guía para actualizar la landing — estructura de `landing/index.html`, tokens de diseño usados, cómo añadir secciones, proceso de despliegue manual (`aws s3 sync`) vs automático (CI en push a `main`), y cómo forzar invalidación de CloudFront
+- [x] **DOC-06** Crear `docs/architecture-web.md`: arquitectura de infraestructura (Railway: backend, PostgreSQL, Redis, landing), CI/CD y estimación de costes mensuales
+- [x] **DOC-07** Crear `docs/landing-deploy.md`: guía de la landing (`landing/index4.html`), prueba local con Docker, despliegue y rollback en Railway
 - [x] **DOC-08** Crear `docs/landing-content.md`: guía para el equipo de marketing — secciones de la landing (hero, stats, features, manifesto, download), copy editable, cómo cambiar imágenes de mockup y actualizar CTAs sin tocar CSS
 
 **Dependencias:** BE-01..BE-09, AI-01..AI-07, SEC-04; DOC-06 depende de DO-09..DO-13 para reflejar infraestructura real
@@ -225,7 +219,7 @@ Fase 3 — Frontend + Seguridad (en paralelo, dependen de Fase 2)
   Security  (SEC-01..SEC-08)
 
 Fase 3b — Landing infra (independiente, puede correr en paralelo con Fase 3)
-  DevOps    (DO-09..DO-13)  ← bucket S3, CloudFront, DNS, pipeline landing
+  DevOps    (DO-09..DO-13)  ← servicio Railway landing, dominio, deploy
 
 Fase 4 — Tests (depende de Fase 2 y 3)
   Tests    (TS-01..TS-08)
@@ -247,8 +241,8 @@ Fase 5 — DevOps + Docs (en paralelo, dependen de Fase 3 y 4)
 | Fallback sin IA | Si Claude falla, el usuario recibe un plan genérico calculado por reglas para no bloquear el onboarding |
 | MMKV para persistencia local | Más rápido que AsyncStorage; necesario para modo offline básico |
 | Zod para validación | Tipado compartido entre validación en runtime y TypeScript en compilación |
-| S3 + CloudFront para landing | Sitio estático sin servidor: CDN global con baja latencia, SSL gratuito vía ACM, coste < $2/mes, invalidación instantánea en cada deploy |
-| Landing en `landing/index.html` | Fichero único autocontenido (sin build step) — fácil de editar por diseño/marketing y de desplegar con `aws s3 sync` |
+| Railway (nginx) para landing | Misma plataforma que el backend: HTTPS automático, deploy desde GitHub, rollback desde el dashboard |
+| Landing en `landing/index4.html` | HTML sin build step (Tailwind CDN + JS inline) — se sirve tal cual con nginx |
 
 ---
 
@@ -261,7 +255,7 @@ Fase 5 — DevOps + Docs (en paralelo, dependen de Fase 3 y 4)
 - [x] Pipeline CI/CD verde en rama `develop` — RAILWAY_ENVIRONMENT_ID configurado en deploy.yml; staging green (2026-07-07)
 - [x] Modo oscuro funcional en todas las pantallas
 - [ ] Landing publicada en producción con SSL, dominio propio y score Lighthouse ≥ 95
-- [ ] Pipeline de despliegue de landing operativo (push a `main` → S3 → CloudFront invalidation < 60 s)
+- [ ] Pipeline de despliegue de landing operativo (servicio Railway `healthy-landing`)
 
 ---
 
@@ -403,8 +397,8 @@ database/ERD.md                                                 (MODIFICAR — a
 3. **DOC-03** `docs/ai-architecture.md`: cómo se construye el prompt en `ai/planGenerator.ts`, qué datos de onboarding entran (7 dimensiones + TMB/TDEE calculados), qué estructura JSON devuelve Claude (`GeneratedPlan`), cómo funciona el prompt caching (`cache_control: ephemeral`) y el fallback genérico.
 4. **DOC-04** `docs/rgpd-compliance.md`: flujos reales implementados — consentimiento (`health_consent_given_at`), verificación de edad (16 años), exportación de datos (`GET /user/me/export`, Art. 20), borrado (`DELETE /user/me`, Art. 17). Referenciar `security/SECURITY_AUDIT.md`.
 5. **DOC-02** `docs/deployment-guide.md`: guía paso a paso para los tres entornos. Local: prerequisitos, variables de entorno, migraciones, seed, arrancar backend y frontend. Staging: workflow `deploy-staging.yml`, secretos GitHub necesarios, URL de verificación. Producción: pasos adicionales, backup pre-deploy, tag `v*.*.*` para disparar `eas-submit.yml`.
-6. **DOC-06** `docs/architecture-web.md`: diagrama ASCII o Mermaid de la arquitectura AWS completa — flujo usuario → Route 53 → CloudFront → S3 (landing) y Route 53 → ALB → ECS → API → RDS/Redis (backend). Decisiones de red (VPC, subnets, security groups) y estimación de costes mensuales. Fuente: `devops/infrastructure/staging.md`, `devops/ENV_VARS.md`.
-7. **DOC-07** `docs/landing-deploy.md`: guía para actualizar la landing — estructura de `landing/index.html`, tokens de diseño usados, cómo añadir secciones, despliegue manual (`aws s3 sync`) vs automático (CI en push a `main`), y cómo forzar invalidación de CloudFront.
+6. **DOC-06** `docs/architecture-web.md`: diagrama de la arquitectura de infraestructura y estimación de costes mensuales.
+7. **DOC-07** `docs/landing-deploy.md`: guía para actualizar y desplegar la landing.
 8. **DOC-08** `docs/landing-content.md`: guía para el equipo de marketing — secciones de la landing (hero, stats, features, manifesto, download), copy editable, cómo cambiar imágenes de mockup y actualizar CTAs sin tocar CSS.
 
 #### Archivos a tocar
@@ -426,7 +420,7 @@ docs/landing-content.md     (CREAR)
 - [x] `docs/api-reference.md` cubre los 10 dominios de endpoints
 - [x] `docs/deployment-guide.md` incluye los tres entornos (local, staging, producción)
 - [x] `docs/rgpd-compliance.md` referencia los artículos 17 y 20 con los endpoints reales
-- [x] `docs/architecture-web.md` incluye estimación de costes mensuales AWS
+- [x] `docs/architecture-web.md` incluye estimación de costes mensuales
 - [x] Ningún documento referencia archivos que no existen en el repo (links rotos)
 
 #### Dependencias
@@ -494,10 +488,10 @@ backend/src/routes/logs.routes.js            (REVISAR)
 
 1. Verificar que todos los secretos listados en `devops/GITHUB_SECRETS.md` están cargados en GitHub Actions para los entornos `staging` y `production`. Documentar en `devops/SECRETS_STATUS.md` cuáles están configurados y cuáles faltan.
 2. Revisar `backend/.env.example` contra `devops/ENV_VARS.md`: confirmar que no hay variables documentadas que falten en el `.env.example`. Actualizar si hay discrepancias.
-3. Hacer un dry-run completo del workflow `deploy-staging.yml`: job `test` (cobertura ≥ 80 %) → job `build` (imagen ECR) → job `deploy` (ECS) → job `smoke-test` (`GET /health` con retry). Documentar el resultado en `devops/PIPELINE_DRYRUN.md`.
+3. Hacer un dry-run completo del workflow `deploy-staging.yml`: job `test` (cobertura ≥ 80 %) → job `deploy` (Railway) → job `smoke-test` (`GET /health` con retry). Documentar el resultado en `devops/PIPELINE_DRYRUN.md`.
 4. Verificar que el workflow `eas-build.yml` compila la app móvil correctamente para el perfil `preview`. Registrar resultado.
-5. Confirmar que `deploy-landing.yml` sincroniza `landing/` con S3 (`healthy-landing-prod`) y lanza invalidación CloudFront. Verificar que la landing carga en la URL de staging con SSL válido.
-6. Ejecutar backup pre-go-live según `devops/BACKUP_STRATEGY.md` (snapshot RDS manual). Documentar el ARN del snapshot en `devops/PIPELINE_DRYRUN.md`.
+5. Confirmar que la landing se despliega en Railway y carga con SSL válido.
+6. Ejecutar backup pre-go-live según `devops/BACKUP_STRATEGY.md` (backup manual de PostgreSQL en Railway).
 7. Si se detectan ajustes necesarios en los workflows (variables hardcodeadas, nombres de secrets incorrectos, etc.), corregirlos y commitear.
 
 #### Archivos a tocar
@@ -506,7 +500,6 @@ backend/src/routes/logs.routes.js            (REVISAR)
 devops/SECRETS_STATUS.md                            (CREAR — estado de cada secret)
 devops/PIPELINE_DRYRUN.md                           (CREAR — resultados del dry-run)
 .github/workflows/deploy-staging.yml               (MODIFICAR si hay ajustes necesarios)
-.github/workflows/deploy-landing.yml               (MODIFICAR si hay ajustes necesarios)
 .github/workflows/eas-build.yml                    (MODIFICAR si hay ajustes necesarios)
 backend/.env.example                                (MODIFICAR si hay variables faltantes)
 devops/ENV_VARS.md                                  (MODIFICAR si hay variables faltantes)
@@ -517,13 +510,13 @@ devops/ENV_VARS.md                                  (MODIFICAR si hay variables 
 - [ ] Pipeline staging verde de extremo a extremo (test → build → deploy → smoke-test)
 - [ ] `GET https://<staging-url>/health` devuelve `{"success": true}`
 - [ ] Landing carga en URL de staging con SSL válido y sin errores de consola
-- [ ] Backup de base de datos (snapshot RDS) confirmado y ARN documentado
+- [ ] Backup de base de datos (Railway) confirmado
 - [ ] `devops/SECRETS_STATUS.md` confirma que todos los secrets están configurados
 - [ ] `eas-build.yml` compila sin errores para el perfil `preview`
 
 #### Dependencias
 
-- **Requiere PR-2 mergeada** — el schema de base de datos debe estar en su estado final antes de configurar el entorno de producción; de lo contrario, el ECS apuntaría a un schema desactualizado.
+- **Requiere PR-2 mergeada** — el schema de base de datos debe estar en su estado final antes de configurar el entorno de producción; de lo contrario, el backend apuntaría a un schema desactualizado.
 - PR-6 no puede cerrarse hasta que esta PR esté mergeada.
 
 ---
@@ -617,7 +610,7 @@ docs/LIGHTHOUSE_FINAL.md        (CREAR — resultados Lighthouse finales)
           ┌────────────────┼────────────────────────┐
           ▼                ▼                         ▼
 [x] TAREA-4          TAREA-5                   TAREA-Redis
-(commit bat)    (limpiar ECR check)        (corregir Redis URL)
+(commit bat)    (limpiar check obsoleto)        (corregir Redis URL)
    COMPLETADA    acción manual usuario      acción manual usuario
                           │                         │
                           └────────────┬────────────┘
@@ -690,7 +683,7 @@ TAREA-9 es el gate final: requiere TAREA-5, TAREA-Redis y TAREA-8 completadas.
 
 ---
 
-### TAREA-5 — Eliminar check obsoleto ECR de branch protection
+### TAREA-5 — Eliminar check obsoleto de branch protection
 
 **Agente responsable:** orquestador
 **Prioridad:** LIMPIEZA CI — no bloqueante para el deploy, pero genera ruido en PRs
@@ -699,14 +692,14 @@ TAREA-9 es el gate final: requiere TAREA-5, TAREA-Redis y TAREA-8 completadas.
 #### Pasos
 
 1. Ir a GitHub → repositorio → Settings → Branches → branch protection rules → regla de `main`.
-2. En la sección "Require status checks to pass before merging", localizar el check `Deploy/Build+Push ECR`.
-3. Eliminar ese check de la lista de requeridos (fue parte del pipeline AWS ECR/ECS, ya migrado a Railway).
+2. En la sección "Require status checks to pass before merging", localizar el check `Deploy/Build+Push`.
+3. Eliminar ese check de la lista de requeridos (fue parte de un pipeline anterior, ya migrado a Railway).
 4. Guardar los cambios.
 5. Verificar que las PRs futuras ya no quedan bloqueadas por ese check inexistente.
 
 #### Criterios de aceptación
 
-- [ ] El check `Deploy/Build+Push ECR` no aparece en la branch protection rule de `main`
+- [ ] El check `Deploy/Build+Push` no aparece en la branch protection rule de `main`
 - [ ] La branch protection rule de `main` solo lista checks que existen en los workflows actuales
 - [ ] Una PR de prueba (o la siguiente PR real) no queda bloqueada por el check eliminado
 
@@ -943,7 +936,7 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 | **TAREA-7** | Verificar URL real Railway | devops | CRITICA — BLOQUEANTE | — | [x] Completada 2026-07-07 |
 | **TAREA-2** | Verificar CI verde en GitHub Actions | orquestador / devops | INMEDIATA | TAREA-6, TAREA-7 | [x] Completada 2026-07-07 |
 | **TAREA-4** | Commit git-push.bat | orquestador | MENOR | — | [x] Completada 2026-07-07 |
-| **TAREA-5** | Eliminar check ECR de branch protection | orquestador | LIMPIEZA | — | [x] Completada 2026-07-07 — no había reglas configuradas |
+| **TAREA-5** | Eliminar check obsoleto de branch protection | orquestador | LIMPIEZA | — | [x] Completada 2026-07-07 — no había reglas configuradas |
 | **TAREA-Redis** | Corregir Redis en Railway staging | devops | ALTA | TAREA-6 | [ ] Pendiente — acción manual usuario |
 | **TAREA-8** | EAS builds móviles (preview) | devops | ALTA | TAREA-2 | [ ] Pendiente |
 | **TAREA-9** | Gate go-live v1.0.0 | orquestador | FINAL | TAREA-2, TAREA-4, TAREA-5, TAREA-Redis, TAREA-8 | [ ] Bloqueada |
@@ -986,7 +979,7 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
    │   ├── database/            → Schema Prisma, migraciones, seed
    │   ├── devops/              → Workflows adicionales, docs infra, EAS
    │   ├── docs/                → Documentación técnica
-   │   ├── landing/             → Landing estática (S3 + CloudFront)
+   │   ├── landing/             → Landing estática (nginx en Railway)
    │   ├── security/            → Auditoría RGPD y seguridad
    │   └── tests/               → Tests de carga y E2E
    └── projects/healthy/backend/.github/workflows/  → Workflows del servicio backend
@@ -1060,7 +1053,7 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 | TAREA-7 (URL Railway) | [x] COMPLETADA | 2026-07-07 |
 | TAREA-2 (CI verde) | [x] COMPLETADA | 2026-07-07 |
 | TAREA-4 (commit bat) | [x] COMPLETADA | 2026-07-07 |
-| TAREA-5 (limpiar ECR) | [x] COMPLETADA | 2026-07-07 — no había reglas configuradas |
+| TAREA-5 (limpiar check obsoleto) | [x] COMPLETADA | 2026-07-07 — no había reglas configuradas |
 | TAREA-Redis (corregir Redis URL) | [x] COMPLETADA | 2026-07-07 — URL directa configurada |
 | DOC-ARCH-01 (architecture-web.md) | [x] COMPLETADA | 2026-07-07 |
 | DOC-ARCH-02 (deployment-guide.md) | [x] COMPLETADA | 2026-07-07 |
@@ -1076,7 +1069,7 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 
 **TAREA-5** — Acción del usuario en GitHub
 - Dónde: GitHub → Settings → Branches → regla de `main`
-- Qué: eliminar el check `Deploy/Build+Push ECR` de los required status checks
+- Qué: eliminar el check `Deploy/Build+Push` de los required status checks
 - Tiempo estimado: 2 minutos
 - Sin dependencias, sin riesgo
 
@@ -1167,7 +1160,7 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 
 1. **Deploy CI** — ejecutar `.\git-push.bat` (fix RAILWAY_ENVIRONMENT_ID) y confirmar verde en GitHub Actions
 2. **Redis staging** — Railway dashboard → backend → Variables → editar `REDIS_URL` con URL real del servicio Redis
-3. **ECR check** — GitHub → Settings → Branches → main → eliminar `Deploy/Build+Push ECR` de required checks
+3. **Check obsoleto** — GitHub → Settings → Branches → main → eliminar `Deploy/Build+Push` de required checks
 4. **EAS** — requiere cuenta Expo, credenciales Apple Developer y keystore Android
 
 ---
@@ -1472,7 +1465,7 @@ Sin el schema actualizado y la migración aplicada, ningún otro agente puede av
 
 ### Notas de implementación importantes
 
-1. **Imágenes para MVP:** guardar `gifUrl` y `thumbnailUrl` tal como vienen del dataset (URLs de GitHub raw). Migración a S3 → tarea futura, NO en este sprint.
+1. **Imágenes para MVP:** guardar `gifUrl` y `thumbnailUrl` tal como vienen del dataset (URLs de GitHub raw). Migración a almacenamiento propio → tarea futura, NO en este sprint.
 2. **Caché Redis:** la clave actual `plan:${userId}:${today}` no distingue si el catálogo de ejercicios cambió. Añadir hash del catálogo seleccionado a la clave o simplemente no cachear si `availableExercises` está presente (dejar la decisión al AI Agent en AI-EX-02).
 3. **Prisma 7 — `createMany` con `skipDuplicates`:** verificar que el adapter `@prisma/adapter-pg` soporta `skipDuplicates`. Si no, usar upsert en batches.
 4. **Schema — `difficulty` vs dataset:** el dataset no tiene campo `difficulty`. El campo `ExperienceLevel` existente en el schema puede conservarse como `null` para los ejercicios del dataset (se inferirá del nivel del usuario, no del ejercicio).
@@ -1512,7 +1505,7 @@ Sin el schema actualizado y la migración aplicada, ningún otro agente puede av
 | Decisión | Detalle |
 |---|---|
 | **Load tests diferidos** | TS-08 excluido del gate v1.0.0 por decisión del usuario. Se ejecutarán post-release en producción real (v1.1.0). |
-| **Lighthouse pendiente** | Dominio `healthy.app` no responde aún (CloudFront/DNS no activo). Lighthouse v13 + Chrome disponibles localmente; el check se ejecuta en cuanto el dominio esté activo. |
+| **Lighthouse pendiente** | Dominio `healthy.app` no responde aún (DNS no activo). Lighthouse v13 + Chrome disponibles localmente; el check se ejecuta en cuanto el dominio esté activo. |
 | **EAS documentado** | `devops/EAS_CHECKLIST.md` creado con prerrequisitos exactos, comandos paso a paso y tabla de errores frecuentes para iOS y Android. Requiere acción del usuario (cuentas Apple/Google). |
 | **Go-live gate documentado** | `devops/GO_LIVE_CHECKLIST.md` creado con todos los criterios, comandos de verificación y pasos post-tag. |
 

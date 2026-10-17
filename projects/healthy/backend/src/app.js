@@ -23,6 +23,7 @@ const app = express();
 // Seguridad y utilidades
 
 // Helmet con CSP explícita y X-Frame-Options DENY (RGPD / hardening)
+// Helmet deshabilita X-Powered-By automáticamente (SEC-21)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -50,18 +51,22 @@ app.use(cors({
   credentials: true,
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50kb' })); // SEC-12: límite reducido de 10mb a 50kb
 app.use(express.urlencoded({ extended: true }));
 
 // ─────────────────────────────────────────────────────────────
 // Health check (BE-10)
 // ─────────────────────────────────────────────────────────────
 
-// Diagnóstico temporal de API key (solo staging/dev)
+// Diagnóstico temporal de API key (solo staging/dev) — SEC-19: sin key_prefix, con auth token
 app.get('/health/ai', async (_req, res) => {
   if (process.env.NODE_ENV === 'production') return res.status(404).json({ success: false });
+  // Requiere token de admin si está configurado
+  const adminToken = process.env.ADMIN_TOKEN;
+  if (adminToken && _req.headers['x-admin-token'] !== adminToken) {
+    return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
+  }
   const keySet = !!process.env.ANTHROPIC_API_KEY;
-  const keyPrefix = process.env.ANTHROPIC_API_KEY ? process.env.ANTHROPIC_API_KEY.slice(0, 10) + '...' : 'NOT SET';
   try {
     const Anthropic = require('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -71,9 +76,9 @@ app.get('/health/ai', async (_req, res) => {
       system: 'Responde solo "OK".',
       messages: [{ role: 'user', content: 'ping' }],
     });
-    return res.json({ success: true, key_set: keySet, key_prefix: keyPrefix, model_response: r.content[0].text });
+    return res.json({ success: true, key_set: keySet, model_response: r.content[0].text });
   } catch (err) {
-    return res.json({ success: false, key_set: keySet, key_prefix: keyPrefix, error: err.message, status: err.status });
+    return res.json({ success: false, key_set: keySet, error: err.message, status: err.status });
   }
 });
 

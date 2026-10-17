@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://healthy-landing-staging.up.railway.app/sitemap.xml

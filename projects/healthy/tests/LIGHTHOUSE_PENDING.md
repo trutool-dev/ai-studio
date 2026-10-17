@@ -2,13 +2,13 @@
 
 **Generado por:** orquestador  
 **Fecha:** 2026-07-14  
-**Estado:** PENDIENTE — el dominio `healthy.app` no responde aún (DNS/CloudFront no activo)
+**Estado:** PENDIENTE — el dominio `healthy.app` no responde aún (DNS no activo)
 
 ---
 
 ## Contexto
 
-La landing page de Healthy está alojada en S3 + CloudFront. El dominio `healthy.app`
+La landing page de Healthy se despliega en Railway (nginx). El dominio `healthy.app`
 aparece configurado en los documentos de infraestructura (`docs/architecture-web.md`,
 `docs/landing-deploy.md`) pero aún no responde públicamente (verificado con curl el
 2026-07-14: HTTP 000 — sin conexión).
@@ -105,7 +105,7 @@ Cuando el check pase ≥ 95 en las 4 categorías:
 
 | Problema | Causa probable | Solución |
 |----------|---------------|---------|
-| Score Performance < 95 | Recursos sin comprimir o sin caché | Verificar headers CloudFront: `Cache-Control: max-age=86400`, `Content-Encoding: gzip/br` |
+| Score Performance < 95 | Recursos sin comprimir o sin caché | Verificar headers de nginx: `Cache-Control: max-age=86400`, `Content-Encoding: gzip` |
 | Score Accessibility < 95 | Atributos alt faltantes o contraste insuficiente | Revisar `landing/index.html` — añadir `alt`, corregir ratios de color |
 | Score SEO < 95 | Meta description o canonical faltantes | Añadir `<meta name="description">` y `<link rel="canonical">` en `landing/index.html` |
 | Score Best Practices < 95 | Imágenes en formatos legacy (JPG en lugar de WebP) | Convertir imágenes a WebP; asegurar HTTPS en todos los recursos |
@@ -115,7 +115,7 @@ Cuando el check pase ≥ 95 en las 4 categorías:
 
 ## Trigger automático sugerido (post go-live)
 
-Una vez el dominio esté activo, añadir este step en `.github/workflows/deploy-landing.yml`:
+Una vez el dominio esté activo, añadir este step a un workflow de GitHub Actions que se ejecute tras el deploy de la landing:
 
 ```yaml
 - name: Lighthouse CI

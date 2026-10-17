@@ -160,7 +160,7 @@ PRIVACIDAD Y SEGURIDAD
 - Opciones:
   1. Añadir sección /privacidad en la landing https://healthy.app
   2. Crear documento separado accesible públicamente
-- La política debe cubrir: datos de salud (Art. 9 RGPD), IA, almacenamiento en Railway/AWS, derechos del usuario
+- La política debe cubrir: datos de salud (Art. 9 RGPD), IA, almacenamiento en Railway, derechos del usuario
 
 ---
 

@@ -61,7 +61,7 @@ Flujos RGPD reales implementados:
 - **Art. 17 — Derecho al olvido:** `DELETE /user/me` con orden completa de eliminación en cascada (20 tablas)
 - **Art. 20 — Portabilidad:** `GET /user/me/export` con lista completa de campos exportados y formato JSON
 - **Art. 15 — Acceso** y **Art. 16 — Rectificación** con endpoints correspondientes
-- Medidas técnicas: bcrypt (coste ≥12), AES-256 en RDS, TLS, HSTS, minimización de datos
+- Medidas técnicas: bcrypt (coste ≥12), cifrado en reposo del proveedor, TLS, HSTS, minimización de datos
 - Tabla de retención de datos con plazos
 - Registro de actividades de tratamiento (Art. 30) — resumen
 - Transferencias internacionales (Anthropic/EEUU — SCCs pendientes de formalizar)
@@ -75,33 +75,22 @@ Guía completa para los tres entornos:
 
 **Staging (Railway):** tabla de secretos de GitHub requeridos, proceso de deploy automático (push a `develop` → pipeline 4 jobs: test → build → deploy → smoke-test), URL de verificación, comandos de logs, acceso a BD.
 
-**Producción (AWS ECS):** checklist pre-deploy, proceso con aprobación manual en GitHub environment "production", migraciones de BD en producción, rollback con `aws ecs update-service`, comandos de CloudWatch Logs.
+**Producción (Railway):** checklist pre-deploy, proceso con aprobación manual en GitHub environment "production", migraciones de BD en producción, rollback y logs desde Railway.
 
 Variables de entorno por entorno (tabla comparativa local/staging/producción), migraciones local vs. producción, app móvil EAS (preview build y production submit).
 
 ### DOC-06 — `docs/architecture-web.md` (189 líneas)
 
-Arquitectura AWS completa:
-- Diagrama ASCII con dos flujos: landing (Route 53 → CloudFront → S3) y API (Route 53 → ALB → ECS → RDS/Redis)
-- Tabla de todos los componentes AWS con instancia/tier y descripción
-- Decisiones de red: VPC 10.0.0.0/16, 8 subnets (públicas y privadas en 2 AZ)
-- Security Groups para sg-alb, sg-ecs, sg-rds, sg-redis con reglas inbound/outbound
-- **Estimación de costes mensuales:** ~$56–80/mes en early stage (desglose por servicio)
-- Flujo CI/CD: landing (S3 sync + CloudFront invalidation) y backend (ECR + ECS)
-- Secretos de GitHub necesarios para CI/CD
+Arquitectura de infraestructura (actualizada después a Railway — ver el documento vigente):
+- Diagrama de flujos landing y API
+- Tabla de componentes con tier y descripción
+- Estimación de costes mensuales (desglose por servicio)
+- Flujo CI/CD y secretos de GitHub necesarios
 
 ### DOC-07 — `docs/landing-deploy.md` (306 líneas)
 
 Guía para actualizar la landing:
-- Mapa de secciones de `landing/index.html` con comentarios delimitadores
-- Tokens de diseño CSS completos (colores, tipografía, radios, easings)
-- Cómo añadir una nueva sección (plantilla HTML reutilizable)
-- Despliegue manual: prerequisitos AWS CLI, `s3 sync`, refresco forzado de `index.html`, invalidación CloudFront
-- Despliegue automático: cómo funciona el CI (push a `main` con cambios en `landing/`)
-- Forzar invalidación manual de CloudFront
-- Rollback: restaurar versión anterior del S3 (versioning habilitado)
-- Verificación post-deploy: URL, headers, Lighthouse
-- Cabeceras de seguridad inyectadas por CloudFront Functions (HSTS, X-Frame-Options, CSP, etc.)
+Guía de despliegue de la landing (actualizada después: `landing/index4.html` servida con nginx en Railway — ver el documento vigente).
 
 ### DOC-08 — `docs/landing-content.md` (339 líneas)
 
@@ -123,7 +112,7 @@ Guía para el equipo de marketing (sin conocimientos técnicos):
 | `docs/api-reference.md` cubre los 10 dominios de endpoints | ✅ auth, onboarding, plans, training, nutrition, foods, progress, logs, user, health |
 | `docs/deployment-guide.md` incluye los tres entornos (local, staging, producción) | ✅ |
 | `docs/rgpd-compliance.md` referencia Arts. 17 y 20 con los endpoints reales | ✅ `DELETE /user/me` (Art. 17), `GET /user/me/export` (Art. 20) |
-| `docs/architecture-web.md` incluye estimación de costes mensuales AWS | ✅ ~$56–80/mes desglosado por servicio |
+| `docs/architecture-web.md` incluye estimación de costes mensuales | ✅ desglosado por servicio |
 | Ningún documento referencia archivos inexistentes | ✅ verificado — todos los links apuntan a archivos reales en el repo |
 
 ---

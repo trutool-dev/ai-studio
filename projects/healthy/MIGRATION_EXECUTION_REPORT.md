@@ -75,7 +75,7 @@ ALTER TABLE "token_usage_logs"
 DATABASE_URL=postgresql://healthy:healthy_pass@localhost:5432/healthy_db
 NODE_ENV=development
 ```
-`DIRECT_URL` no está definida (requerida solo en producción con RDS Proxy).
+`DIRECT_URL` no está definida (solo necesaria si se usa un pooler de conexiones delante de PostgreSQL).
 
 ### Versión de Prisma — verificada ✅
 ```
@@ -130,12 +130,12 @@ Prisma Migrate applied the following migration(s):
 
 ---
 
-## Variables de entorno para producción (RDS / AWS)
+## Variables de entorno para producción
 
 | Variable | Descripción | Requerida en |
 |----------|-------------|-------------|
 | `DATABASE_URL` | `postgresql://user:pass@host:5432/dbname` | Dev + Staging + Prod |
-| `DIRECT_URL` | Conexión directa sin pooler (para DDL) | Solo prod con RDS Proxy |
+| `DIRECT_URL` | Conexión directa sin pooler (para DDL) | Solo si hay pooler de conexiones |
 | `NODE_ENV` | `production` | Prod |
 
 En producción, agregar al `schema.prisma`:

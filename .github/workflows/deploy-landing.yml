@@ -1,0 +1,44 @@
+name: Deploy Landing
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'projects/healthy/landing/**'
+
+jobs:
+  deploy-landing-staging:
+    name: Deploy Landing → Staging (Railway)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy landing a Railway staging
+        working-directory: projects/healthy/landing
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: a01d9f3d-510b-4529-b75a-d9d7198cbcb5
+          RAILWAY_ENVIRONMENT_ID: 1bc84954-5618-44fd-98fc-5b4190523cf0
+        run: railway up --service a3d40d42-1122-439b-99fd-6e8f9d174a7a --detach
+
+      - name: Smoke test landing
+        run: |
+          echo "Verificando que la landing de staging responde..."
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              https://healthy-landing-staging.up.railway.app/ \
+              --max-time 10 || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "OK: landing respondio HTTP 200"
+              exit 0
+            fi
+            echo "Intento $i: HTTP $STATUS — reintentando en 5s..."
+            sleep 5
+          done
+          echo "ERROR: landing no respondio 200 tras 60s"
+          exit 1

@@ -59,7 +59,7 @@ El backend tiene una capa de archivos "generación 1" (convención `camelCase`, 
 | **DOC-03** | Documentar arquitectura de la IA (prompt, inputs, JSON output) |
 | **DOC-04** | Actualizar docs RGPD con flujos reales implementados |
 | **DOC-05** | README del proyecto (requisitos, instalación, env vars, comandos) |
-| **DOC-06** | `docs/architecture-web.md`: diagrama AWS completo con estimación de costes |
+| **DOC-06** | `docs/architecture-web.md`: diagrama de infraestructura con estimación de costes |
 | **DOC-07** | `docs/landing-deploy.md`: guía para actualizar la landing |
 | **DOC-08** | `docs/landing-content.md`: guía de marketing para editar contenido |
 
@@ -181,7 +181,7 @@ Solo documentación. No modifica código ejecutable.
 3. **DOC-03** — `docs/ai-architecture.md`: cómo se construye el prompt en `ai/planGenerator.ts`, qué datos entran, qué JSON sale.
 4. **DOC-04** — `docs/rgpd-compliance.md`: flujos reales de consentimiento, exportación (Art. 20) y borrado (Art. 17).
 5. **DOC-05** — `docs/README.md` / README raíz: requisitos, instalación, variables de entorno, comandos.
-6. **DOC-06** — `docs/architecture-web.md`: diagrama AWS completo + estimación de costes.
+6. **DOC-06** — `docs/architecture-web.md`: diagrama de infraestructura + estimación de costes.
 7. **DOC-07** — `docs/landing-deploy.md`: guía de actualización de la landing.
 8. **DOC-08** — `docs/landing-content.md`: guía de marketing.
 
@@ -234,16 +234,15 @@ Toca configuración de producción. Requiere PR-2 mergeada.
 
 **Qué incluye:**
 1. Verificar que todos los secretos en `devops/GITHUB_SECRETS.md` están cargados en GitHub Actions (staging y producción).
-2. Configurar variables de entorno reales en AWS ECS / `.env` de producción (siguiendo `devops/ENV_VARS.md`).
+2. Configurar variables de entorno reales en Railway / `.env` de producción (siguiendo `devops/ENV_VARS.md`).
 3. Hacer un dry-run del workflow `deploy-staging.yml`: test → build → deploy → smoke-test.
 4. Verificar que el workflow `eas-build.yml` compila la app móvil correctamente.
-5. Confirmar que `deploy-landing.yml` sincroniza `landing/` con S3 y lanza invalidación CloudFront.
+5. Confirmar que la landing se despliega en Railway (ver `docs/landing-deploy.md`).
 6. Ejecutar backup pre-go-live según `devops/BACKUP_STRATEGY.md`.
 
 **Archivos afectados:**
 ```
 devops/.github/workflows/deploy-staging.yml   (posibles ajustes)
-devops/.github/workflows/deploy-landing.yml   (posibles ajustes)
 devops/.github/workflows/eas-build.yml        (posibles ajustes)
 backend/.env.example                          (verificar completitud)
 devops/ENV_VARS.md                            (verificar completitud)

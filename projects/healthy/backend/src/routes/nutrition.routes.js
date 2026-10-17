@@ -16,5 +16,6 @@ router.get('/today', (req, res, next) => {
 
 router.get('/meals', ctrl.getMeals);
 router.put('/meals/:id/complete', ctrl.completeMeal);
+router.post('/meals/:mealId/foods', ctrl.addFoodToMeal);
 
 module.exports = router;

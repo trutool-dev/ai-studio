@@ -18,7 +18,7 @@ Healthy es una aplicación móvil (iOS + Android) y web que genera planes person
 | **Caché / Sesiones** | Redis | 7+ | Planes IA (24h), sesiones (30d), perfiles (1h) |
 | **Autenticación** | Supabase Auth | — | OTP email, JWT, gestión de tokens |
 | **IA** | Anthropic Claude | claude-sonnet-4-6 | Generación de planes personalizados |
-| **Infraestructura** | AWS (eu-west-1) | — | S3, CloudFront, ECS Fargate, RDS, ElastiCache |
+| **Infraestructura** | Railway | — | Backend Node.js, PostgreSQL, Redis y landing (nginx) |
 | **CI/CD** | GitHub Actions | — | Deploy automático en push a `main` |
 | **Animaciones** | Reanimated 4 + Gesture Handler | — | Animaciones nativas 120fps (UI thread), springs, haptics |
 | **Tests** | Jest + Playwright | — | Unit, integración y E2E — 454/454 ✅ |
@@ -50,22 +50,22 @@ Healthy es una aplicación móvil (iOS + Android) y web que genera planes person
                    │ HTTPS                     │ HTTPS
                    ▼                           ▼
          ┌─────────────────┐        ┌──────────────────────┐
-         │  api.healthy.app│        │     healthy.app       │
-         │  Route53 → ALB  │        │  Route53 → CloudFront │
+         │  Railway Proxy  │        │    Railway Proxy      │
+         │  (HTTPS)        │        │    (HTTPS)            │
          └────────┬────────┘        └──────────┬────────────┘
                   │                            │
                   ▼                            ▼
          ┌─────────────────┐        ┌──────────────────────┐
-         │   ECS Fargate   │        │     S3 Bucket        │
-         │ Node.js+Express │        │  healthy-landing-prod │
-         │ (subnet privada)│        └──────────────────────┘
-         └────────┬────────┘
+         │ Railway service │        │  Railway service      │
+         │ Node.js+Express │        │  healthy-landing      │
+         │    (backend)    │        │  nginx · index4.html  │
+         └────────┬────────┘        └──────────────────────┘
           ┌───────┴────────┐
           ▼                ▼
    ┌────────────┐   ┌────────────┐
    │ PostgreSQL │   │   Redis    │
-   │    RDS     │   │ElastiCache │
-   │ (privado)  │   │ (privado)  │
+   │  Railway   │   │  Railway   │
+   │  (plugin)  │   │  (plugin)  │
    └────────────┘   └────────────┘
           │
           ▼
@@ -165,10 +165,6 @@ El archivo `.env` debe estar en `projects/healthy/backend/`. Nunca subir este ar
 | `JWT_SECRET` | Secreto para firmar JWT internos | Cadena aleatoria 64+ caracteres |
 | `NODE_ENV` | Entorno de ejecución | `development` / `production` |
 | `PORT` | Puerto del servidor Express | `3000` |
-| `AWS_REGION` | Región AWS (para S3 fotos de progreso) | `eu-west-1` |
-| `AWS_ACCESS_KEY_ID` | AWS access key (solo producción) | `AKIA...` |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key (solo producción) | `...` |
-| `S3_PROGRESS_PHOTOS_BUCKET` | Bucket de fotos de progreso | `healthy-progress-photos` |
 
 ---
 
@@ -267,7 +263,7 @@ projects/healthy/
 ├── docs/                        # Documentación del proyecto
 │   ├── README.md                # Este fichero
 │   ├── ai-architecture.md       # Arquitectura del módulo IA
-│   ├── architecture-web.md      # Infraestructura AWS
+│   ├── architecture-web.md      # Infraestructura Railway
 │   ├── landing-deploy.md        # Guía de despliegue de la landing
 │   ├── landing-content.md       # Guía de contenido de la landing
 │   ├── api-reference.md         # Referencia de endpoints (TODO: Backend)
@@ -288,8 +284,8 @@ projects/healthy/
 | Documento | Descripción |
 |-----------|-------------|
 | [ai-architecture.md](./ai-architecture.md) | Flujo completo del módulo IA, prompt caching, fallback y costes |
-| [architecture-web.md](./architecture-web.md) | Infraestructura AWS: VPC, ECS, RDS, CloudFront, CI/CD |
-| [landing-deploy.md](./landing-deploy.md) | Cómo desplegar la landing page (manual y automático) |
+| [architecture-web.md](./architecture-web.md) | Infraestructura Railway: servicios, PostgreSQL, Redis, landing, CI/CD |
+| [landing-deploy.md](./landing-deploy.md) | Cómo desplegar la landing page en Railway |
 | [landing-content.md](./landing-content.md) | Cómo editar textos y CTAs de la landing (para marketing) |
 | [database/ERD.md](../database/ERD.md) | Diagrama entidad-relación de las 21 entidades PostgreSQL |
 | [api-reference.md](./api-reference.md) | Referencia completa de endpoints REST (en construcción) |

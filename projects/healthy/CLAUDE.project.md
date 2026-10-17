@@ -31,7 +31,7 @@ Healthy da servicio a 4 perfiles mediante onboarding adaptativo:
 - Base de datos: PostgreSQL + Redis
 - IA: Claude API
 - Auth: Supabase
-- Cloud: AWS
+- Cloud: Railway
 - CI/CD: GitHub Actions
 
 ## Estructura del proyecto

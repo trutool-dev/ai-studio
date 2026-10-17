@@ -20,8 +20,6 @@ Verificado en rama `develop`: los archivos duplicados ya no existen.
 
 - **14 archivos duplicados del backend** (`authController.js` etc. sin sufijo) → ya eliminados en PRs anteriores. Convención actual correcta: `*.controller.js`, `*.middleware.js`, `*.service.js`, `*.util.js`.
 - **`validate.js`** → no existe. Archivo actual: `validate.middleware.js`.
-- **Terraform AWS ECS** (`vpc.tf`, `rds.tf`, `elasticache.tf`, `ecs.tf`, `alb.tf`) → ya eliminados.
-- **Terraform landing** (`s3-landing.tf`, `route53-landing.tf`, `cf-function.tf`) → se conservan (necesarios para landing en S3 + CloudFront).
 
 ---
 
@@ -65,9 +63,6 @@ URL: `https://github.com/<org>/healthy/settings/secrets/actions`
 |--------|---------------|
 | `RAILWAY_TOKEN` | railway.app → Account Settings → Tokens → Create Token |
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
-| `AWS_ACCESS_KEY_ID` | AWS Console → IAM → Users → `ci-cd-user` → Security credentials |
-| `AWS_SECRET_ACCESS_KEY` | Se obtiene una única vez al crear la access key IAM |
-| `CLOUDFRONT_DISTRIBUTION_ID` | AWS Console → CloudFront → distribución de `healthy.app` → Distribution ID |
 | `RAILWAY_STAGING_DATABASE_URL` | Railway → proyecto staging → Postgres → Variables → DATABASE_URL |
 | `RAILWAY_PRODUCTION_DATABASE_URL` | Railway → proyecto producción → Postgres → Variables → DATABASE_URL |
 
@@ -172,8 +167,6 @@ DATABASE_URL=<production-url> npx prisma migrate status --schema ../database/sch
 DATABASE_URL=<production-url> npx prisma migrate deploy --schema ../database/schema.prisma
 ```
 
-> ⚠️ En producción con RDS Proxy, también configurar `DIRECT_URL` en `schema.prisma` para migraciones DDL.
-
 ---
 
 ### Criterio 6 — App disponible en TestFlight (iOS)
@@ -220,7 +213,7 @@ Editar `projects/healthy/tasks.md` sección "Métricas de éxito" y cambiar cada
 - [x] Pipeline CI/CD verde en rama `develop`
 - [x] Modo oscuro funcional en todas las pantallas
 - [x] Landing publicada en producción con SSL, dominio propio y score Lighthouse ≥ 95
-- [x] Pipeline de despliegue de landing operativo (push a `main` → S3 → CloudFront invalidation < 60 s)
+- [ ] Pipeline de despliegue de landing operativo (servicio Railway `healthy-landing`, ver `docs/landing-deploy.md`)
 ```
 
 ---
@@ -276,11 +269,11 @@ O desde GitHub Actions: push a `main` con cambios en `backend/` → dispara `dep
 
 ### 4.4 — Deploy de la landing
 
-La landing se despliega automáticamente via GitHub Actions (`deploy-landing.yml`) al hacer push a `main` con cambios en `landing/`. El workflow construye con Vite y publica en S3 + CloudFront.
+La landing (`landing/index4.html`) se sirve desde el servicio Railway `healthy-landing` (nginx, root `projects/healthy/landing`). Ver `docs/landing-deploy.md`.
 
-Para forzar un redeploy manual desde GitHub:
+Para forzar un redeploy manual desde la raíz del repo:
 ```
-GitHub → Actions → deploy-landing.yml → Run workflow → main
+railway up --service healthy-landing --detach
 ```
 
 ### 4.5 — Crear tag y disparar submit a tiendas
@@ -473,7 +466,7 @@ Ejecutado `prisma-migrate-prod.bat` correctamente. Migraciones aplicadas en Rail
 Los siguientes checks fallan en PR/pushes a `develop` y `main`:
 - `CI/AI lint+test` — pendiente investigar
 - `CI/Backend lint+test` — pendiente investigar
-- `Deploy/Build+Push ECR` — referencia a AWS ECR (no usamos ECR, todo en Railway)
+- `Deploy/Build+Push` — check obsoleto de un pipeline anterior; no existe en los workflows actuales (el deploy es con Railway)
 
 Estado: no bloquean el deploy (Railway CI pasa ✔) pero deben resolverse antes de v1.0.0.
 

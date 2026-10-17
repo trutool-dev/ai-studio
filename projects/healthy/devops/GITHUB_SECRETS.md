@@ -1,7 +1,7 @@
 # GITHUB_SECRETS — Secretos de GitHub Actions
 
 Guía completa para configurar los secretos necesarios en los pipelines CI/CD del proyecto Healthy.
-Stack de despliegue: **Railway** (staging y producción: backend + PostgreSQL + Redis) + **AWS S3/CloudFront** (landing page únicamente).
+Stack de despliegue: **Railway** (staging y producción: backend + PostgreSQL + Redis + landing).
 
 ## Cómo añadir un secreto en GitHub
 
@@ -68,20 +68,6 @@ Railway inyecta automáticamente `DATABASE_URL` y `REDIS_URL` en el servicio —
 
 ---
 
-## Secretos para la landing page (AWS S3 + CloudFront)
-
-Solo necesarios para el pipeline `deploy-landing.yml`. El backend usa Railway, no AWS.
-
-| Secreto | Descripción | Cómo obtener el valor |
-|---------|-------------|----------------------|
-| `AWS_ACCESS_KEY_ID` | IAM key para desplegar la landing a S3 | AWS Console → IAM → Users → ci-cd-user → Security credentials |
-| `AWS_SECRET_ACCESS_KEY` | Secret de la IAM key | Se obtiene una única vez al crear la access key |
-| `CLOUDFRONT_DISTRIBUTION_ID` | ID de CloudFront para invalidar caché de la landing | AWS Console → CloudFront → la distribución de `healthy.app` → Distribution ID |
-
-> **Alcance:** estas tres credenciales AWS son **exclusivas de la landing**. No tienen acceso a ECS, RDS ni ningún otro servicio AWS. El backend en Railway no las usa.
-
----
-
 ## Secretos para Expo EAS (app móvil)
 
 Solo necesarios para publicar en App Store / Google Play (`eas-build.yml`, `eas-submit.yml`).
@@ -106,7 +92,6 @@ Solo necesarios para publicar en App Store / Google Play (`eas-build.yml`, `eas-
 | **Ahora** (antes del primer deploy) | `RAILWAY_TOKEN`, `RAILWAY_PRODUCTION_SERVICE_ID`, `ANTHROPIC_API_KEY`, `JWT_SECRET` × 2, `JWT_REFRESH_SECRET` × 2 |
 | **Para backups DB** | `RAILWAY_STAGING_DATABASE_URL`, `RAILWAY_PRODUCTION_DATABASE_URL` |
 | **Para SMTP** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` |
-| **Para landing CI/CD** | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `CLOUDFRONT_DISTRIBUTION_ID` |
 | **Para publicar en tiendas** | `EXPO_TOKEN`, `APPLE_APP_STORE_CONNECT_API_KEY_*` × 3, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
 
 ---

@@ -320,7 +320,7 @@ Coloca la imagen en `landing/img/mockup-progress.png` (crea la carpeta `img/` si
 
 El mismo proceso aplica al teléfono pequeño de la izquierda — reemplaza su `.mockup-screen` con una imagen de la pantalla de home.
 
-Recuerda que al subir imágenes nuevas hay que actualizar el deploy (el equipo técnico sincronizará la carpeta `img/` al bucket S3).
+Recuerda que al subir imágenes nuevas hay que actualizar el deploy (el equipo técnico redesplegará la landing en Railway).
 
 ---
 

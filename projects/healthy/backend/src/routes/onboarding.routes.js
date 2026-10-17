@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { body } = require('express-validator');
 const { authenticate } = require('../middleware/auth.middleware');
 const { validate } = require('../middleware/validate.middleware');
+const { planGenerationLimiter } = require('../middleware/rateLimiter.middleware');
 const ctrl = require('../controllers/onboarding.controller');
 
 // Todos los endpoints de onboarding requieren autenticación
@@ -86,6 +87,7 @@ router.put('/motivation',
   ],
   validate, ctrl.saveMotivation);
 
-router.post('/complete', ctrl.complete);
+// SEC-06: máx 1 plan nuevo por usuario/día
+router.post('/complete', planGenerationLimiter, ctrl.complete);
 
 module.exports = router;

@@ -27,24 +27,20 @@ Registro histórico de las fases de desarrollo del proyecto Healthy. Se actualiz
 - **`design/ACCESSIBILITY_AUDIT.md`** — Auditoría WCAG AA con 5 blockers identificados y correcciones exactas de contraste de color.
 
 #### DevOps — Infraestructura landing (Fase 3b, completada anticipadamente)
-- **AWS S3** `healthy-landing-prod` (eu-west-1) con versioning activado.
-- **CloudFront** con OAC, SSL/ACM, compresión, CloudFront Functions para security headers.
-- **Route 53** hosted zone `healthy.app` con alias A records.
-- **GitHub Actions** `.github/workflows/deploy-landing.yml` — deploy automático en push a `main` con cambios en `landing/`.
-- **`landing/index.html`** — Landing page completa autocontenida (HTML + CSS + JS inline).
+- **Railway** servicio `healthy-landing` (nginx) — ver `docs/landing-deploy.md`.
+- **`landing/index4.html`** — Landing page publicada (HTML + Tailwind CDN + JS inline, sin build).
 
 ### Decisiones técnicas tomadas
 
 | Decisión | Alternativas consideradas | Justificación |
 |----------|--------------------------|---------------|
 | PostgreSQL como BD principal | MongoDB, Supabase DB | Datos relacionales fuertemente tipados; integridad referencial; cascade delete para RGPD |
-| Redis para caché de planes IA | Memoria del proceso, DynamoDB | Latencia ultra-baja; TTL nativo; compartido entre instancias ECS |
+| Redis para caché de planes IA | Memoria del proceso, DynamoDB | Latencia ultra-baja; TTL nativo; compartido entre instancias del backend |
 | Separación de perfiles de onboarding en 5 modelos | Un modelo monolítico | Carga progresiva durante onboarding; caché independiente; queries más ligeras |
 | Mifflin-St Jeor para TMB/TDEE | Harris-Benedict, Katch-McArdle | Más precisa para personas con sobrepeso; la más usada en literatura reciente |
 | Prompt caching con `cache_control: ephemeral` | Sin caching, sistema propio | Reducción ~80% de tokens de input del system prompt; sin código adicional |
 | Plan de fallback por reglas | Reintentos, plan vacío | El usuario siempre recibe un plan funcional aunque no sea personalizado por IA |
-| Landing como HTML autocontenido | Next.js, Gatsby | Cero dependencias de build; deploy trivial a S3; mantenimiento mínimo |
-| AWS eu-west-1 | eu-central-1, us-east-1 | Latencia para usuarios europeos; compliance RGPD en EU |
+| Landing como HTML autocontenido | Next.js, Gatsby | Cero dependencias de build; deploy trivial (nginx en Railway); mantenimiento mínimo |
 
 ### Archivos generados en Fase 1
 
@@ -70,10 +66,7 @@ design/
 └── ACCESSIBILITY_AUDIT.md
 
 landing/
-└── index.html
-
-.github/workflows/
-└── deploy-landing.yml
+└── index4.html
 
 docs/
 ├── architecture-web.md
@@ -380,8 +373,8 @@ agents/apple-design/CLAUDE.md    ← agente nuevo
 - [ ] Revisión de seguridad: penetration testing
 - [ ] Performance testing: carga en la API
 - [ ] URLs reales en botones de la landing (App Store + Google Play)
-- [ ] RDS Multi-AZ activado
-- [ ] Alertas CloudWatch configuradas
+- [ ] Backups automáticos de PostgreSQL activados en Railway
+- [ ] Alertas configuradas (UptimeRobot + notificaciones Railway)
 - [ ] Runbook de incidentes documentado
 
 ---

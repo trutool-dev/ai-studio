@@ -1,11 +1,13 @@
 /**
  * NutritionScreen — comidas del día con macros totales, buscador y registro.
  * FE-05: GET /nutrition/today + foods/search (debounce 300ms) + PUT meal complete.
+ * N-2: resultados del buscador seleccionables.
+ * N-3: modal para asignar comida + cantidad, con refresh automático de macros.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Animated, FlatList, SafeAreaView,
+  ActivityIndicator, Animated, FlatList, Modal, SafeAreaView,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { usePlanStore, calcDayTotals } from '@/stores/planStore';
@@ -31,18 +33,103 @@ function SkeletonBlock({ height = 20, width = '100%', style }: { height?: number
   return <Animated.View style={[{ height, width: width as any, borderRadius: 8, backgroundColor: colors.neutral.lightGray, opacity, marginBottom: 8 }, style]} />;
 }
 
+// ── Tabla de micronutrientes (A-6) ────────────────────────────────────────────
+
+interface NutrientRowProps {
+  label: string;
+  value: number | null | undefined;
+  unit: string;
+}
+
+function NutrientRow({ label, value, unit }: NutrientRowProps) {
+  if (value === null || value === undefined) return null;
+  return (
+    <View style={nutriStyles.row}>
+      <Text style={nutriStyles.label}>{label}</Text>
+      <Text style={nutriStyles.value}>{Number(value).toFixed(1)} {unit}</Text>
+    </View>
+  );
+}
+
+interface NutritionTableProps {
+  food: FoodResult;
+}
+
+function NutritionTable({ food }: NutritionTableProps) {
+  return (
+    <View style={nutriStyles.container}>
+      <Text style={nutriStyles.title}>Información nutricional</Text>
+      <Text style={nutriStyles.subtitle}>Por 100 g</Text>
+      {/* Macros principales */}
+      <View style={nutriStyles.section}>
+        <NutrientRow label="Calorías"      value={food.calories_per_100g} unit="kcal" />
+        <NutrientRow label="Proteínas"     value={food.protein_per_100g}  unit="g"    />
+        <NutrientRow label="Carbohidratos" value={food.carbs_per_100g}    unit="g"    />
+        <NutrientRow label="Grasas"        value={food.fat_per_100g}      unit="g"    />
+      </View>
+      {/* Micronutrientes — solo si al menos uno tiene valor */}
+      {(food.fiber_g != null || food.sugar_g != null || food.saturated_fat_g != null ||
+        food.sodium_mg != null || food.potassium_mg != null || food.calcium_mg != null ||
+        food.iron_mg != null || food.vitamin_c_mg != null || food.vitamin_d_mcg != null ||
+        food.vitamin_b12_mcg != null) && (
+        <>
+          <View style={nutriStyles.separator} />
+          <View style={nutriStyles.section}>
+            <NutrientRow label="Fibra"             value={food.fiber_g}         unit="g"   />
+            <NutrientRow label="Azúcares"          value={food.sugar_g}         unit="g"   />
+            <NutrientRow label="Grasas saturadas"  value={food.saturated_fat_g} unit="g"   />
+            <NutrientRow label="Sodio"             value={food.sodium_mg}       unit="mg"  />
+            <NutrientRow label="Potasio"           value={food.potassium_mg}    unit="mg"  />
+            <NutrientRow label="Calcio"            value={food.calcium_mg}      unit="mg"  />
+            <NutrientRow label="Hierro"            value={food.iron_mg}         unit="mg"  />
+            <NutrientRow label="Vitamina C"        value={food.vitamin_c_mg}    unit="mg"  />
+            <NutrientRow label="Vitamina D"        value={food.vitamin_d_mcg}   unit="mcg" />
+            <NutrientRow label="Vitamina B12"      value={food.vitamin_b12_mcg} unit="mcg" />
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 // ── Buscador de alimentos ─────────────────────────────────────────────────────
 
 interface FoodResult {
-  id: string; name: string; calories: number;
-  protein: number; carbs: number; fat: number;
-  from_cache?: boolean;
+  id: string;
+  name: string;
+  brand?: string | null;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+  barcode?: string | null;
+  verified?: boolean;
+  // micronutrientes (A-6)
+  fiber_g?: number | null;
+  sugar_g?: number | null;
+  saturated_fat_g?: number | null;
+  sodium_mg?: number | null;
+  potassium_mg?: number | null;
+  calcium_mg?: number | null;
+  iron_mg?: number | null;
+  vitamin_c_mg?: number | null;
+  vitamin_d_mcg?: number | null;
+  vitamin_b12_mcg?: number | null;
 }
 
-function FoodSearchBar() {
-  const [query,    setQuery]    = useState('');
-  const [results,  setResults]  = useState<FoodResult[]>([]);
-  const [searching, setSearching] = useState(false);
+interface FoodSearchBarProps {
+  meals: Array<{ id: string; name: string; icon: string }>;
+  onFoodAdded: () => void;
+}
+
+function FoodSearchBar({ meals, onFoodAdded }: FoodSearchBarProps) {
+  const [query,        setQuery]        = useState('');
+  const [results,      setResults]      = useState<FoodResult[]>([]);
+  const [searching,    setSearching]    = useState(false);
+  const [selectedFood, setSelectedFood] = useState<FoodResult | null>(null);
+  const [selectedMealId, setSelectedMealId] = useState<string>('');
+  const [quantity,     setQuantity]     = useState('100');
+  const [adding,       setAdding]       = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = useCallback(async (q: string) => {
@@ -63,6 +150,25 @@ function FoodSearchBar() {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(text), 300);
+  };
+
+  const handleAddFood = async () => {
+    if (!selectedFood || !selectedMealId) return;
+    setAdding(true);
+    try {
+      await api.post(`/nutrition/meals/${selectedMealId}/foods`, {
+        food_id: selectedFood.id,
+        quantity_g: parseFloat(quantity) || 100,
+      });
+      setSelectedFood(null);
+      setQuery('');
+      setResults([]);
+      onFoodAdded();
+    } catch {
+      // silencioso — el usuario puede reintentar
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
@@ -95,14 +201,23 @@ function FoodSearchBar() {
             keyExtractor={(item) => item.id}
             scrollEnabled={false}
             renderItem={({ item }) => (
-              <View style={srStyles.resultRow}>
+              <TouchableOpacity
+                style={srStyles.resultRow}
+                onPress={() => {
+                  setSelectedFood(item);
+                  setSelectedMealId(meals[0]?.id ?? '');
+                  setQuantity('100');
+                }}
+                activeOpacity={0.7}
+              >
                 <View style={srStyles.resultInfo}>
                   <Text style={srStyles.resultName} numberOfLines={1}>{item.name}</Text>
                   <Text style={srStyles.resultMeta}>
-                    {item.calories} kcal · P:{item.protein}g · C:{item.carbs}g · G:{item.fat}g
+                    {Math.round(Number(item.calories_per_100g))} kcal · P:{Number(item.protein_per_100g).toFixed(1)}g · C:{Number(item.carbs_per_100g).toFixed(1)}g · G:{Number(item.fat_per_100g).toFixed(1)}g
                   </Text>
                 </View>
-              </View>
+                <Text style={{ color: colors.primary.green, fontSize: 22, paddingLeft: 8 }}>+</Text>
+              </TouchableOpacity>
             )}
           />
         </View>
@@ -111,6 +226,53 @@ function FoodSearchBar() {
         <View style={srStyles.emptyState}>
           <Text style={srStyles.emptyText}>No se encontraron alimentos para &apos;{query}&apos;</Text>
         </View>
+      )}
+
+      {selectedFood && (
+        <Modal transparent animationType="fade" visible={!!selectedFood} onRequestClose={() => setSelectedFood(null)}>
+          <View style={modalStyles.overlay}>
+            <View style={modalStyles.card}>
+              <Text style={modalStyles.title}>Añadir a comida</Text>
+              <Text style={modalStyles.foodName}>{selectedFood.name}</Text>
+              <NutritionTable food={selectedFood} />
+              <Text style={modalStyles.label}>Cantidad (gramos)</Text>
+              <TextInput
+                style={modalStyles.input}
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="numeric"
+                selectTextOnFocus
+              />
+              <Text style={modalStyles.label}>Comida del día</Text>
+              <View style={modalStyles.mealsGrid}>
+                {meals.map((m) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[modalStyles.mealBtn, selectedMealId === m.id && modalStyles.mealBtnActive]}
+                    onPress={() => setSelectedMealId(m.id)}
+                  >
+                    <Text style={modalStyles.mealBtnIcon}>{m.icon}</Text>
+                    <Text style={[modalStyles.mealBtnText, selectedMealId === m.id && modalStyles.mealBtnTextActive]}>
+                      {m.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={modalStyles.actions}>
+                <TouchableOpacity style={modalStyles.btnCancel} onPress={() => setSelectedFood(null)}>
+                  <Text style={modalStyles.btnCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[modalStyles.btnAdd, adding && { opacity: 0.6 }]}
+                  onPress={handleAddFood}
+                  disabled={adding}
+                >
+                  <Text style={modalStyles.btnAddText}>{adding ? 'Añadiendo…' : 'Añadir'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -210,7 +372,10 @@ export function NutritionScreen() {
 
         {/* Buscador de alimentos */}
         <Text style={styles.sectionTitle}>Buscar alimentos</Text>
-        <FoodSearchBar />
+        <FoodSearchBar
+          meals={todayMeals.map(m => ({ id: m.id, name: m.name, icon: m.icon }))}
+          onFoodAdded={fetchTodayNutrition}
+        />
 
         {/* Tarjetas de comidas */}
         <Text style={styles.sectionTitle}>Plan de comidas</Text>
@@ -296,6 +461,78 @@ const srStyles = StyleSheet.create({
   resultMeta:{ ...textStyles.caption, color: colors.neutral.midGray, marginTop: 2 },
   emptyState:{ backgroundColor: colors.neutral.white, borderRadius: borderRadius.card, marginTop: 4, padding: spacing.md, alignItems: 'center', ...shadows.card },
   emptyText: { ...textStyles.bodyNormal, color: colors.neutral.midGray, textAlign: 'center' },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay:          { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  card:             { backgroundColor: colors.neutral.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.xl, paddingBottom: spacing.xxl },
+  title:            { ...textStyles.titleSmall, color: colors.neutral.black, marginBottom: spacing.xs },
+  foodName:         { ...textStyles.bodyLarge, fontWeight: '600', color: colors.primary.darkGreen, marginBottom: spacing.md },
+  label:            { ...textStyles.caption, color: colors.neutral.midGray, marginBottom: spacing.xs, marginTop: spacing.sm },
+  input:            { borderWidth: 1.5, borderColor: colors.neutral.lightGray, borderRadius: borderRadius.input, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...textStyles.bodyNormal, color: colors.neutral.darkGray },
+  mealsGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  mealBtn:          { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.pill, borderWidth: 1.5, borderColor: colors.neutral.lightGray },
+  mealBtnActive:    { borderColor: colors.primary.green, backgroundColor: colors.primary.lightGreen },
+  mealBtnIcon:      { fontSize: 16 },
+  mealBtnText:      { ...textStyles.bodyNormal, color: colors.neutral.darkGray },
+  mealBtnTextActive:{ color: colors.primary.darkGreen, fontWeight: '600' },
+  actions:          { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+  btnCancel:        { flex: 1, paddingVertical: spacing.md, borderRadius: borderRadius.button, borderWidth: 1.5, borderColor: colors.neutral.lightGray, alignItems: 'center' },
+  btnCancelText:    { ...textStyles.bodyNormal, color: colors.neutral.midGray },
+  btnAdd:           { flex: 1, paddingVertical: spacing.md, borderRadius: borderRadius.button, backgroundColor: colors.primary.green, alignItems: 'center' },
+  btnAddText:       { ...textStyles.bodyNormal, fontWeight: '700', color: '#FFFFFF' },
+});
+
+// ── Estilos tabla de micronutrientes (A-6) ────────────────────────────────────
+
+const nutriStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E7EB',
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  title: {
+    ...textStyles.titleSmall,
+    color: '#1F2937',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: 2,
+  },
+  subtitle: {
+    ...textStyles.caption,
+    color: colors.neutral.midGray,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  section: {},
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E7EB',
+    marginVertical: spacing.xs,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
+  },
+  label: {
+    ...textStyles.bodyNormal,
+    color: '#1F2937',
+    flex: 1,
+  },
+  value: {
+    ...textStyles.bodyNormal,
+    color: '#1F2937',
+    fontVariant: ['tabular-nums'] as any,
+    textAlign: 'right',
+  },
 });
 
 export default NutritionScreen;

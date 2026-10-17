@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-06-15
 **Agente:** devops
-**Decisión previa:** AWS descartado. Toda la infraestructura de backend va a Railway por coste.
+**Plataforma:** toda la infraestructura va a Railway.
 
 ---
 
@@ -24,34 +24,27 @@ Pipeline de deploy a producción en Railway. Sigue el mismo patrón que `deploy-
 
 ### 2. Actualizado: `infrastructure/staging.md`
 
-Reescrito completamente. Sustituye toda la documentación AWS/ECS/ALB/RDS/ElastiCache por:
+Reescrito completamente para Railway:
 
 - Diagrama de arquitectura Railway (Service → PostgreSQL plugin + Redis plugin)
 - Tabla de servicios Railway con URLs
 - Variables de entorno que Railway inyecta automáticamente
-- Tabla de sizing y coste real (~$0–5/mes staging, ~$20/mes producción vs. ~$80–188/mes en AWS)
+- Tabla de sizing y coste real (~$0–5/mes staging, ~$20/mes producción)
 - Checklist de primer deploy a staging
 
 ### 3. Actualizado: `GITHUB_SECRETS.md`
 
-- **Eliminado:** referencias a `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` como secrets de backend/ECS
-- **Aclarado:** las credenciales AWS son exclusivas de la landing (S3 + CloudFront), sin acceso a ECS/RDS
+- **Eliminado:** secretos de la plataforma cloud anterior
 - **Añadido:** `RAILWAY_PRODUCTION_SERVICE_ID` como nuevo secret de repositorio requerido
-- **Añadida:** sección separada "Secretos para la landing page (AWS S3 + CloudFront)" para evitar confusión
 - **Actualizado:** tabla de resumen "qué configurar ahora" incluye `RAILWAY_PRODUCTION_SERVICE_ID`
 
 ### 4. Actualizado: `README.md`
 
-- Tabla de entornos actualizada: staging y producción apuntan a Railway, no AWS
+- Tabla de entornos actualizada: staging y producción apuntan a Railway
 - Nota de decisión de infraestructura añadida
-- **Sección nueva:** "⚠️ Archivos Terraform deprecados" — documenta que `infra/*.tf` están deprecados y serán borrados manualmente; NO se borra el directorio en este PR
-- Arquitectura AWS sustituida por diagrama Railway
-- Tabla de servicios AWS eliminada, sustituida por tabla Railway + AWS (landing)
+- Diagrama de arquitectura Railway
+- Tabla de servicios Railway
 - Secrets y variables de entorno actualizados a Railway
-
-### 5. Sin cambios: `infra/` (Terraform)
-
-Los archivos Terraform (`vpc.tf`, `ecs.tf`, `rds.tf`, `elasticache.tf`, `alb.tf`, etc.) **no se eliminan** en este PR. Se documentan como deprecados en `README.md`. El borrado físico se hará manualmente.
 
 ---
 
@@ -69,7 +62,5 @@ Los archivos Terraform (`vpc.tf`, `ecs.tf`, `rds.tf`, `elasticache.tf`, `alb.tf`
 - [x] `prisma migrate deploy` ejecuta ANTES del deploy (job `migrate` bloquea `deploy`)
 - [x] `environment: production` en jobs `migrate` y `deploy` (activa protection rules)
 - [x] Smoke test usa URL de producción (`healthy-api.up.railway.app`)
-- [x] `infrastructure/staging.md` no contiene referencias AWS
-- [x] `GITHUB_SECRETS.md` distingue claramente Railway (backend) vs AWS (landing)
-- [x] `README.md` marca `infra/` como deprecado sin borrar archivos
+- [x] `infrastructure/staging.md` y `GITHUB_SECRETS.md` documentan solo Railway
 - [x] Ningún secreto hardcodeado en los workflows

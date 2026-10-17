@@ -1,6 +1,6 @@
 # Arquitectura Web — Healthy
 
-Healthy despliega su backend en Railway (proyecto `healthy-staging`), con PostgreSQL y Redis gestionados por el mismo proveedor. La landing estática se sirve vía S3 + CloudFront (ver [landing-deploy.md](./landing-deploy.md)). AWS **no se usa** para el backend.
+Healthy despliega su backend en Railway (proyecto `healthy-staging`), con PostgreSQL y Redis gestionados por el mismo proveedor. La landing estática (`landing/index4.html`) se sirve desde un servicio nginx en Railway (ver [landing-deploy.md](./landing-deploy.md)).
 
 ---
 
@@ -101,7 +101,7 @@ graph TD
 | **Supabase** | External (EU) | Autenticación de usuarios: registro, verificación OTP por email, tokens JWT. Gestiona el proveedor de emails transaccionales. |
 | **Anthropic API** | External | Generación de planes personalizados con `claude-sonnet-4-6`. Prompt caching activado (`cache_control`) para el system prompt base (~80 % reducción de tokens facturados). |
 | **Gmail SMTP** | External | Envío de emails de verificación y recuperación de contraseña. Host: `smtp.gmail.com:587`. Usuario: `trutool@gmail.com`. **SMTP no está configurado en staging** — los emails se loguean en consola. Pendiente configurar para producción. |
-| **Landing (S3 + CloudFront)** | AWS | Landing estática independiente del backend. Ver [landing-deploy.md](./landing-deploy.md). |
+| **Landing `healthy-landing`** | Railway | Servicio nginx que sirve `landing/index4.html` + `public/`. Root: `projects/healthy/landing`. Ver [landing-deploy.md](./landing-deploy.md). |
 
 ---
 
@@ -124,7 +124,7 @@ ai-studio/                              ← raíz del repositorio
     ├── devops/                         → Workflows EAS, docs infra, estrategia backup
     │   └── .github/workflows/          → workflows adicionales (EAS, landing, backup)
     ├── docs/                           → Documentación técnica (este directorio)
-    ├── landing/                        → Landing estática (S3 + CloudFront)
+    ├── landing/                        → Landing estática (Railway, nginx)
     ├── security/                       → Auditoría RGPD y seguridad
     └── tests/                          → Tests de carga y E2E
 ```
@@ -212,9 +212,6 @@ Ver [landing-deploy.md](./landing-deploy.md).
 | `SMTP_USER` | `trutool@gmail.com` |
 | `SMTP_PASS` | Contraseña de aplicación Gmail |
 | `ANTHROPIC_API_KEY` | API key de Anthropic |
-| `AWS_ACCESS_KEY_ID` | Solo para deploy de la landing |
-| `AWS_SECRET_ACCESS_KEY` | Solo para deploy de la landing |
-| `CLOUDFRONT_DISTRIBUTION_ID` | Solo para invalidación de caché de la landing |
 
 ---
 
@@ -230,10 +227,10 @@ Ver [landing-deploy.md](./landing-deploy.md).
 | Supabase | Free tier (hasta 50k MAU) | $0/mes |
 | Anthropic API | Variable según uso | ~$5–20/mes |
 | Gmail SMTP | Gratuito (límite 500 emails/día) | $0/mes |
-| S3 + CloudFront (landing) | Tráfico bajo | ~$1–5/mes |
+| Railway landing (nginx) | Tráfico bajo | ~$1–5/mes |
 | **Total estimado** | | **~$19–50/mes** |
 
-El mayor salto de coste vendrá al escalar el plan Railway (más RAM/CPU) o superar el free tier de Supabase. Significativamente más económico que la arquitectura AWS anterior (~$56–80/mes).
+El mayor salto de coste vendrá al escalar el plan Railway (más RAM/CPU) o superar el free tier de Supabase.
 
 ---
 

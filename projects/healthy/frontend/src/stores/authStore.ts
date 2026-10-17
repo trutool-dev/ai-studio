@@ -88,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             const { data } = await api.get('/auth/me');
             const freshUser = data.data?.user ?? data.user ?? user;
             set({ user: freshUser });
+            await SecureStore.setItemAsync('auth_user', JSON.stringify(freshUser));
           } catch {
             // Si falla /me, el interceptor de 401 ya gestionará el logout
           }

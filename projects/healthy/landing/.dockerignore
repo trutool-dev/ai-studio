@@ -1,0 +1,9 @@
+node_modules
+dist
+src
+index4
+index.html
+index2.html
+index3.html
+*.md
+Dockerfile.txt

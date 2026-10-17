@@ -233,17 +233,45 @@ const PROT_IDS  = new Set(['203']);
 const CARB_IDS  = new Set(['205']);
 const FAT_IDS   = new Set(['204']);
 
+// Nutrient numbers USDA para micronutrientes (A-6)
+// Números SR Legacy devueltos por el endpoint de búsqueda
+const FIBER_IDS   = new Set(['291']);   // Fiber, total dietary
+const SUGAR_IDS   = new Set(['269']);   // Sugars, total including NLEA
+const SAT_FAT_IDS = new Set(['606']);   // Fatty acids, total saturated
+const SODIUM_IDS  = new Set(['307']);   // Sodium, Na
+const POTASS_IDS  = new Set(['306']);   // Potassium, K
+const CALCIUM_IDS = new Set(['301']);   // Calcium, Ca
+const IRON_IDS    = new Set(['303']);   // Iron, Fe
+const VIT_C_IDS   = new Set(['401']);   // Vitamin C, total ascorbic acid
+const VIT_D_IDS   = new Set(['328']);   // Vitamin D (D2 + D3), International Units → mcg
+const VIT_B12_IDS = new Set(['418']);   // Vitamin B-12
+
 function extractMacros(foodNutrients = []) {
   let kcal = null, protein = null, carbs = null, fat = null;
+  // micronutrientes
+  let fiber = null, sugar = null, satFat = null, sodium = null;
+  let potassium = null, calcium = null, iron = null;
+  let vitC = null, vitD = null, vitB12 = null;
+
   for (const n of foodNutrients) {
     const num = String(n.number || n.nutrientNumber || '');
     const val = parseFloat(n.amount ?? n.value ?? 0);
-    if (KCAL_IDS.has(num)  && kcal    === null) kcal    = val;
-    if (PROT_IDS.has(num)  && protein === null) protein = val;
-    if (CARB_IDS.has(num)  && carbs   === null) carbs   = val;
-    if (FAT_IDS.has(num)   && fat     === null) fat     = val;
+    if (KCAL_IDS.has(num)    && kcal      === null) kcal      = val;
+    if (PROT_IDS.has(num)    && protein   === null) protein   = val;
+    if (CARB_IDS.has(num)    && carbs     === null) carbs     = val;
+    if (FAT_IDS.has(num)     && fat       === null) fat       = val;
+    if (FIBER_IDS.has(num)   && fiber     === null) fiber     = val;
+    if (SUGAR_IDS.has(num)   && sugar     === null) sugar     = val;
+    if (SAT_FAT_IDS.has(num) && satFat    === null) satFat    = val;
+    if (SODIUM_IDS.has(num)  && sodium    === null) sodium    = val;
+    if (POTASS_IDS.has(num)  && potassium === null) potassium = val;
+    if (CALCIUM_IDS.has(num) && calcium   === null) calcium   = val;
+    if (IRON_IDS.has(num)    && iron      === null) iron      = val;
+    if (VIT_C_IDS.has(num)   && vitC      === null) vitC      = val;
+    if (VIT_D_IDS.has(num)   && vitD      === null) vitD      = val;
+    if (VIT_B12_IDS.has(num) && vitB12    === null) vitB12    = val;
   }
-  return { kcal, protein, carbs, fat };
+  return { kcal, protein, carbs, fat, fiber, sugar, satFat, sodium, potassium, calcium, iron, vitC, vitD, vitB12 };
 }
 
 function usdaGet(path) {
@@ -305,7 +333,7 @@ async function main() {
         continue;
       }
 
-      const { kcal, protein, carbs, fat } = extractMacros(results[0].foodNutrients);
+      const { kcal, protein, carbs, fat, fiber, sugar, satFat, sodium, potassium, calcium, iron, vitC, vitD, vitB12 } = extractMacros(results[0].foodNutrients);
 
       if (kcal === null && protein === null) {
         stats.noData++;
@@ -316,11 +344,22 @@ async function main() {
       await prisma.food.create({
         data: {
           name:              spanishName,
-          calories_per_100g: kcal     ?? 0,
-          protein_per_100g:  protein  ?? 0,
-          carbs_per_100g:    carbs    ?? 0,
-          fat_per_100g:      fat      ?? 0,
+          calories_per_100g: kcal       ?? 0,
+          protein_per_100g:  protein    ?? 0,
+          carbs_per_100g:    carbs      ?? 0,
+          fat_per_100g:      fat        ?? 0,
           verified:          true,
+          // micronutrientes (A-6) — opcionales, null si no disponibles
+          fiber_g:           fiber      ?? null,
+          sugar_g:           sugar      ?? null,
+          saturated_fat_g:   satFat     ?? null,
+          sodium_mg:         sodium     ?? null,
+          potassium_mg:      potassium  ?? null,
+          calcium_mg:        calcium    ?? null,
+          iron_mg:           iron       ?? null,
+          vitamin_c_mg:      vitC       ?? null,
+          vitamin_d_mcg:     vitD       ?? null,
+          vitamin_b12_mcg:   vitB12     ?? null,
         },
       });
 
