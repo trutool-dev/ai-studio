@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-17 | Sesión: Orquestación masiva tareas automáticas + APK instalado en emulador + migración micronutrientes ejecutada en Railway.
+> Ultima actualización: 2026-10-18 (coherencia de estado + Lighthouse staging) | Anterior: 2026-10-17 | Sesión: Orquestación masiva tareas automáticas + APK instalado en emulador + migración micronutrientes ejecutada en Railway.
 
 ---
 
@@ -11,14 +11,14 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Sesión 2026-10-17 — APK `fb35f492` instalado y funcionando en emulador Android. Migración micronutrientes ejecutada en Railway staging. Todas las tareas automáticas completadas. Camino crítico: M-21 (rotar JWTs) → M-19 (Play Store) → M-13 (merge main) → M-14 (tag v1.0.0). |
-| Rama activa | develop — commit `e749094` (PROJECT_STATUS sesión 2026-10-15) |
+| Fase actual | Sesión 2026-10-17 — APK `fb35f492` instalado y funcionando en emulador Android. Migración micronutrientes ejecutada en Railway staging. Todas las tareas automáticas completadas. Release v1.0.0 hecha (M-13 PR #7 `f51a01c` en main + M-14 tag `v1.0.0`, 2026-10-17). Camino crítico: M-21 (rotar JWTs) → M-19 (Play Store) → A-4 (aprobar deploy a producción). |
+| Rama activa | develop — commit `f29b952` (main en `f51a01c`, tag `v1.0.0`) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` |
 | Tests | 454/454 pasando — lineas 96.78% / branches 85.01% |
 | APK Android | ✅ Build `96aedf25` (último, con todos los fixes) · `fb35f492` (probado en emulador 2026-10-17) |
 | Icono app | ✅ Completado — hoja estilizada + ECG blanco. Aplicado en app y en `landing/index4.html` (A-21 completada) |
-| Landing | ✅ ACTIVA en staging — https://healthy-landing-staging.up.railway.app · A-18 aplicada en código (pendiente verificar Lighthouse real) |
-| Siguiente accion inmediata | **M-21** (rotar JWT secrets — CRÍTICO) → **M-19** (subida manual APK a Play Store, necesita política de privacidad URL) → **M-13** (merge develop→main) → **M-14** (tag v1.0.0) |
+| Landing | ✅ ACTIVA en staging — https://healthy-landing-staging.up.railway.app · Lighthouse 2026-10-18: móvil 75/96/100/100, escritorio 79/96/100/100 (Perf/Acc/BP/SEO) |
+| Siguiente accion inmediata | **M-21** (rotar JWT secrets — CRÍTICO) → **M-19** (subida manual APK a Play Store, necesita política de privacidad URL) → **A-4** (aprobar deploy a producción en GitHub Actions) |
 
 ---
 
@@ -58,9 +58,9 @@
 | M-5 | Registrar Bundle ID `com.healthy.app` en developer.apple.com | APLAZADO | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | M-6 | Crear app en App Store Connect para iOS | APLAZADO | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | M-7 | Instalar y probar APK en dispositivo Android real | IMPORTANTE | ✅ Completada — APK `fb35f492` instalado y funcionando en emulador Android (sesión 2026-10-17) |
-| M-8 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | ✅ Completada — APK instalado en emulador. **Pendiente subida manual a Play Console** (M-19) — ver docs/PUBLISHING_GUIDE.md |
+| M-8 | Publicar APK en Google Play Console → Internal Testing | IMPORTANTE | 🔁 Sustituida por **M-19** (misma tarea; APK ya probado en emulador 2026-10-17, subida a Play Console pendiente) |
 | M-9 | Configurar dominio `api.healthy.app` → Railway en panel DNS | PRO FINAL | Pendiente |
-| M-10 | Lighthouse landing | PRO FINAL | ⚠️ Ejecutado 2026-10-14 contra la URL pública de staging — **no alcanza 95**. Móvil: Perf 34 · Acc 90 · BP 100 · SEO 92. Escritorio: Perf 74 · Acc 90 · BP 100 · SEO 92. Correcciones en A-18 |
+| M-10 | Lighthouse landing ≥ 95 | PRO FINAL | ⚠️ Re-ejecutado 2026-10-18 contra staging (código `e5f32c2`, verificado mismo `index4.html` que develop): Móvil Perf 75 · Acc 96 · BP 100 · SEO 100; Escritorio Perf 79 · Acc 96 · BP 100 · SEO 100. Antes (2026-10-14): móvil 34/90/100/92, escritorio 74/90/100/92. Rendimiento aún < 95: vídeos sin comprimir (`fitness_workout.mp4` 38,9 MB, `runners.mp4` 12,8 MB, `healthy_food.mp4` 11,8 MB) y `portada.jpg` 1,6 MB; Accesibilidad: 1 texto con `rgba(255,255,255,0.45)` (contraste 4,47). Nota: `/robots.txt` devuelve 404 (el `alias` de nginx apunta a `/public/robots.txt`, que no existe en la imagen) |
 | M-11 | Configurar ANTHROPIC_API_KEY en Railway staging variables de entorno | CRITICO | ✅ Completada — configurado en staging |
 | M-11b | Añadir créditos a cuenta Anthropic (console.anthropic.com → Plans & Billing) | CRITICO | ✅ Completada — verificado via /health/ai → success:true |
 | M-12 | Re-ejecutar CP-01..CP-10 con IA activa | IMPORTANTE | ✅ Completada — score 23/50 (2 CPs con IA real: CP-07, CP-08; ver detalle sesión 2026-10-09) |
@@ -82,7 +82,7 @@
 | A-1 | Mejorar branch coverage de 69.57% a 80%+ | Tests Agent | ✅ Completada — 85.01% / 454 tests | Nada |
 | A-2 | Build iOS en EAS: `eas build --platform ios --profile preview` | DevOps Agent | ❌ APLAZADO | Sin publicación iOS por ahora |
 | A-3 | Subir a TestFlight: `eas submit --platform ios` | DevOps Agent | ❌ APLAZADO | Sin publicación iOS por ahora |
-| A-4 | Deploy a Railway tras merge a main | CI/CD GitHub Actions | ⏳ Triggered — esperando aprobación manual en GitHub Actions (environment: production) | M-13 |
+| A-4 | Deploy a Railway tras merge a main | CI/CD GitHub Actions | ⏳ Run de `deploy.yml` sobre `f51a01c` esperando aprobación manual en GitHub Actions (environment: production) — verificado 2026-10-18 | M-13 ✅ |
 | A-5 | Generar documentacion API (Swagger/OpenAPI) con endpoint /exercises | Docs Agent | ✅ Completada — swagger.yaml 40 endpoints | Nada |
 | A-Landing | Corregir Accessibility y SEO landing (scores actuales 82-88 → 95+) | Frontend Agent | ✅ Completada — Acc/SEO corregidos (sesión 2026-10-10) | Nada |
 | A-6 | **Expansión de micronutrientes completos**: (1) Ampliar modelo Prisma `Food` con fiber, sugar, saturated_fat, sodium, potassium, calcium, iron, vitamin_c, vitamin_d, vitamin_b12 + migración; (2) Actualizar `import-usda.js` para capturar todos los nutrientes USDA disponibles; (3) Actualizar `foods.controller.js` para devolver nuevos campos; (4) Modificar frontend `NutritionScreen` y `FoodDetailScreen` para mostrar tabla de micronutrientes (calorías, macros, fibra, azúcares, grasas saturadas, sodio, calcio, hierro, vitaminas). Referencia commits: seed 61a3729, import 93e470a | Backend + Database + Frontend Agents | ✅ Completada — commits `8b0a7a7` (DB schema + migración), `43db3ae` (backend import-usda + foods.controller FOOD_SELECT), `601a80a` (frontend NutritionTable). **PENDIENTE: ejecutar `npx prisma migrate deploy` en Railway staging.** (sesión 2026-10-15) | M-16 |
@@ -99,9 +99,9 @@
 | **A-17** | **Auditoría de seguridad MITRE ATLAS** — Agente JailBreak completó la auditoría de las 16 tácticas ATLAS v4.5. Ver `auditoria_atlas_mitre.md`. 30 hallazgos, 24 tareas SEC-01..SEC-24 para el orquestador. | JailBreak Agent | ✅ **COMPLETADA** — `CLAUDE.jailbreak.md` + `auditoria_atlas_mitre.md`. Commit `1ad08bc` (sesión 2026-10-12e) | Nada |
 | **N-1** | **Backend: endpoint `POST /nutrition/meals/:mealId/foods`** — Cuerpo: `{ food_id, quantity_g }` (default 100g). Acción: crear registro en `meal_foods`, recalcular y actualizar `meals.calories`, `meals.protein_g`, `meals.carbs_g`, `meals.fat_g` basándose en `foods.calories_per_100g` × (quantity_g / 100). Respuesta: comida actualizada con `meal_foods` y macros. Archivos: `backend/src/controllers/nutrition.controller.js` + `nutrition.routes.js` | Backend Agent | ✅ Completada — verificado en `nutrition.controller.js` (sesión 2026-10-15) | Nada |
 | **N-2** | **Frontend: resultados buscador seleccionables + modal de asignación** — En `FoodSearchBar` (`NutritionScreen.tsx`): cambiar `<View style={srStyles.resultRow}>` por `<TouchableOpacity>` con `onPress`. Al pulsar: modal con nombre del alimento, input cantidad en gramos (default 100), lista de comidas del día (`todayMeals`) para seleccionar, botón "Añadir". Al confirmar: llamar `POST /nutrition/meals/:mealId/foods`. `FoodSearchBar` recibe `todayMeals` como prop desde `NutritionScreen`. | Frontend Agent | ✅ Completada — verificado en `NutritionScreen.tsx` (sesión 2026-10-15) | N-1 |
-| **A-18** | **Landing: Lighthouse ≥ 95** — Causas detectadas (2026-10-14): peso total ~91 MB (vídeos + 151 frames del canvas cargados de golpe), Tailwind por CDN bloqueante y compilando en runtime (TBT 2,3 s en móvil), JS inline ~1 s, LCP 13,4 s en móvil; contraste insuficiente en textos `rgba(255,255,255,0.45)` y etiquetas de 12px; `aria-label` en `<div>` de estrellas sin rol; falta `robots.txt` (nginx devuelve el HTML). | Frontend + DevOps Agents | ✅ Completada — commit `e5f32c2`: defer Tailwind, IntersectionObserver frames, critical CSS, robots.txt, OG/canonical, role=img, contraste 0.60-0.72 (sesión 2026-10-15). Pendiente verificar Lighthouse en staging. | Nada |
+| **A-18** | **Landing: Lighthouse ≥ 95** — Causas detectadas (2026-10-14): peso total ~91 MB (vídeos + 151 frames del canvas cargados de golpe), Tailwind por CDN bloqueante y compilando en runtime (TBT 2,3 s en móvil), JS inline ~1 s, LCP 13,4 s en móvil; contraste insuficiente en textos `rgba(255,255,255,0.45)` y etiquetas de 12px; `aria-label` en `<div>` de estrellas sin rol; falta `robots.txt` (nginx devuelve el HTML). | Frontend + DevOps Agents | ✅ Completada — commit `e5f32c2`: defer Tailwind, IntersectionObserver frames, critical CSS, robots.txt, OG/canonical, role=img, contraste 0.60-0.72 (sesión 2026-10-15). Verificado 2026-10-18 en staging: móvil 75/96/100/100, escritorio 79/96/100/100 — Rendimiento y Accesibilidad aún < 95 (ver M-10). | Nada |
 | **A-19** | **Landing: auto-deploy desde GitHub** — `railway service source connect --repo trutool-dev/ai-studio --branch develop --service healthy-landing` y Root Directory `projects/healthy/landing` en Settings | DevOps Agent | ✅ Completada — `.github/workflows/deploy-landing.yml` creado: dispara en push a `develop` con `paths: projects/healthy/landing/**`, deploya al servicio `a3d40d42` via `railway up` (sesión 2026-10-15) | Nada |
-| **A-20** | **Landing: servicio en el entorno production** de Railway cuando la landing llegue a `main` | DevOps Agent | Pendiente | M-13 |
+| **A-20** | **Landing: servicio en el entorno production** de Railway cuando la landing llegue a `main` | DevOps Agent | Pendiente — desbloqueada (la landing ya está en `main` desde `f51a01c`) | M-13 ✅ |
 | **A-21** | **Landing: aplicar el icono nuevo en `index4.html`** (sigue usando `logo-icon.svg`) y actualizar `docs/landing-content.md`, que aún describe `index.html` | Frontend + Docs Agents | ✅ Completada — favicon y 2 img sustituidas por `app-icon.png` con border-radius (sesión 2026-10-15) | Nada |
 | **A-22** | **Resolver discrepancia de calorías**: el brief dice "-500 kcal/día" y el código implementa "80 % TDEE" | AI + Backend Agents | ✅ Resuelta — Antonio confirma mantener **80% TDEE** (déficit relativo, adapta a cualquier perfil). Sin cambio de código. (sesión 2026-10-15) | Nada |
 | **A-23** | **CI: `deploy.yml` redespliega el backend de staging en cualquier push a `develop`** (sin filtro de rutas). Añadir `paths: projects/healthy/backend/**` para no redesplegar con cambios de docs/landing | DevOps Agent | ✅ Completada — `paths: projects/healthy/backend/**` añadido en trigger `on.push` (sesión 2026-10-15) | Nada |
@@ -250,7 +250,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 |----------|----------|--------|
 | Tests lineas | >= 80% | ✅ OK — 96.78% |
 | Tests branches | >= 80% | ✅ OK — 85.01% |
-| Lighthouse landing | >= 95 | ⚠️ A-18 aplicada en código (defer Tailwind, lazy frames, robots.txt, contraste, OG) — pendiente verificar scores reales en staging tras redeploy |
+| Lighthouse landing | >= 95 | ⚠️ PARCIAL — 2026-10-18: SEO y Best Practices 100; Accesibilidad 96; Rendimiento 75 móvil / 79 escritorio (ver M-10) |
 | Landing publicada | Activa | ⚠️ Activa en Railway staging; falta producción (A-20) y dominio propio (M-20) |
 | App Android Google Play Internal | Publicada | ⚠️ APK funcionando en emulador (M-18 ✅) — pendiente subida manual a Play Console (M-19) |
 | App iOS TestFlight | Publicada | ❌ APLAZADO indefinidamente — sin publicación iOS |
@@ -259,7 +259,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Créditos Anthropic | Disponibles | ✅ ACTIVO — M-11b completada, /health/ai confirma success:true |
 | Seed 1.324 ejercicios ejecutado | Completo | ✅ COMPLETADO — M-4 ejecutada sesión 2026-10-12 |
 | CP-01..CP-10 con IA activa | 8+/10 | ⚠️ PARCIAL — score 23/50; IA real en 2/10 CPs; 7 CPs con caché Redis fallback; ver sesión 2026-10-09 |
-| Tag v1.0.0 | Creado | PENDIENTE |
+| Tag v1.0.0 | Creado | ✅ CREADO — tag `v1.0.0` sobre main `f51a01c` (2026-10-17) |
 
 ---
 
@@ -288,6 +288,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-12f | **Orquestador**: Tareas **N-1/N-2/N-3** registradas — flujo completo "food search asignable a comidas": N-1 backend endpoint `POST /nutrition/meals/:mealId/foods` (crear `meal_foods` + recalcular macros), N-2 frontend `<TouchableOpacity>` en resultados + modal de asignación (cantidad g + selección comida), N-3 frontend `fetchTodayNutrition()` tras confirmar para refrescar macros en pantalla. Contexto técnico: `NutritionScreen.tsx` línea 98 (`<View>` no presionable), tabla `meal_foods` ya existe en schema, tabla `meals` tiene columnas de macros a actualizar. | pendiente | 2026-10-12 |
 | Sesion 2026-10-12c | **DOC-01..DOC-08** ✅ Verificadas y marcadas como completadas en tasks.md — todos los documentos existían con contenido completo (api-reference, deployment-guide, ai-architecture, rgpd-compliance, README, architecture-web, landing-deploy, landing-content). Commit `e0dde65`. **M-15** ✅ Icono app diseñado: hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada: navbar, footer, sección descarga y favicon usan icono real. Commit `f4dc665`. | f4dc665 | 2026-10-12 |
 | Sesión 2026-10-17 | **Orquestación masiva tareas automáticas**: N-1/N-2/N-3 verificadas completadas. A-15/A-16 verificadas. A-16 fix: SecureStore persiste `has_plan` (`ce0bb6f`). A-18/A-21: landing Lighthouse — defer Tailwind, IntersectionObserver frames, robots.txt, OG/canonical, contraste, icono app (`e5f32c2`). A-19/A-23: deploy-landing.yml + paths filter CI (`f604533`). A-6: micronutrientes DB schema + migración + backend FOOD_SELECT + frontend NutritionTable (`8b0a7a7`, `43db3ae`, `601a80a`). A-22: mantenemos 80% TDEE. **Migración A-6** ejecutada en Railway staging con DATABASE_PUBLIC_URL. **M-7/M-18**: APK `fb35f492` instalado y funcionando en emulador Android. **TODOS_LOS_AGENTES.txt**: 13 agentes fusionados en un solo archivo. | e749094 | 2026-10-17 |
+| Sesión 2026-10-18 | **Coherencia de PROJECT_STATUS**: M-13/M-14 y tag v1.0.0 reflejados como hechos (camino crítico, checklist); M-8 marcada como sustituida por M-19; nota de calorías alineada con A-22. **Lighthouse staging** (verificado que sirve el `index4.html` de develop): móvil 75/96/100/100, escritorio 79/96/100/100 (antes 34/90/100/92 y 74/90/100/92). Detectado `/robots.txt` 404 en staging. | — | 2026-10-18 |
 | Sesion 2026-10-13/14 | **Revisión de estado** del proyecto (agentes, PROJECT_STATUS, git). **Landing**: confirmado que la landing publicada es `landing/index4.html` (HTML + Tailwind CDN, sin build); nuevos `landing/Dockerfile` + `nginx.conf.template` + `.dockerignore` (nginx sirve `index4.html` en `/` con `public/` images/videos/frames, puerto `${PORT}`), probado en local con Docker. **Limpieza**: eliminados `devops/infra/` (Terraform S3/CloudFront/Route 53), `devops/.github/workflows/deploy-landing.yml`, `devops/cloudrun/` y `landing/Dockerfile.txt`; ~50 documentos actualizados de AWS a Railway (`landing-deploy`, `MONITORING`, `BACKUP_STRATEGY` reescritos). Commit `9f5b847` en develop con `[skip ci]` (para no redesplegar el backend de staging). **Railway**: servicio `healthy-landing` creado en `healthy-staging` / entorno staging, primer deploy OK, dominio https://healthy-landing-staging.up.railway.app — verificados 200 en `/`, vídeos y frames + cabeceras de seguridad. **Lighthouse** (M-10) móvil 34/90/100/92, escritorio 74/90/100/92 → A-18. Nuevas tareas M-20..M-22 y A-18..A-23. | 9f5b847 | 2026-10-14 |
 | Sesion 2026-10-11 | A-7 ✅ COMPLETADA — rediseño Apple Design en 39 tareas / 7 fases: Fase 0 (Reanimated 4 + Gesture Handler + expo-haptics + 120fps ProMotion), Fase 1 (letterSpacing, Input label sin layout pass, ProgressBar scaleX), Fase 2 (press feedback scale 0.97 + haptics en 17 componentes/pantallas), Fase 3 (tab bar sin bounce, bottom sheets drag-to-dismiss, RegenModal spring), Fase 4 (skeleton→crossfade, ProgressRing useAnimatedProps, WorkoutCard interpolateColor, MealCard LinearTransition), Fase 5 (stagger FadeInDown onboarding, spinner Reanimated, success spring + haptic), Fase 6 (ReduceMotion.System, Toast Reanimated, ProgressRing stagger). Botón "Regenerar mi plan" en ProfileScreen (commit f03a358). Nuevo build APK 94110d29. Agente apple-design + skills emilkowalski instalados. 454/454 tests ✅. | f03a358 | 2026-10-11 |
 
@@ -382,7 +383,7 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 - DATABASE_URL y REDIS_URL: URLs directas (no templates `${{...}}`)
 - `jest.config.js` tiene `modulePaths: ['<rootDir>/node_modules']` — no eliminar
 - Prisma 7: `prisma-client-js`, cliente generado en `src/generated/prisma/`
-- Discrepancia pendiente: brief dice "-500 kcal/dia", codigo implementa "80% TDEE"
+- Calorías: se mantiene **80% TDEE** (decisión de Antonio, A-22 resuelta 2026-10-15) — el brief original decía "-500 kcal/dia"
 - Mocks en `backend/src/__mocks__/` — tests funcionan sin infraestructura local
 - Endpoints de debug auth SOLO en staging/dev: /auth/dev/code, /auth/dev/auto-verify, /health/ai
 
