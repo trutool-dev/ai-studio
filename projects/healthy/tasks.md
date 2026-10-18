@@ -1,9 +1,29 @@
 # Tasks — Healthy App
 
 ## Estado del proyecto
-Proyecto en fase de integración. La base estructural está completa
-(schema, endpoints stub, diseño, pantallas, tests, CI/CD, RGPD).
-El foco actual es conectar las piezas y llevarlo a producción.
+> Actualizado 2026-10-18. Fuente de verdad del estado: `PROJECT_STATUS.md`.
+
+**v1.0.0 publicada** (PR #7 `f51a01c` en `main`, tag `v1.0.0`, 2026-10-17). Staging operativo (backend + landing
+`https://healthy-landing-staging.up.railway.app`). **Producción no operativa**: PostgreSQL/Redis del entorno
+production sin desplegar. Tests backend 451/454 con branches 66,34 %.
+
+### Pendientes vigentes (2026-10-18)
+
+| ID | Tarea | Responsable | Estado |
+|----|-------|-------------|--------|
+| M-21 | Rotar `JWT_SECRET` / `JWT_REFRESH_SECRET` (valores en `devops/GITHUB_SECRETS.md`) | Antonio | ❌ Pendiente — CRÍTICO |
+| A-24 | Arreglar 3 tests backend + 5 de la suite raíz y subir branches de 66,34 % a ≥ 80 % | Tests Agent | ❌ Pendiente |
+| A-25 / DO-20 | Desplegar PostgreSQL y Redis en production + migraciones + seeds | DevOps + Database | ❌ Pendiente — requiere OK |
+| A-4 | Aprobar deploy a producción de `f51a01c` en GitHub Actions | Antonio | ⏳ Esperando aprobación (depende de A-25) |
+| M-19 | Subir APK `96aedf25` a Google Play Console (Internal Testing) | Antonio | ❌ Pendiente |
+| M-22 | Confirmar región y DPA de Railway (y Gmail SMTP) en documentos RGPD | Antonio | ❌ Pendiente |
+| A-20 / DO-19 | Servicio `healthy-landing` en el entorno production | DevOps Agent | ❌ Pendiente |
+| A-26 / DO-21 | `/robots.txt` devuelve 404 (alias de nginx incorrecto) | DevOps Agent | ❌ Pendiente |
+| A-27 / DO-22 | Revisar 10 PRs de dependabot (#8–#17) con CI en rojo | DevOps Agent | ❌ Pendiente |
+| M-10 / DO-18 | Lighthouse ≥ 95 — hoy Perf 75/79, Acc 96, BP 100, SEO 100 | Frontend Agent | ⚠️ Parcial |
+| M-9 | DNS `api.healthy.app` → Railway (no resuelve) | Antonio | ❌ Pendiente |
+| M-20 / DO-11 | Dominio propio de la landing | Antonio | ❌ Pendiente |
+| M-5, M-6, A-2, A-3 | Publicación iOS | — | ⏸ Aplazado |
 
 ---
 
@@ -15,7 +35,7 @@ El foco actual es conectar las piezas y llevarlo a producción.
 | Backend     | Node.js + Express + Prisma             |
 | Base datos  | PostgreSQL + Redis                     |
 | IA          | Claude API (claude-sonnet-4-6)         |
-| Auth        | Supabase                               |
+| Auth        | JWT propio (access 15 min + refresh 30 d, bcrypt) — Supabase eliminado (`25f1359`) |
 | Landing     | HTML estático (`landing/index4.html`) — nginx en Railway |
 | Cloud       | Railway (backend, PostgreSQL, Redis, landing) |
 | CI/CD       | GitHub Actions + Expo EAS              |
@@ -65,7 +85,7 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **BE-08** Rate limiting: authLimiter (5 req/15min en `/auth/*`), apiLimiter (100 req/15min autenticados)
 - [x] **BE-09** Redis cache: planes IA, sesiones JWT, búsqueda de alimentos (6h)
 - [x] **BE-10** `GET /health` → estado real DB + Redis + timestamp + version
-- [ ] **A-15** **Bug: incluir `has_plan` en respuestas de auth** — En `login()` y `getMe()`: `prisma.plan.findFirst({ where: { user_id: user.id, status: 'active' } })` e incluir `has_plan: !!activePlan` en el objeto `user` de la respuesta. Archivo: `backend/src/controllers/auth.controller.js`. **Depende de:** nada.
+- [x] **A-15** **Bug: incluir `has_plan` en respuestas de auth** — En `login()` y `getMe()`: `prisma.plan.findFirst({ where: { user_id: user.id, status: 'active' } })` e incluir `has_plan: !!activePlan` en el objeto `user` de la respuesta. Archivo: `backend/src/controllers/auth.controller.js`. **Depende de:** nada. — ✅ implementado en `auth.controller.js` (verificado 2026-10-18)
 
 > ⚠️ Ejecutar en backend/: `npm install @anthropic-ai/sdk zod` antes de arrancar
 > ⚠️ `database/schema.prisma` actualizado con `TokenUsageLog` — requiere nueva migración
@@ -106,7 +126,7 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **FE-12** WCAG AA: colores corregidos en `theme/colors.ts`, Button.tsx fondo `#16A34A`, hitSlop en touchables, accessibilityLabel en todos los componentes
 - [x] **FE-13** TrainingScreen: WorkoutCard inProgress + ExerciseRow + RestTimer + WorkoutSummary integrados
 - [x] **FE-14** ProgressScreen: ActivityRings + RecoveryScore + MetricGrid integrados
-- [ ] **A-16** **Bug: `has_plan` siempre undefined al arrancar app** — En `loadStoredAuth()`: tras cargar tokens de SecureStore y setear `isAuthenticated: true`, llamar a `GET /auth/me`, actualizar el store y re-guardar en SecureStore. Si la llamada falla (sin red), usar el usuario guardado como fallback. Archivo: `frontend/src/stores/authStore.ts`. **Depende de:** A-15.
+- [x] **A-16** **Bug: `has_plan` siempre undefined al arrancar app** — En `loadStoredAuth()`: tras cargar tokens de SecureStore y setear `isAuthenticated: true`, llamar a `GET /auth/me`, actualizar el store y re-guardar en SecureStore. Si la llamada falla (sin red), usar el usuario guardado como fallback. Archivo: `frontend/src/stores/authStore.ts`. **Depende de:** A-15. — ✅ `loadStoredAuth` llama a `/auth/me` (`ce0bb6f`, verificado 2026-10-18)
 
 **Dependencias:** BE-01..BE-09, DS-01..DS-10
 
@@ -141,6 +161,8 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **TS-06** Añadir tests de integración para endpoints de nutrición y progreso — `tests/integration/nutrition.test.js` + `tests/integration/progress.test.js`
 - [x] **TS-07** Configurar informe de cobertura en CI y fallar el pipeline si cae del 80 % — `.github/workflows/tests.yml` creado
 - [~] **TS-08** Tests de carga básicos en los endpoints más pesados (generación de plan IA) — `tests/load/planGeneration.js` + `tests/LOAD_TEST_REPORT.md` — **DIFERIDO por decisión del usuario (2026-07-14): requiere backend levantado localmente; se ejecutará en v1.1.0 post-release**
+
+- [ ] **A-24** Tests rotos y cobertura — backend 451/454 (fallan `auth.controller.branches` › `me` y 2 de `exerciseSelector`), suite raíz 256/261 (además `app.branches` CORS ×2 y `onboarding.controller.branches` ×2). Branches 66,34 % (< 80 %): faltan tests de ramas para A-6, SEC-01..24 y N-1..N-3 (verificado 2026-10-18)
 
 **Dependencias:** BE-01..BE-09, AI-01..AI-07 (para tests de integración reales)
 
@@ -177,11 +199,14 @@ El foco actual es conectar las piezas y llevarlo a producción.
 - [x] **DO-08** Crear `devops/BACKUP_STRATEGY.md` con backups de PostgreSQL en Railway, backup pre-deploy, procedimiento de restauración y workflow `db-backup.yml` (cron: domingo 02:00 UTC)
 - [x] **DO-09** Crear `landing/Dockerfile` + `nginx.conf.template` + `.dockerignore`: nginx sirve `index4.html` en `/` con `public/` (images, videos, frames), puerto `${PORT}` de Railway, caché y cabeceras de seguridad
 - [x] **DO-10** Crear servicio Railway `healthy-landing` (root `projects/healthy/landing`, builder Dockerfile) y primer deploy — ✅ 2026-10-14, entorno staging: https://healthy-landing-staging.up.railway.app (subido con `railway up`)
-- [ ] **DO-11** Configurar dominio propio de la landing en Railway (Custom Domain) + CNAME en el proveedor DNS
-- [ ] **DO-12** Deploy automático de la landing: servicio Railway conectado a GitHub, redeploy en push con cambios en `projects/healthy/landing/`
-- [ ] **DO-18** Landing con Lighthouse ≥ 95 en móvil y escritorio — 2026-10-14: móvil 34/90/100/92, escritorio 74/90/100/92 (Perf/Acc/BP/SEO). Ver A-18 en `PROJECT_STATUS.md`
-- [ ] **DO-19** Servicio `healthy-landing` en el entorno production de Railway (tras merge a `main`)
+- [ ] **DO-11** Configurar dominio propio de la landing en Railway (Custom Domain) + CNAME en el proveedor DNS — pendiente: solo dominio `*.up.railway.app` (verificado 2026-10-18)
+- [x] **DO-12** Deploy automático de la landing: `.github/workflows/deploy-landing.yml` despliega `healthy-landing` (staging) en push a `develop` con cambios en `projects/healthy/landing/**` — ✅ A-19, último run OK 2026-10-17
+- [ ] **DO-18** Landing con Lighthouse ≥ 95 en móvil y escritorio — 2026-10-18 (staging, código `e5f32c2`): móvil 75/96/100/100, escritorio 79/96/100/100 (Perf/Acc/BP/SEO). Antes: 34/90/100/92 y 74/90/100/92. Falta: comprimir vídeos (~64 MB) y `portada.jpg` (1,6 MB), 1 texto con contraste 4,47
+- [ ] **DO-19** Servicio `healthy-landing` en el entorno production de Railway (tras merge a `main`) — desbloqueada; en production no existe aún (verificado 2026-10-18)
 - [x] **DO-13** Cabeceras de seguridad de la landing en nginx: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
+- [ ] **DO-20** (A-25) Desplegar PostgreSQL y Redis en el entorno production de Railway, configurar `DATABASE_URL`/`REDIS_URL` en `ai-studio`, `prisma migrate deploy` y seeds — hoy `/health` de producción → 503 `db: error, redis: error`
+- [ ] **DO-21** (A-26) Corregir `location = /robots.txt` en `landing/nginx.conf.template` (el `alias` apunta a `public/robots.txt`, que no existe en la imagen) y crear `sitemap.xml` o quitarlo de `robots.txt`
+- [ ] **DO-22** (A-27) Revisar las 10 PRs de dependabot (#8–#17): mergear menores con CI verde; planificar las mayores (`@anthropic-ai/sdk` 0.52→0.133, `expo-secure-store` 15→58, `tailwindcss` 3→4, `dotenv` 16→18)
 
 **Dependencias:** SEC-01 (variables de entorno auditadas antes de configurar CI); DO-09 antes de DO-10 antes de DO-11 antes de DO-12
 
@@ -248,18 +273,20 @@ Fase 5 — DevOps + Docs (en paralelo, dependen de Fase 3 y 4)
 
 ## Métricas de éxito
 
-- [x] Cobertura de tests ≥ 80 % — 89.18 % (317/317 tests, verificado 2026-08-28)
+- [ ] Cobertura de tests ≥ 80 % — ⚠️ regresión: líneas 86,87 % pero branches 66,34 % y 3 tests fallando (verificado 2026-10-18; antes 89,18 % el 2026-08-28). Ver A-24
 - [~] Tiempo de respuesta API < 500 ms (p95) — DIFERIDO (decisión del usuario, 2026-07-14): load tests excluidos del gate v1.0.0; se medirán en producción tras go-live
-- [ ] App publicada en TestFlight y Google Play Internal
+- [ ] App publicada en TestFlight y Google Play Internal — iOS ⏸ aplazado; Android pendiente de subida manual (M-19)
 - [x] Auditoría RGPD sin hallazgos críticos — verificado 2026-07-07: 0 CRÍTICOS, 0 ALTOS abiertos (VUL-2026-001/002/004 resueltos; VUL-006/007 aceptados documentados)
 - [x] Pipeline CI/CD verde en rama `develop` — RAILWAY_ENVIRONMENT_ID configurado en deploy.yml; staging green (2026-07-07)
 - [x] Modo oscuro funcional en todas las pantallas
-- [ ] Landing publicada en producción con SSL, dominio propio y score Lighthouse ≥ 95
-- [ ] Pipeline de despliegue de landing operativo (servicio Railway `healthy-landing`)
+- [ ] Landing publicada en producción con SSL, dominio propio y score Lighthouse ≥ 95 — solo en staging (SSL ✅), sin dominio propio, Lighthouse Perf 75/79
+- [x] Pipeline de despliegue de landing operativo — `deploy-landing.yml` → `healthy-landing` (staging). Producción pendiente (DO-19)
 
 ---
 
 ## PRs hacia v1.0.0
+
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
 
 > Estas PRs son la hoja de ruta final para llevar Healthy a producción.
 > El orquestador coordina; cada agente trabaja exclusivamente en su carpeta asignada.
@@ -331,11 +358,11 @@ backend/src/utils/prismaClient.js               (ELIMINAR)
 
 #### Criterios de aceptación (merge gate)
 
-- [ ] `npm test` en `backend/` pasa al 100 % (ningún test roto)
+- [ ] `npm test` en `backend/` pasa al 100 % (ningún test roto) — ❌ hoy 451/454 (A-24)
 - [ ] `GET /health` devuelve `200 {"success": true}`
 - [ ] Flujo auth completo funciona: `register → verify-email → set-password → login → me → logout`
 - [ ] No existe ningún `import` o `require` apuntando a los archivos eliminados (verificar con `grep -r "authController\|logsController\|emailService\|prismaClient" backend/src`)
-- [ ] `response.util.js` exporta las 8 funciones (2 originales + 6 nuevas)
+- [x] `response.util.js` exporta las 8 funciones (2 originales + 6 nuevas) (verificado 2026-10-18)
 
 #### Dependencias
 
@@ -374,7 +401,7 @@ database/ERD.md                                                 (MODIFICAR — a
 - [ ] `npx prisma migrate status` muestra todas las migraciones como `Applied`
 - [ ] `npx prisma validate` sin errores
 - [ ] `npx ts-node database/seed.ts` ejecuta sin errores
-- [ ] `database/MIGRATION_LOG.md` documenta la migración con procedimiento de rollback
+- [x] `database/MIGRATION_LOG.md` documenta la migración con procedimiento de rollback (verificado 2026-10-18)
 - [ ] `database/ERD.md` actualizado con los nuevos campos
 
 #### Dependencias
@@ -465,8 +492,8 @@ backend/src/routes/logs.routes.js            (REVISAR)
 
 #### Criterios de aceptación (merge gate)
 
-- [ ] `middleware/validate.js` no existe en el repositorio
-- [ ] `grep -r "validate.js" backend/src` devuelve 0 resultados
+- [x] `middleware/validate.js` no existe en el repositorio (verificado 2026-10-18)
+- [x] `grep -r "validate.js" backend/src` devuelve 0 resultados (verificado 2026-10-18)
 - [ ] Todos los tests de integración de auth pasan: `tests/integration/auth.test.js`
 - [ ] Los errores de validación devuelven `400` con `error: 'VALIDATION_ERROR'` en todos los endpoints
 - [ ] `npm test` en `backend/` pasa al 100 %
@@ -559,9 +586,9 @@ docs/LIGHTHOUSE_FINAL.md        (CREAR — resultados Lighthouse finales)
 - [ ] Landing Lighthouse ≥ 95 en los 4 indicadores (evidencia: `docs/LIGHTHOUSE_FINAL.md`)
 - [ ] Sin hallazgos de seguridad `CRITICAL` o `HIGH` abiertos en `security/SECURITY_AUDIT.md`
 - [ ] Migración Prisma aplicada en producción (`prisma migrate status` muestra `Applied`)
-- [ ] App disponible en TestFlight (iOS)
+- [ ] ⏸ App disponible en TestFlight (iOS) — aplazado
 - [ ] App disponible en Google Play Internal Testing (Android)
-- [ ] Tag `v1.0.0` creado y visible en el repositorio
+- [x] Tag `v1.0.0` creado y visible en el repositorio (2026-10-17)
 - [ ] `tasks.md` con todas las métricas de éxito marcadas `[x]`
 
 #### Dependencias
@@ -589,6 +616,8 @@ docs/LIGHTHOUSE_FINAL.md        (CREAR — resultados Lighthouse finales)
 ---
 
 ## Fase 6 — Deploy & Go-live
+
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
 
 > Generada por el orquestador el 2026-07-04.
 > Esta fase recoge las tareas operativas necesarias para completar el primer deploy a Railway staging y alcanzar el go-live v1.0.0.
@@ -742,7 +771,7 @@ En el proyecto `healthy-staging`, servicio backend (ID `fa137c98-5210-4057-a531-
 
 #### Criterios de aceptación
 
-- [ ] Las 6 variables (`SUPABASE_URL`, `SUPABASE_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) están configuradas en Railway staging
+- [ ] ~~Las 6 variables (`SUPABASE_URL`, `SUPABASE_KEY`, …)~~ — obsoleto: Supabase eliminado del backend (`25f1359`); SMTP sigue sin configurar en staging
 - [ ] El servicio Railway arranca sin crashloop (logs sin `Missing env var` o errores de conexión Supabase/SMTP)
 - [ ] `GET <url-staging>/health` devuelve `200` con `"db": "ok"` y `"redis": "ok"` (si Redis está configurado)
 - [ ] `devops/RAILWAY_VARS_STATUS.md` documenta el estado de configuración
@@ -814,7 +843,7 @@ Redis fue marcado como no-bloqueante en el healthcheck para no bloquear el deplo
 
 #### Criterios de aceptación
 
-- [ ] `GET https://backend-staging-01ee.up.railway.app/health` devuelve `"redis":"connected"` (o `"ok"`)
+- [x] `GET https://backend-staging-01ee.up.railway.app/health` devuelve `"redis":"connected"` (o `"ok"`) (verificado 2026-10-18)
 - [ ] El servicio backend arranca sin errores de Redis en los logs de Railway
 - [ ] `devops/RAILWAY_VARS_STATUS.md` actualizado con el estado de `REDIS_URL`
 
@@ -913,10 +942,10 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 - [ ] Cobertura de tests ≥ 80 % (evidencia en `docs/LOAD_TEST_FINAL.md`)
 - [ ] API p95 < 500 ms (evidencia en `docs/LOAD_TEST_FINAL.md`)
 - [ ] Landing Lighthouse ≥ 95 en los 4 indicadores (evidencia en `docs/LIGHTHOUSE_FINAL.md`)
-- [ ] App disponible en TestFlight (iOS)
+- [ ] ⏸ App disponible en TestFlight (iOS) — aplazado
 - [ ] App disponible en Google Play Internal Testing (Android)
 - [ ] Sin hallazgos CRITICAL o HIGH abiertos en security
-- [ ] Tag `v1.0.0` creado y visible en el repositorio
+- [x] Tag `v1.0.0` creado y visible en el repositorio (2026-10-17)
 - [ ] Workflow `eas-submit.yml` disparado y completado correctamente
 - [ ] `tasks.md` con todas las métricas de éxito marcadas `[x]`
 - [ ] `ORCHESTRATOR_STATUS.log` cerrado con reporte final
@@ -946,6 +975,8 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 ---
 
 ## Fase 7 — Documentación de arquitectura e infraestructura
+
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
 
 > Solicitada el 2026-07-05. La documentación existe pero está desactualizada respecto a la infraestructura real.
 
@@ -1043,6 +1074,8 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 
 ## Plan de distribución — Estado a 2026-07-07
 
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
+
 > Generado por el orquestador. Staging VERDE. Backend responde en `https://backend-staging-01ee.up.railway.app/health`.
 
 ### Estado de tareas Fase 6
@@ -1139,6 +1172,8 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 
 ## Fase 8 — Estado go-live a 2026-07-07
 
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
+
 > Actualizado por el orquestador el 2026-07-07.
 
 ### Estado de criterios go-live (TAREA-9 / PR-6)
@@ -1166,6 +1201,8 @@ Esta tarea solo se ejecuta cuando TAREA-2, TAREA-4, TAREA-5, TAREA-7 y TAREA-8 e
 ---
 
 ## Fase 10 — Integración dataset de ejercicios reales
+
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
 
 > Generada por el orquestador el 2026-08-28.
 > Objetivo: integrar un dataset de 1.324 ejercicios reales en la aplicación de forma que Claude genere planes
@@ -1497,6 +1534,8 @@ Sin el schema actualizado y la migración aplicada, ningún otro agente puede av
 ---
 
 ## Fase 9 — Estado orquestador a 2026-07-14
+
+> 📦 **Histórico (junio–agosto 2026).** Estas PRs/tareas se cerraron y v1.0.0 se publicó (PR #7, tag `v1.0.0`). Las casillas de esta sección no se mantienen; el estado vigente está en «Pendientes vigentes» arriba y en `PROJECT_STATUS.md`.
 
 > Actualizado por el orquestador el 2026-07-14.
 
