@@ -482,18 +482,74 @@ const me = async (req, res, next) => {
   }
 };
 
-/** GET /auth/dev/code?email=xxx — solo funciona en NODE_ENV !== production */
-const getDevCode = async (req, res, next) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(404).json({ success: false });
+// ─── Endpoints de desarrollo (SEC-30 / SA-04) ────────────────
+//
+// Deshabilitados por defecto (fail-closed). Solo responden si se cumplen TODAS:
+//   - ENABLE_DEV_ENDPOINTS === 'true'
+//   - NODE_ENV en DEV_ENDPOINTS_ENVS (development | staging | test; nunca production)
+//   - DEV_ENDPOINTS_TOKEN (o, en su defecto, ADMIN_TOKEN) con >= 32 caracteres
+//   - cabecera X-Dev-Token (o X-Admin-Token) igual al token, en tiempo constante
+//   - email dentro de DEV_ENDPOINTS_EMAIL_DOMAINS (por defecto solo test.healthy.com)
+// En cualquier otro caso responden 404, igual que una ruta inexistente.
+
+const DEV_ENDPOINTS_ENVS = ['development', 'staging', 'test'];
+const MIN_DEV_TOKEN_LENGTH = 32;
+const DEFAULT_DEV_EMAIL_DOMAINS = 'test.healthy.com';
+
+function getDevEndpointsToken() {
+  return process.env.DEV_ENDPOINTS_TOKEN || process.env.ADMIN_TOKEN || '';
+}
+
+/** true solo si la bandera, el entorno y el token cumplen la allowlist. */
+function devEndpointsEnabled() {
+  return process.env.ENABLE_DEV_ENDPOINTS === 'true'
+    && DEV_ENDPOINTS_ENVS.includes(process.env.NODE_ENV)
+    && getDevEndpointsToken().length >= MIN_DEV_TOKEN_LENGTH;
+}
+
+/** Compara dos secretos en tiempo constante (vía SHA-256 para igualar longitudes). */
+function safeEqualSecret(provided, expected) {
+  if (typeof provided !== 'string' || !provided || !expected) return false;
+  const a = crypto.createHash('sha256').update(provided).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function isDevEmailAllowed(email) {
+  const domains = (process.env.DEV_ENDPOINTS_EMAIL_DOMAINS || DEFAULT_DEV_EMAIL_DOMAINS)
+    .split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
+  const domain = String(email || '').toLowerCase().split('@')[1] || '';
+  return domains.includes(domain);
+}
+
+const sendDevNotFound = (res) => sendError(res, 'NOT_FOUND', 'Ruta no encontrada', 404);
+
+/** Middleware de guarda para /auth/dev/*: 404 si no está habilitado o el token no coincide. */
+const requireDevEndpoints = (req, res, next) => {
+  if (!devEndpointsEnabled()) return sendDevNotFound(res);
+  const provided = req.headers['x-dev-token'] || req.headers['x-admin-token'];
+  if (!safeEqualSecret(provided, getDevEndpointsToken())) {
+    logger.warn('[auth/dev] Acceso a endpoint dev con token ausente o inválido');
+    return sendDevNotFound(res);
   }
+  return next();
+};
+
+/**
+ * POST /auth/dev/code — body { email }. Emite un OTP nuevo (invalida los anteriores)
+ * y lo devuelve; los OTP se guardan con HMAC y no se pueden leer de la BD.
+ */
+const getDevCode = async (req, res, next) => {
+  // Defensa en profundidad: la guarda también se comprueba aquí
+  if (!devEndpointsEnabled()) return sendDevNotFound(res);
   try {
-    const { email } = req.query;
+    const { email } = req.body;
     if (!email) return sendError(res, 'VALIDATION_ERROR', 'email requerido', 400);
+    if (!isDevEmailAllowed(email)) return sendError(res, 'FORBIDDEN', 'Email fuera del dominio de pruebas', 403);
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return sendError(res, 'NOT_FOUND', 'Usuario no encontrado', 404);
-    // Los OTP se guardan con HMAC: no se puede leer el vigente, se emite uno nuevo (invalida los anteriores)
     const code = await issueVerificationCode(user);
+    logger.info(`[auth/dev] OTP emitido por endpoint dev: ${user.id}`);
     return sendSuccess(res, { code }, 'Código (solo staging/dev)');
   } catch (err) {
     next(err);
@@ -501,27 +557,22 @@ const getDevCode = async (req, res, next) => {
 };
 
 /**
- * POST /auth/dev/auto-verify — verifica email y crea contraseña en un solo paso.
- * Solo funciona en NODE_ENV !== production.
+ * POST /auth/dev/auto-verify — body { email, password }. Verifica el email y fija
+ * la contraseña en un solo paso. Ya no hay contraseña por defecto.
  */
 const devAutoVerify = async (req, res, next) => {
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(404).json({ success: false });
-  }
+  if (!devEndpointsEnabled()) return sendDevNotFound(res);
   try {
-    const { email, password = 'EvalTest2026!' } = req.body;
-    if (!email) return sendError(res, 'VALIDATION_ERROR', 'email requerido', 400);
+    const { email, password } = req.body;
+    if (!email || !password) return sendError(res, 'VALIDATION_ERROR', 'email y password requeridos', 400);
+    if (!isDevEmailAllowed(email)) return sendError(res, 'FORBIDDEN', 'Email fuera del dominio de pruebas', 403);
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return sendError(res, 'NOT_FOUND', 'Usuario no encontrado', 404);
 
-    // Invalidar códigos anteriores
-    await prisma.verificationCode.updateMany({
-      where: { user_id: user.id, type: 'email_verification', used_at: null },
-      data: { used_at: new Date() },
-    });
+    await invalidatePendingCodes(user.id, OTP_TYPE_VERIFY);
+    await invalidatePendingCodes(user.id, OTP_TYPE_SETUP);
 
-    // Establecer contraseña y marcar email como verificado en un solo update
     const password_hash = await hashPassword(password);
     await prisma.user.update({
       where: { id: user.id },
@@ -535,4 +586,7 @@ const devAutoVerify = async (req, res, next) => {
   }
 };
 
-module.exports = { register, verifyEmail, resendCode, setPassword, login, forgotPassword, resetPassword, logout, refresh, me, getDevCode, devAutoVerify };
+module.exports = {
+  register, verifyEmail, resendCode, setPassword, login, forgotPassword, resetPassword,
+  logout, refresh, me, getDevCode, devAutoVerify, requireDevEndpoints,
+};

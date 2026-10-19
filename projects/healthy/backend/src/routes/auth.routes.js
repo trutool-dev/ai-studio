@@ -52,9 +52,13 @@ router.post('/refresh',
   [body('refresh_token').notEmpty().withMessage('Refresh token requerido')],
   validate, ctrl.refresh);
 
-// Debug — solo staging/dev (el controlador lo bloquea en NODE_ENV=production)
-router.get('/dev/code', ctrl.getDevCode);
-router.post('/dev/auto-verify', [body('email').isEmail()], validate, ctrl.devAutoVerify);
+// Debug — SEC-30 (SA-04): deshabilitados por defecto (404). Requieren ENABLE_DEV_ENDPOINTS=true,
+// NODE_ENV en allowlist y cabecera X-Dev-Token. El email va en el body, nunca en la query (SA-22).
+router.post('/dev/code', ctrl.requireDevEndpoints,
+  [body('email').isEmail()], validate, ctrl.getDevCode);
+router.post('/dev/auto-verify', ctrl.requireDevEndpoints,
+  [body('email').isEmail(), body('password').isLength({ min: 8 }).withMessage('Mínimo 8 caracteres')],
+  validate, ctrl.devAutoVerify);
 
 // Rutas protegidas
 router.post('/logout', authenticate, ctrl.logout);
