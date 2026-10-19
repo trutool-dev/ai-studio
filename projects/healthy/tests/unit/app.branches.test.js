@@ -24,6 +24,13 @@ jest.mock('../../backend/src/services/redis.service', () => ({
   disconnect: jest.fn(),
 }));
 
+// Prisma siempre simulado: sin este mock, la suite raíz (sin moduleNameMapper)
+// cargaba el cliente real e intentaba conectar con la BD de DATABASE_URL, lo que
+// provocaba timeouts (y conexiones a una BD real) en los tests de CORS.
+jest.mock('../../backend/src/prisma/client', () => ({
+  $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+}));
+
 const request = require('supertest');
 
 // ─── CORS branches ────────────────────────────────────────────────────────────
@@ -48,8 +55,9 @@ describe('app.js — CORS branches', () => {
       .get('/health')
       .set('Origin', 'https://allowed-origin.com');
 
-    // Debe responder (no bloqueado por CORS)
-    expect(res.status).not.toBe(0);
+    // Debe responder (no bloqueado por CORS) con la cabecera de origen permitido
+    expect(res.status).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('https://allowed-origin.com');
   });
 
   test('bloquea origen no permitido (callback con Error)', async () => {
@@ -57,16 +65,17 @@ describe('app.js — CORS branches', () => {
       .get('/health')
       .set('Origin', 'https://not-allowed-origin.com');
 
-    // supertest con CORS blocked devuelve 500 o el error de CORS
-    // Lo importante es que la request se procesa sin crashear el test
-    expect([200, 403, 500]).toContain(res.status);
+    // Origen rechazado por CORS → 403 explícito (antes caía en el errorHandler como 500)
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('CORS_NOT_ALLOWED');
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   test('permite requests sin Origin (apps móviles, Postman)', async () => {
     const res = await request(app)
       .get('/health');
     // Sin header Origin → debe pasar (branch !origin → callback(null, true))
-    expect([200, 503]).toContain(res.status);
+    expect(res.status).toBe(200);
   });
 });
 

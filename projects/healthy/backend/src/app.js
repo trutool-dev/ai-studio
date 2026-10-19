@@ -15,10 +15,20 @@ const userRoutes = require('./routes/user.routes');
 const exercisesRoutes = require('./routes/exercises.routes');
 const errorHandler = require('./middleware/errorHandler.middleware');
 const { apiLimiter } = require('./middleware/rateLimiter.middleware');
+const { authenticate } = require('./middleware/auth.middleware');
+const { preAuthIpLimiter } = require('./middleware/platformRateLimit.middleware');
+const { parseTrustProxy } = require('./config/env');
+const { sendError } = require('./utils/response.util');
 const prisma = require('./prisma/client');
 const redis = require('./services/redis.service');
 
 const app = express();
+
+// SEC-32 (SA-06/JB-07): confiar solo en N saltos de proxy para que req.ip sea la IP
+// real del cliente (clave de los rate limiters). Por defecto 1 = el proxy/edge de
+// Railway. Se configura con TRUST_PROXY (entero 0-10). Nunca `true`: haría que
+// X-Forwarded-For fuese falsificable y permitiría eludir los límites.
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 
 // Seguridad y utilidades
 
@@ -42,14 +52,22 @@ app.use(helmet({
 
 // CORS sin fallback a '*': solo orígenes explícitamente permitidos
 // Permite requests sin origin (apps móviles, Postman en desarrollo)
+const CORS_REJECTED = 'CORS_NOT_ALLOWED';
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = (process.env.FRONTEND_URL || '').split(',').filter(Boolean);
+    const allowed = (process.env.FRONTEND_URL || '').split(',').map((o) => o.trim()).filter(Boolean);
     if (!origin || allowed.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    const err = new Error('Not allowed by CORS');
+    err.code = CORS_REJECTED;
+    return callback(err);
   },
   credentials: true,
 }));
+// Origen rechazado por CORS → 403 (antes acababa como 500 en el errorHandler)
+app.use((err, _req, res, next) => {
+  if (err && err.code === CORS_REJECTED) return sendError(res, 'CORS_NOT_ALLOWED', 'Origen no permitido', 403);
+  return next(err);
+});
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '50kb' })); // SEC-12: límite reducido de 10mb a 50kb
 app.use(express.urlencoded({ extended: true }));
@@ -116,27 +134,30 @@ app.get('/health', async (_req, res) => {
 // Rutas de la API
 // ─────────────────────────────────────────────────────────────
 
-// Rate limiting global para todas las rutas autenticadas (SEC-06)
-app.use('/onboarding', apiLimiter);
-app.use('/plans', apiLimiter);
-app.use('/training', apiLimiter);
-app.use('/nutrition', apiLimiter);
-app.use('/progress', apiLimiter);
-app.use('/logs', apiLimiter);
-app.use('/foods', apiLimiter);
-app.use('/user', apiLimiter);
-app.use('/exercises', apiLimiter);
+// SEC-32 (SA-06/JB-07): orden de middlewares en las rutas autenticadas:
+//   1. preAuthIpLimiter → límite por IP antes de autenticar (ráfagas anónimas / tokens inválidos)
+//   2. authenticate     → rellena req.user
+//   3. apiLimiter       → límite por usuario (keyGenerator usa req.user.userId)
+// Los routers vuelven a llamar a `authenticate` internamente (defensa en profundidad).
+const authenticatedRoutes = [
+  ['/onboarding', onboardingRoutes],
+  ['/plans', plansRoutes],
+  ['/training', trainingRoutes],
+  ['/nutrition', nutritionRoutes],
+  ['/progress', progressRoutes],
+  ['/logs', logsRoutes],
+  ['/foods', foodsRoutes],
+  ['/user', userRoutes],
+  ['/exercises', exercisesRoutes],
+];
 
-app.use('/auth', authRoutes);
-app.use('/onboarding', onboardingRoutes);
-app.use('/plans', plansRoutes);
-app.use('/training', trainingRoutes);
-app.use('/nutrition', nutritionRoutes);
-app.use('/progress', progressRoutes);
-app.use('/logs', logsRoutes);
-app.use('/foods', foodsRoutes);
-app.use('/user', userRoutes);
-app.use('/exercises', exercisesRoutes);
+// Rutas públicas de autenticación: solo límite por IP (los limitadores específicos
+// de login/registro/etc. están dentro de auth.routes.js)
+app.use('/auth', preAuthIpLimiter, authRoutes);
+
+for (const [path, router] of authenticatedRoutes) {
+  app.use(path, preAuthIpLimiter, authenticate, apiLimiter, router);
+}
 
 // Ruta no encontrada (404)
 app.use((_req, res) => {
