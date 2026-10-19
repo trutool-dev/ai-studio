@@ -16,9 +16,11 @@ const exercisesRoutes = require('./routes/exercises.routes');
 const errorHandler = require('./middleware/errorHandler.middleware');
 const { apiLimiter } = require('./middleware/rateLimiter.middleware');
 const { authenticate } = require('./middleware/auth.middleware');
-const { preAuthIpLimiter } = require('./middleware/platformRateLimit.middleware');
+const { preAuthIpLimiter, aiHealthLimiter } = require('./middleware/platformRateLimit.middleware');
 const { parseTrustProxy } = require('./config/env');
-const { sendError } = require('./utils/response.util');
+const { sendSuccess, sendError } = require('./utils/response.util');
+const { safeEqual } = require('./utils/crypto.util');
+const logger = require('./utils/logger.util');
 const prisma = require('./prisma/client');
 const redis = require('./services/redis.service');
 
@@ -76,29 +78,60 @@ app.use(express.urlencoded({ extended: true }));
 // Health check (BE-10)
 // ─────────────────────────────────────────────────────────────
 
-// Diagnóstico temporal de API key (solo staging/dev) — SEC-19: sin key_prefix, con auth token
-app.get('/health/ai', async (_req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ success: false });
-  // Requiere token de admin si está configurado
+// ─── /health/ai — diagnóstico de la API key de Anthropic (SEC-39 / SA-15 + JB-08) ───
+// Deshabilitado por defecto (fail-closed). Solo se habilita si se cumplen TODAS:
+//   - ENABLE_DEV_ENDPOINTS === 'true' (misma bandera que los endpoints dev de /auth)
+//   - NODE_ENV en AI_HEALTHCHECK_ENVS (nunca production)
+//   - ADMIN_TOKEN definido con al menos 32 caracteres
+// Si no, responde 404 igual que una ruta inexistente. Con el endpoint habilitado:
+// rate limit estricto por IP (5/h), cabecera X-Admin-Token obligatoria comparada en
+// tiempo constante, y sin devolver err.message / err.status del SDK al cliente.
+const AI_HEALTHCHECK_ENVS = ['development', 'test', 'staging'];
+const MIN_ADMIN_TOKEN_LENGTH = 32;
+
+function isAdminTokenConfigured() {
   const adminToken = process.env.ADMIN_TOKEN;
-  if (adminToken && _req.headers['x-admin-token'] !== adminToken) {
-    return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
-  }
-  const keySet = !!process.env.ANTHROPIC_API_KEY;
-  try {
-    const Anthropic = require('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const r = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 10,
-      system: 'Responde solo "OK".',
-      messages: [{ role: 'user', content: 'ping' }],
-    });
-    return res.json({ success: true, key_set: keySet, model_response: r.content[0].text });
-  } catch (err) {
-    return res.json({ success: false, key_set: keySet, error: err.message, status: err.status });
-  }
-});
+  return typeof adminToken === 'string' && adminToken.length >= MIN_ADMIN_TOKEN_LENGTH;
+}
+
+function hasValidAdminToken(req) {
+  if (!isAdminTokenConfigured()) return false;
+  return safeEqual(req.get('x-admin-token') || '', process.env.ADMIN_TOKEN);
+}
+
+function isAiHealthcheckEnabled() {
+  return process.env.ENABLE_DEV_ENDPOINTS === 'true'
+    && AI_HEALTHCHECK_ENVS.includes(process.env.NODE_ENV)
+    && isAdminTokenConfigured();
+}
+
+const sendRouteNotFound = (res) => sendError(res, 'NOT_FOUND', 'Ruta no encontrada', 404);
+
+app.get('/health/ai',
+  (_req, res, next) => (isAiHealthcheckEnabled() ? next() : sendRouteNotFound(res)),
+  aiHealthLimiter,
+  async (req, res) => {
+    if (!hasValidAdminToken(req)) {
+      logger.warn(`[health/ai] Token de admin inválido desde ${req.ip}`);
+      return sendError(res, 'UNAUTHORIZED', 'No autorizado', 401);
+    }
+    const keySet = !!process.env.ANTHROPIC_API_KEY;
+    try {
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        system: 'Responde solo "OK".',
+        messages: [{ role: 'user', content: 'ping' }],
+      });
+      return sendSuccess(res, { key_set: keySet, ai: 'ok' }, 'API de IA operativa');
+    } catch (err) {
+      // El detalle del proveedor solo va al log del servidor, nunca al cliente
+      logger.warn(`[health/ai] Fallo al llamar a la API de IA (status ${err && err.status ? err.status : 'n/a'})`);
+      return sendError(res, 'AI_UNAVAILABLE', 'La API de IA no está disponible', 503);
+    }
+  });
 
 app.get('/health', async (_req, res) => {
   let dbStatus = 'connected';
