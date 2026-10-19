@@ -6,7 +6,32 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+// URL por defecto solo para desarrollo local
+const DEV_DEFAULT_API_URL = 'http://localhost:3000';
+
+/**
+ * SEC-65 (SA-30): resuelve la URL base de la API.
+ * - En producción (`!__DEV__`) exige `EXPO_PUBLIC_API_URL` con `https://`; sin fallback a HTTP.
+ * - En desarrollo se permite `http://` (localhost / IP local) y el fallback a localhost.
+ * Si la configuración no es segura se lanza un error al cargar el módulo: preferimos que la
+ * build falle de forma visible antes que enviar tokens y datos de salud en claro.
+ */
+export function resolveApiBaseUrl(rawUrl: string | undefined, isDev: boolean): string {
+  const url = rawUrl?.trim();
+  if (!url) {
+    if (isDev) return DEV_DEFAULT_API_URL;
+    throw new Error('EXPO_PUBLIC_API_URL is required in production builds');
+  }
+  if (!isDev && !/^https:\/\//i.test(url)) {
+    throw new Error('EXPO_PUBLIC_API_URL must use https:// in production builds');
+  }
+  if (isDev && !/^https?:\/\//i.test(url)) {
+    throw new Error('EXPO_PUBLIC_API_URL must start with http:// or https://');
+  }
+  return url.replace(/\/+$/, '');
+}
+
+const BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL, __DEV__);
 
 // Referencia circular: importamos el store en tiempo de ejecución para evitar ciclos
 let _getAccessToken: () => string | null = () => null;
