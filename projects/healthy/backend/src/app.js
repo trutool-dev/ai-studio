@@ -16,7 +16,7 @@ const exercisesRoutes = require('./routes/exercises.routes');
 const errorHandler = require('./middleware/errorHandler.middleware');
 const { apiLimiter } = require('./middleware/rateLimiter.middleware');
 const { authenticate } = require('./middleware/auth.middleware');
-const { preAuthIpLimiter, aiHealthLimiter } = require('./middleware/platformRateLimit.middleware');
+const { preAuthIpLimiter, aiHealthLimiter, healthLimiter } = require('./middleware/platformRateLimit.middleware');
 const { parseTrustProxy } = require('./config/env');
 const { sendSuccess, sendError } = require('./utils/response.util');
 const { safeEqual } = require('./utils/crypto.util');
@@ -133,7 +133,12 @@ app.get('/health/ai',
     }
   });
 
-app.get('/health', async (_req, res) => {
+// ─── /health — healthcheck (SEC-71 / VUL-2026-017, B-02) ───
+// Público y mínimo: solo { status: ok|degraded }, sin versión ni detalle de BD/Redis.
+// El detalle (timestamp, versión, db, redis) solo se devuelve con X-Admin-Token válido.
+// Railway (railway.toml healthcheckPath) y el HEALTHCHECK del Dockerfile usan esta ruta:
+// se mantiene 200 si la BD responde y 503 si no (Redis es caché y no bloquea).
+app.get('/health', healthLimiter, async (req, res) => {
   let dbStatus = 'connected';
   let redisStatus = 'connected';
 
@@ -150,15 +155,16 @@ app.get('/health', async (_req, res) => {
   }
 
   const healthy = dbStatus === 'connected'; // Redis es caché — no bloquea el healthcheck
+  const data = { status: healthy ? 'ok' : 'degraded' };
+  if (hasValidAdminToken(req)) {
+    data.timestamp = new Date().toISOString();
+    data.version = process.env.npm_package_version || '1.0.0';
+    data.db = dbStatus;
+    data.redis = redisStatus;
+  }
   return res.status(healthy ? 200 : 503).json({
     success: healthy,
-    data: {
-      status: healthy ? 'ok' : 'degraded',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.0.0',
-      db: dbStatus,
-      redis: redisStatus,
-    },
+    data,
     message: healthy ? 'Servidor operativo' : 'El servidor tiene problemas',
   });
 });

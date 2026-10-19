@@ -202,3 +202,74 @@ describe('aiHealthLimiter — límite estricto', () => {
     expect(typeof limiters.sensitiveActionLimiter).toBe('function');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// /health (SEC-71)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('GET /health — público mínimo', () => {
+  test('BD OK → 200 con solo { status: "ok" } (sin versión, BD ni Redis)', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toEqual({ status: 'ok' });
+  });
+
+  test('BD caída → 503 con { status: "degraded" } (código usado por el healthcheck de Railway)', async () => {
+    mockQueryRaw.mockRejectedValue(new Error('Connection refused'));
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(503);
+    expect(res.body.data).toEqual({ status: 'degraded' });
+  });
+
+  test('Redis caído no bloquea → 200', async () => {
+    mockPing.mockRejectedValue(new Error('Redis down'));
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ status: 'ok' });
+  });
+
+  test('token de admin incorrecto → sin detalle', async () => {
+    process.env.ADMIN_TOKEN = ADMIN;
+    const res = await request(app).get('/health').set('X-Admin-Token', 'x'.repeat(40));
+    expect(res.body.data).toEqual({ status: 'ok' });
+  });
+
+  test('sin ADMIN_TOKEN configurado, ninguna cabecera da detalle', async () => {
+    const res = await request(app).get('/health').set('X-Admin-Token', '');
+    expect(res.body.data).toEqual({ status: 'ok' });
+  });
+});
+
+describe('GET /health — detalle con ADMIN_TOKEN', () => {
+  beforeEach(() => { process.env.ADMIN_TOKEN = ADMIN; });
+
+  test('token correcto → incluye timestamp, versión y estado de BD/Redis', async () => {
+    mockPing.mockRejectedValue(new Error('Redis down'));
+    const res = await request(app).get('/health').set('X-Admin-Token', ADMIN);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(expect.objectContaining({
+      status: 'ok', db: 'connected', redis: 'error',
+    }));
+    expect(res.body.data).toHaveProperty('timestamp');
+    expect(res.body.data).toHaveProperty('version');
+  });
+
+  test('token correcto y BD caída → 503 con db=error', async () => {
+    mockQueryRaw.mockRejectedValue(new Error('down'));
+    const res = await request(app).get('/health').set('X-Admin-Token', ADMIN);
+    expect(res.status).toBe(503);
+    expect(res.body.data.db).toBe('error');
+    expect(res.body.data.redis).toBe('connected');
+  });
+});
+
+describe('healthLimiter — límite ligero', () => {
+  test('/health pasa por un limitador (60/min por IP) — 429 al superarlo fuera de test', async () => {
+    const mini = express();
+    mini.use(createLimiter({ windowMs: 60_000, max: 60, code: 'RATE_LIMIT_EXCEEDED', message: 'x', skipInTest: false }));
+    mini.get('/', (_req, res) => res.json({ ok: true }));
+    for (let i = 0; i < 60; i++) await request(mini).get('/');
+    expect((await request(mini).get('/')).status).toBe(429);
+  });
+});

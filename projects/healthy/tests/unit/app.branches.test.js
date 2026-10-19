@@ -102,7 +102,8 @@ describe('app.js — /health DB error branch', () => {
     const res = await request(app).get('/health');
 
     expect(res.status).toBe(503);
-    expect(res.body.data.db).toBe('error');
+    // SEC-71: la respuesta pública no expone el estado de la BD, solo status
+    expect(res.body.data).toEqual({ status: 'degraded' });
     expect(res.body.success).toBe(false);
   });
 
@@ -115,7 +116,7 @@ describe('app.js — /health DB error branch', () => {
     // Redis mocked → siempre falla → redisStatus puede ser 'error' o 'connected'
     // DB ok → debe ser 200
     expect(res.status).toBe(200);
-    expect(res.body.data.db).toBe('connected');
+    expect(res.body.data).toEqual({ status: 'ok' });
   });
 });
 
