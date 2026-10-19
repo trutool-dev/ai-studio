@@ -11,6 +11,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 import api from '@/services/api';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingLifestyle'>;
 const STRESS_COLORS = [colors.semantic.success, '#84CC16', colors.semantic.warning, '#F97316', colors.semantic.error];
@@ -60,10 +61,12 @@ export function OnboardingLifestyle({ navigation }: Props) {
   const [schedule,   setSchedule]   = useState<Schedule|undefined>(prev?.workSchedule);
   const [stress,     setStress]     = useState<1|2|3|4|5|undefined>(prev?.stressLevel);
   const [loading,    setLoading]    = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleContinue = async () => {
     const lifestyleData = { profession: profession.trim(), workSchedule: schedule!, stressLevel: stress! };
     setLoading(true);
+    setSaveError(null);
     try {
       await api.put('/onboarding/lifestyle', {
         profession:    lifestyleData.profession,
@@ -72,9 +75,9 @@ export function OnboardingLifestyle({ navigation }: Props) {
       });
       setLifestyle(lifestyleData);
       navigation.navigate('OnboardingTraining');
-    } catch {
-      setLifestyle(lifestyleData);
-      navigation.navigate('OnboardingTraining');
+    } catch (err) {
+      // SEC-35 (JB-03): si el guardado falla no avanzamos; mostramos el error y el usuario reintenta
+      setSaveError(extractApiError(err, 'No se pudo guardar tu estilo de vida. Inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -87,6 +90,8 @@ export function OnboardingLifestyle({ navigation }: Props) {
       subtitle="Adaptamos el plan a tu rutina diaria"
       onBack={() => navigation.goBack()}
       onContinue={handleContinue}
+      errorMessage={saveError}
+      onDismissError={() => setSaveError(null)}
       canContinue={!!profession.trim() && !!schedule && !!stress}
       loading={loading}
     >

@@ -9,6 +9,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 import api from '@/services/api';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingNutrition'>;
 
@@ -28,10 +29,12 @@ export function OnboardingNutrition({ navigation }: Props) {
   const [restr,   setRestr]   = useState<string[]>(prev?.restrictions ?? []);
   const [budget,  setBudget]  = useState<Budget   | undefined>(prev?.budget);
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleContinue = async () => {
     const nutritionData = { dietType: diet!, restrictions: restr, budget: budget! };
     setLoading(true);
+    setSaveError(null);
     try {
       await api.put('/onboarding/nutrition', {
         diet_type:    nutritionData.dietType,
@@ -40,9 +43,9 @@ export function OnboardingNutrition({ navigation }: Props) {
       });
       setNutrition(nutritionData);
       navigation.navigate('OnboardingHealth');
-    } catch {
-      setNutrition(nutritionData);
-      navigation.navigate('OnboardingHealth');
+    } catch (err) {
+      // SEC-35 (JB-03): si el guardado falla no avanzamos; mostramos el error y el usuario reintenta
+      setSaveError(extractApiError(err, 'No se pudieron guardar tus preferencias de alimentación. Inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -55,6 +58,8 @@ export function OnboardingNutrition({ navigation }: Props) {
       subtitle="Creamos menús que disfrutes y se ajusten a tu forma de comer"
       onBack={() => navigation.goBack()}
       onContinue={handleContinue}
+      errorMessage={saveError}
+      onDismissError={() => setSaveError(null)}
       canContinue={!!diet && !!budget}
       loading={loading}
     >

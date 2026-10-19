@@ -2,6 +2,7 @@ import React from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button }      from '@/components/ui/Button';
+import { Toast }       from '@/components/ui/Toast';
 import { colors }      from '@/theme/colors';
 import { textStyles }  from '@/theme/typography';
 import { spacing }     from '@/theme/spacing';
@@ -13,9 +14,11 @@ interface OnboardingLayoutProps {
   onBack: () => void; onContinue: () => void;
   continueLabel?: string; canContinue?: boolean; loading?: boolean;
   children: React.ReactNode; scrollable?: boolean; contentStyle?: ViewStyle;
+  // Error de guardado a mostrar (SEC-35): si hay mensaje se muestra un Toast de error
+  errorMessage?: string | null; onDismissError?: () => void;
 }
 
-export function OnboardingLayout({ step, title, subtitle, onBack, onContinue, continueLabel = 'Continuar', canContinue = true, loading = false, children, scrollable = true, contentStyle }: OnboardingLayoutProps) {
+export function OnboardingLayout({ step, title, subtitle, onBack, onContinue, continueLabel = 'Continuar', canContinue = true, loading = false, children, scrollable = true, contentStyle, errorMessage, onDismissError }: OnboardingLayoutProps) {
   const inner = (
     <>
       <View style={s.header}>
@@ -38,6 +41,7 @@ export function OnboardingLayout({ step, title, subtitle, onBack, onContinue, co
           <Button label={continueLabel} variant="primary" disabled={!canContinue} loading={loading} onPress={onContinue} />
         </View>
       </KeyboardAvoidingView>
+      <Toast message={errorMessage ?? ''} type="error" visible={!!errorMessage} onHide={onDismissError} duration={5000} />
     </SafeAreaView>
   );
 }
