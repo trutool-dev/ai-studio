@@ -17,6 +17,8 @@
  * - me: user null
  */
 
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-for-tests-only';
+
 jest.mock('../../backend/src/services/email.service', () => ({
   sendVerificationEmail: jest.fn().mockResolvedValue(true),
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
@@ -28,6 +30,9 @@ jest.mock('../../backend/src/services/redis.service', () => ({
   del: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
   ping: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
 }));
+
+// Mock explícito (la suite raíz no tiene moduleNameMapper): nunca se toca una BD real
+jest.mock('../../backend/src/prisma/client', () => jest.requireActual('../../backend/src/__mocks__/prisma'));
 
 const prisma = require('../../backend/src/prisma/client');
 const {
@@ -142,15 +147,15 @@ describe('register — branches', () => {
 describe('verifyEmail — branches', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  test('devuelve 404 cuando el usuario no existe', async () => {
+  test('usuario inexistente → 400 INVALID_CODE (respuesta uniforme, SEC-60)', async () => {
     prisma.user.findUnique = jest.fn().mockResolvedValue(null);
     const req = makeReq({ body: { email: 'nouser@test.com', code: '123456' } });
     const res = makeMockRes();
 
     await verifyEmail(req, res, jest.fn());
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'NOT_FOUND' }));
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_CODE' }));
   });
 
   test('devuelve 400 cuando el código no existe', async () => {
@@ -165,11 +170,11 @@ describe('verifyEmail — branches', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_CODE' }));
   });
 
-  test('devuelve 400 cuando los intentos superan 3', async () => {
+  test('devuelve 400 cuando se han agotado los intentos (SEC-31: máx. 5)', async () => {
     prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'u1' });
     prisma.verificationCode.findFirst = jest.fn().mockResolvedValue({
       id: 'v1',
-      attempts: 3,
+      attempts: 5,
       expires_at: new Date(Date.now() + 100000),
     });
     const req = makeReq({ body: { email: 'u@test.com', code: '111111' } });
@@ -213,26 +218,26 @@ describe('verifyEmail — branches', () => {
 describe('setPassword — branches', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  test('devuelve 404 cuando el usuario no existe', async () => {
+  test('usuario inexistente → 400 INVALID_CODE (respuesta uniforme)', async () => {
     prisma.user.findUnique = jest.fn().mockResolvedValue(null);
-    const req = makeReq({ body: { email: 'nouser@test.com', password: 'Test1234!' } });
-    const res = makeMockRes();
-
-    await setPassword(req, res, jest.fn());
-
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'NOT_FOUND' }));
-  });
-
-  test('devuelve 400 cuando el email no está verificado', async () => {
-    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'u1', email_verified: false });
-    const req = makeReq({ body: { email: 'unverified@test.com', password: 'Test1234!' } });
+    const req = makeReq({ body: { email: 'nouser@test.com', code: '123456', password: 'Test1234!' } });
     const res = makeMockRes();
 
     await setPassword(req, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'EMAIL_NOT_VERIFIED' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_CODE' }));
+  });
+
+  test('devuelve 400 cuando el email no está verificado', async () => {
+    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'u1', email_verified: false });
+    const req = makeReq({ body: { email: 'unverified@test.com', code: '123456', password: 'Test1234!' } });
+    const res = makeMockRes();
+
+    await setPassword(req, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_CODE' }));
   });
 
   test('llama a next en caso de error', async () => {
@@ -326,13 +331,15 @@ describe('resendCode — branches', () => {
   });
 
   test('crea nuevo código cuando el usuario existe', async () => {
-    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'u1', email: 'u@test.com' });
+    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'u1', email: 'u@test.com', password_hash: '' });
     prisma.verificationCode.create = jest.fn().mockResolvedValue({});
     const req = makeReq({ body: { email: 'u@test.com' } });
     const res = makeMockRes();
 
-    await resendCode(req, res, jest.fn());
+    const next = jest.fn();
+    await resendCode(req, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(prisma.verificationCode.create).toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
   });
@@ -572,6 +579,7 @@ describe('me — branches', () => {
       profile: { name: 'Test', birthdate: null, gender: 'male', weight_kg: 75, height_cm: 175, goal: 'lose_weight', activity_level: 'moderate' },
     };
     prisma.user.findUnique = jest.fn().mockResolvedValue(fakeUser);
+    prisma.plan.findFirst = jest.fn().mockResolvedValue(null);
     const req = makeReq();
     const res = makeMockRes();
 
@@ -579,7 +587,7 @@ describe('me — branches', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ user: fakeUser }) })
+      expect.objectContaining({ data: expect.objectContaining({ user: { ...fakeUser, has_plan: false } }) })
     );
   });
 

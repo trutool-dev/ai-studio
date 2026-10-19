@@ -128,6 +128,7 @@ const {
   app,
   prisma,
   uniqueEmail,
+  getLastOtp,
   cleanupUser,
   cleanupAllTestUsers,
   teardown,
@@ -158,6 +159,7 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
   let accessToken;
   let refreshToken;
   let userId;
+  let otp;
   let planId;
   let trainingSessionId;
 
@@ -190,11 +192,13 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
     });
 
     expect(verification).not.toBeNull();
-    expect(verification.code).toMatch(/^\d{6}$/);
+    // SEC-45: en BD solo está el HMAC; el OTP se toma del email enviado (mock)
+    otp = getLastOtp(email);
+    expect(otp).toMatch(/^\d{6}$/);
 
     const res = await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: verification.code });
+      .send({ email, code: otp });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -205,7 +209,7 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
   test('Paso 3 — Establecer contraseña', async () => {
     const res = await request(app)
       .post('/auth/set-password')
-      .send({ email, password });
+      .send({ email, code: otp, password });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

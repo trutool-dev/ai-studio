@@ -20,9 +20,13 @@ router.post('/verify-email', authRateLimiter,
   [body('email').isEmail(), body('code').isLength({ min: 6, max: 6 }).withMessage('Código de 6 dígitos')],
   validate, ctrl.verifyEmail);
 
-// POST /auth/set-password
-router.post('/set-password',
-  [body('email').isEmail(), body('password').isLength({ min: 8 }).withMessage('Mínimo 8 caracteres')],
+// POST /auth/set-password — SEC-27: exige el OTP verificado (prueba de posesión de un solo uso)
+router.post('/set-password', authRateLimiter,
+  [
+    body('email').isEmail(),
+    body('code').isString().matches(/^\d{6}$/).withMessage('Código de 6 dígitos'),
+    body('password').isLength({ min: 8 }).withMessage('Mínimo 8 caracteres'),
+  ],
   validate, ctrl.setPassword);
 
 // POST /auth/login

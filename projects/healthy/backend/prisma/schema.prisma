@@ -62,11 +62,12 @@ model VerificationCode {
   id         String               @id @default(uuid())
   user_id    String
   email      String
-  code       String               // 6 dígitos
+  // SEC-45: HMAC-SHA256 (hex) de `${user_id}:${type}:${otp}`; el OTP de 6 dígitos nunca se guarda en claro
+  code       String
   type       VerificationCodeType
   expires_at DateTime
   used_at    DateTime?
-  attempts   Int                  @default(0) // máximo 3
+  attempts   Int                  @default(0) // SEC-31: se incrementa en cada intento; inválido al llegar a 5
   created_at DateTime             @default(now())
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -80,6 +81,7 @@ model VerificationCode {
 enum VerificationCodeType {
   email_verification
   password_reset
+  password_setup // SEC-27: prueba de posesión emitida al verificar el email, exigida por set-password
 }
 
 model PasswordResetToken {

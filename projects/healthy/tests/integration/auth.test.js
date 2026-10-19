@@ -26,6 +26,7 @@ const {
   app,
   prisma,
   uniqueEmail,
+  getLastOtp,
   createVerifiedUser,
   loginUser,
   getAuthHeader,
@@ -89,7 +90,9 @@ describe('POST /auth/register', () => {
     });
 
     expect(code).not.toBeNull();
-    expect(code.code).toMatch(/^\d{6}$/);
+    // SEC-45: en BD solo se guarda el HMAC del OTP; el OTP de 6 dígitos solo viaja por email
+    expect(code.code).toMatch(/^[a-f0-9]{64}$/);
+    expect(getLastOtp(email)).toMatch(/^\d{6}$/);
     expect(code.used_at).toBeNull();
     expect(new Date(code.expires_at) > new Date()).toBe(true);
   });
@@ -150,7 +153,7 @@ describe('POST /auth/verify-email', () => {
 
     const res = await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: code.code });
+      .send({ email, code: getLastOtp(email) });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -169,7 +172,7 @@ describe('POST /auth/verify-email', () => {
 
     await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: code.code });
+      .send({ email, code: getLastOtp(email) });
 
     const updated = await prisma.user.findUnique({ where: { email } });
     expect(updated.email_verified).toBe(true);
@@ -188,7 +191,7 @@ describe('POST /auth/verify-email', () => {
 
     await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: code.code });
+      .send({ email, code: getLastOtp(email) });
 
     const usedCode = await prisma.verificationCode.findUnique({ where: { id: code.id } });
     expect(usedCode.used_at).not.toBeNull();
@@ -221,24 +224,21 @@ describe('POST /auth/verify-email', () => {
       data: { expires_at: new Date(Date.now() - 1000) }, // hace 1 segundo
     });
 
-    const code = await prisma.verificationCode.findFirst({
-      where: { user_id: user.id, type: 'email_verification' },
-    });
-
     const res = await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: code.code });
+      .send({ email, code: getLastOtp(email) });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('CODE_EXPIRED');
   });
 
-  test('devuelve 404 si el usuario no existe', async () => {
+  test('usuario inexistente → misma respuesta que código incorrecto (SEC-60)', async () => {
     const res = await request(app)
       .post('/auth/verify-email')
       .send({ email: 'noexiste@test.healthy.com', code: '123456' });
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_CODE');
   });
 });
 
@@ -258,12 +258,12 @@ describe('POST /auth/set-password', () => {
       where: { user_id: user.id, type: 'email_verification', used_at: null },
       orderBy: { created_at: 'desc' },
     });
-    await request(app).post('/auth/verify-email').send({ email, code: code.code });
+    await request(app).post('/auth/verify-email').send({ email, code: getLastOtp(email) });
 
     // Establecer contraseña
     const res = await request(app)
       .post('/auth/set-password')
-      .send({ email, password: 'SecurePass123!' });
+      .send({ email, code: getLastOtp(email), password: 'SecurePass123!' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -279,8 +279,8 @@ describe('POST /auth/set-password', () => {
       where: { user_id: user.id, type: 'email_verification', used_at: null },
       orderBy: { created_at: 'desc' },
     });
-    await request(app).post('/auth/verify-email').send({ email, code: code.code });
-    await request(app).post('/auth/set-password').send({ email, password: 'SecurePass123!' });
+    await request(app).post('/auth/verify-email').send({ email, code: getLastOtp(email) });
+    await request(app).post('/auth/set-password').send({ email, code: getLastOtp(email), password: 'SecurePass123!' });
 
     const updated = await prisma.user.findUnique({ where: { email } });
     expect(updated.status).toBe('active');
@@ -295,10 +295,58 @@ describe('POST /auth/set-password', () => {
 
     const res = await request(app)
       .post('/auth/set-password')
-      .send({ email, password: 'SecurePass123!' });
+      .send({ email, code: getLastOtp(email), password: 'SecurePass123!' });
 
+    // SEC-27/SEC-60: sin verificación previa no hay prueba de posesión → respuesta uniforme
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('EMAIL_NOT_VERIFIED');
+    expect(res.body.error).toBe('INVALID_CODE');
+  });
+
+  test('SEC-27: sin código no se puede fijar la contraseña de una cuenta verificada', async () => {
+    const email = uniqueEmail('setpwd_nocode');
+    createdEmails.push(email);
+
+    await request(app).post('/auth/register').send({ email });
+    await request(app).post('/auth/verify-email').send({ email, code: getLastOtp(email) });
+
+    const noCode = await request(app)
+      .post('/auth/set-password')
+      .send({ email, password: 'Attacker123!' });
+    expect(noCode.status).toBe(400);
+    expect(noCode.body.error).toBe('VALIDATION_ERROR');
+
+    const wrongCode = await request(app)
+      .post('/auth/set-password')
+      .send({ email, code: getLastOtp(email) === '000000' ? '111111' : '000000', password: 'Attacker123!' });
+    expect(wrongCode.status).toBe(400);
+    expect(wrongCode.body.error).toBe('INVALID_CODE');
+
+    const updated = await prisma.user.findUnique({ where: { email } });
+    expect(updated.password_hash).toBe('');
+  });
+
+  test('SEC-27: set-password devuelve sesión y no sirve dos veces (ni sobre cuenta con contraseña)', async () => {
+    const email = uniqueEmail('setpwd_once');
+    createdEmails.push(email);
+
+    await request(app).post('/auth/register').send({ email });
+    const otp = getLastOtp(email);
+    await request(app).post('/auth/verify-email').send({ email, code: otp });
+
+    const first = await request(app)
+      .post('/auth/set-password')
+      .send({ email, code: otp, password: 'SecurePass123!' });
+    expect(first.status).toBe(200);
+    expect(first.body.data).toHaveProperty('access_token');
+    expect(first.body.data).toHaveProperty('refresh_token');
+
+    const replay = await request(app)
+      .post('/auth/set-password')
+      .send({ email, code: otp, password: 'Attacker123!' });
+    expect(replay.status).toBe(400);
+
+    const login = await request(app).post('/auth/login').send({ email, password: 'SecurePass123!' });
+    expect(login.status).toBe(200);
   });
 
   test('falla si la contraseña tiene menos de 8 caracteres', async () => {
@@ -306,15 +354,11 @@ describe('POST /auth/set-password', () => {
     createdEmails.push(email);
 
     await request(app).post('/auth/register').send({ email });
-    const user = await prisma.user.findUnique({ where: { email } });
-    const code = await prisma.verificationCode.findFirst({
-      where: { user_id: user.id, type: 'email_verification', used_at: null },
-    });
-    await request(app).post('/auth/verify-email').send({ email, code: code.code });
+    await request(app).post('/auth/verify-email').send({ email, code: getLastOtp(email) });
 
     const res = await request(app)
       .post('/auth/set-password')
-      .send({ email, password: 'short' });
+      .send({ email, code: getLastOtp(email), password: 'short' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
@@ -557,13 +601,13 @@ describe('Flujo completo: register → verify → set-password → login → me 
     // 3. Verificar email
     const verifyRes = await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: code.code });
+      .send({ email, code: getLastOtp(email) });
     expect(verifyRes.status).toBe(200);
 
     // 4. Establecer contraseña
     const setPwdRes = await request(app)
       .post('/auth/set-password')
-      .send({ email, password });
+      .send({ email, code: getLastOtp(email), password });
     expect(setPwdRes.status).toBe(200);
 
     // 5. Login
