@@ -37,6 +37,14 @@ IFS='
 for FILE in $STAGED_FILES; do
   IFS=$OLD_IFS
 
+  # .gitleaksignore solo contiene huellas (commit:archivo:regla:línea) de falsos
+  # positivos ya verificados; no puede llevar `gitleaks:allow` sin romper su formato
+  if [ "$FILE" = ".gitleaksignore" ]; then
+    IFS='
+'
+    continue
+  fi
+
   # Líneas añadidas, sin cabeceras del diff y sin las marcadas como permitidas
   ADDED=$(git diff --cached -U0 --no-color -- "$FILE" \
     | grep -E '^\+' | grep -vE '^\+\+\+ ' | grep -v 'gitleaks:allow')

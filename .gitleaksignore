@@ -1,0 +1,5 @@
+# Falsos positivos verificados de gitleaks (ver projects/healthy/security/SECRETS_POLICY.md).
+# Tokens ficticios de un test unitario añadidos en el commit 6b21337 (SEC-45); en commits
+# posteriores llevan el comentario gitleaks:allow.
+6b21337f0b995e1b7f7feb862a028a80c6e93d02:projects/healthy/tests/unit/auth.tokens.security.test.js:generic-api-key:129
+6b21337f0b995e1b7f7feb862a028a80c6e93d02:projects/healthy/tests/unit/auth.tokens.security.test.js:generic-api-key:132

@@ -130,5 +130,9 @@ jobs:
         working-directory: projects/healthy/backend
         run: npm ci
 
+      - name: Generar cliente Prisma del backend
+        working-directory: projects/healthy/backend
+        run: npx prisma generate --schema=./prisma/schema.prisma
+
       - name: Tests
         run: npm test -- --passWithNoTests
