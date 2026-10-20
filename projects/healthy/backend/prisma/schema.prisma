@@ -87,8 +87,9 @@ enum VerificationCodeType {
 model PasswordResetToken {
   id         String    @id @default(uuid())
   user_id    String
-  token      String    @unique @default(uuid())
-  expires_at DateTime  // 24 horas
+  // SEC-45: SHA-256 (hex) de un token aleatorio de 32 bytes; el token en claro solo viaja en el email
+  token      String    @unique
+  expires_at DateTime  // SEC-45: 1 hora
   used_at    DateTime?
   ip_address String?
   created_at DateTime  @default(now())
@@ -103,7 +104,13 @@ model PasswordResetToken {
 model AuthSession {
   id            String    @id @default(uuid())
   user_id       String
+  // SEC-45: SHA-256 (hex) del refresh token (32 bytes aleatorios); nunca en claro
   refresh_token String    @unique
+  // SEC-45: familia de rotación. Cada rotación crea una fila nueva con el mismo family_id
+  // y revoca la anterior; presentar un token ya revocado revoca todas las sesiones del usuario.
+  // El sessionId de los access tokens es el family_id (estable entre rotaciones).
+  family_id     String
+  revoked_at    DateTime?
   device_info   String?
   ip_address    String?
   expires_at    DateTime
@@ -114,6 +121,7 @@ model AuthSession {
 
   @@index([user_id])
   @@index([refresh_token])
+  @@index([family_id])
   @@map("auth_sessions")
 }
 

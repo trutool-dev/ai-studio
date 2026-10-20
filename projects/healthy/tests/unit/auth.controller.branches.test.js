@@ -494,7 +494,10 @@ describe('logout — branches', () => {
 
     await logout(req, res, jest.fn());
 
-    expect(prisma.authSession.deleteMany).toHaveBeenCalledWith({ where: { id: 'session-xyz' } });
+    // SEC-45: el sessionId del JWT es el family_id → se borra toda la familia
+    expect(prisma.authSession.deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ id: 'session-xyz' }, { family_id: 'session-xyz' }] },
+    });
     expect(res.status).toHaveBeenCalledWith(200);
   });
 

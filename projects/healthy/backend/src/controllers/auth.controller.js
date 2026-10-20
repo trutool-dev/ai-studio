@@ -12,7 +12,6 @@ const logger = require('../utils/logger.util');
 const { signAccessToken, revokeSession, revokeAllUserSessions } = require('../middleware/auth.middleware');
 // Se accede vía objeto de módulo (no desestructurado) para que los tests puedan espiar los envíos
 const emailService = require('../services/email.service');
-const redis = require('../services/redis.service');
 
 // ─── constantes OTP (SEC-27 / SEC-31) ────────────────────────
 
@@ -135,10 +134,23 @@ function generateAccessToken(userId, email, sessionId) {
   return signAccessToken({ userId, email, sessionId }, process.env.JWT_EXPIRES_IN || '15m');
 }
 
-function generateRefreshToken() {
-  const { v4: uuidv4 } = require('uuid');
-  return `${uuidv4()}.${Date.now()}`;
+// SEC-45: tokens opacos de 32 bytes aleatorios; en BD solo se guarda su SHA-256
+// (suficiente para secretos de alta entropía; bcrypt no aporta nada aquí).
+function generateRandomToken() {
+  return crypto.randomBytes(32).toString('base64url');
 }
+
+function generateRefreshToken() {
+  return generateRandomToken();
+}
+
+/** SHA-256 (hex) de un token de alta entropía (refresh / reset). */
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+// SEC-45: el enlace de recuperación caduca en 1 hora (antes 24 h)
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 function getRefreshExpiry() {
   const days = parseInt((process.env.JWT_REFRESH_EXPIRES_IN || '30d').replace('d', ''), 10) || 30;
@@ -159,26 +171,24 @@ function getOtpExpiry() {
  */
 async function createSession(user, req) {
   const refreshToken = generateRefreshToken();
-  const session = await prisma.authSession.create({
+  // El id de la primera fila es también el family_id (sessionId estable en los JWT)
+  const sessionId = crypto.randomUUID();
+  await prisma.authSession.create({
     data: {
+      id: sessionId,
+      family_id: sessionId,
       user_id: user.id,
-      refresh_token: refreshToken,
+      refresh_token: hashToken(refreshToken),
       device_info: req.headers['user-agent'] || null,
       ip_address: req.ip,
       expires_at: getRefreshExpiry(),
     },
   });
-
-  const accessToken = generateAccessToken(user.id, user.email, session.id);
-  // Redis es caché — si no está disponible (ej. en tests locales), el login sigue funcionando
-  try {
-    await redis.set(`session:${session.id}`, JSON.stringify({ user_id: user.id }), 'EX', 2592000);
-  } catch (redisErr) {
-    logger.warn(`[auth] Redis no disponible, sesión no cacheada: ${redisErr.message}`);
-  }
+  // (La antigua caché `session:<id>` en Redis nunca se leía; la revocación de access
+  //  tokens la gestiona auth.middleware — SEC-44.)
 
   return {
-    access_token: accessToken,
+    access_token: generateAccessToken(user.id, user.email, sessionId),
     refresh_token: refreshToken,
     token_type: 'Bearer',
     expires_in: 900,
@@ -371,21 +381,31 @@ const resendCode = async (req, res, next) => {
   }
 };
 
-/** POST /auth/forgot-password */
+/**
+ * POST /auth/forgot-password — body { email }
+ * SEC-45: token aleatorio de 32 bytes (solo se guarda su SHA-256), válido 1 h;
+ * al pedir uno nuevo se invalidan los anteriores pendientes.
+ */
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (user) {
-      const resetToken = await prisma.passwordResetToken.create({
+      await prisma.passwordResetToken.updateMany({
+        where: { user_id: user.id, used_at: null },
+        data: { used_at: new Date() },
+      });
+      const token = generateRandomToken();
+      await prisma.passwordResetToken.create({
         data: {
           user_id: user.id,
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          token: hashToken(token),
+          expires_at: new Date(Date.now() + RESET_TOKEN_TTL_MS),
           ip_address: req.ip,
         },
       });
-      await emailService.sendPasswordResetEmail(email, resetToken.token);
+      await emailService.sendPasswordResetEmail(email, token);
     }
 
     return sendSuccess(res, {}, 'Si existe una cuenta con ese email, recibirás instrucciones de recuperación.');
@@ -394,44 +414,48 @@ const forgotPassword = async (req, res, next) => {
   }
 };
 
-/** POST /auth/reset-password */
+/** POST /auth/reset-password — body { token, password } */
 const resetPassword = async (req, res, next) => {
   try {
     const { token, password } = req.body;
 
-    const record = await prisma.passwordResetToken.findUnique({ where: { token } });
+    const record = await prisma.passwordResetToken.findUnique({ where: { token: hashToken(token) } });
     if (!record) return sendError(res, 'INVALID_TOKEN', 'Token inválido', 400);
     if (record.used_at) return sendError(res, 'TOKEN_USED', 'Este enlace ya fue utilizado', 400);
     if (new Date() > new Date(record.expires_at)) return sendError(res, 'TOKEN_EXPIRED', 'El enlace ha expirado', 400);
 
+    // Consumo condicional: el mismo enlace no sirve dos veces aunque lleguen peticiones en paralelo
+    const consumed = await prisma.passwordResetToken.updateMany({
+      where: { id: record.id, used_at: null },
+      data: { used_at: new Date() },
+    });
+    if (consumed.count !== 1) return sendError(res, 'TOKEN_USED', 'Este enlace ya fue utilizado', 400);
+
     const password_hash = await hashPassword(password);
     await prisma.$transaction([
       prisma.user.update({ where: { id: record.user_id }, data: { password_hash } }),
-      prisma.passwordResetToken.update({ where: { id: record.id }, data: { used_at: new Date() } }),
       prisma.authSession.deleteMany({ where: { user_id: record.user_id } }),
     ]);
     // SEC-44: los access tokens ya emitidos dejan de valer
     await revokeAllUserSessions(record.user_id);
 
+    logger.info(`[auth] Contraseña restablecida: ${record.user_id}`);
     return sendSuccess(res, {}, 'Contraseña restablecida. Ya puedes iniciar sesión.');
   } catch (err) {
     next(err);
   }
 };
 
-/** POST /auth/logout */
+/** POST /auth/logout — cierra la sesión (toda su familia de refresh tokens) */
 const logout = async (req, res, next) => {
   try {
     const sessionId = req.user?.sessionId;
     if (sessionId) {
-      await prisma.authSession.deleteMany({ where: { id: sessionId } });
+      await prisma.authSession.deleteMany({
+        where: { OR: [{ id: sessionId }, { family_id: sessionId }] },
+      });
       // SEC-44: el access token de esta sesión deja de valer inmediatamente
       await revokeSession(sessionId);
-      try {
-        await redis.del(`session:${sessionId}`);
-      } catch (redisErr) {
-        logger.warn(`[auth] Redis no disponible en logout: ${redisErr.message}`);
-      }
     }
     return sendSuccess(res, {}, 'Sesión cerrada');
   } catch (err) {
@@ -439,29 +463,68 @@ const logout = async (req, res, next) => {
   }
 };
 
-/** POST /auth/refresh */
+/**
+ * Reutilización detectada: revoca todas las sesiones del usuario (refresh y access).
+ */
+async function revokeAllSessionsForReuse(userId) {
+  await prisma.authSession.updateMany({
+    where: { user_id: userId, revoked_at: null },
+    data: { revoked_at: new Date() },
+  });
+  await revokeAllUserSessions(userId);
+}
+
+/**
+ * POST /auth/refresh — body { refresh_token }
+ * SEC-45: rotación por familias. Cada uso revoca la fila actual y crea otra con el
+ * mismo family_id. Si se presenta un token ya revocado (robado y usado antes por el
+ * atacante o por la víctima) se revocan TODAS las sesiones del usuario.
+ * Respuesta: { access_token, refresh_token, token_type, expires_in } (sin cambios).
+ */
 const refresh = async (req, res, next) => {
   try {
     const { refresh_token } = req.body;
     const session = await prisma.authSession.findUnique({
-      where: { refresh_token },
+      where: { refresh_token: hashToken(refresh_token) },
       include: { user: true },
     });
 
     if (!session) return sendError(res, 'INVALID_TOKEN', 'Refresh token inválido', 401);
+
+    if (session.revoked_at) {
+      logger.warn(`[auth] Reutilización de refresh token revocado: se revocan todas las sesiones de ${session.user_id}`);
+      await revokeAllSessionsForReuse(session.user_id);
+      return sendError(res, 'INVALID_TOKEN', 'Refresh token inválido', 401);
+    }
     if (new Date() > new Date(session.expires_at)) {
       await prisma.authSession.delete({ where: { id: session.id } });
       return sendError(res, 'TOKEN_EXPIRED', 'Sesión expirada. Inicia sesión de nuevo.', 401);
     }
-    if (session.user.status !== 'active') return sendError(res, 'ACCOUNT_INACTIVE', 'Cuenta inactiva', 403);
+    if (!session.user || session.user.status !== 'active') return sendError(res, 'ACCOUNT_INACTIVE', 'Cuenta inactiva', 403);
 
+    // Revocación condicional: si otra petición concurrente ya rotó este token, esta pierde
+    // (401) sin disparar la revocación masiva (no es una reutilización posterior).
+    const now = new Date();
+    const rotated = await prisma.authSession.updateMany({
+      where: { id: session.id, revoked_at: null },
+      data: { revoked_at: now, last_used_at: now },
+    });
+    if (rotated.count !== 1) return sendError(res, 'INVALID_TOKEN', 'Refresh token inválido', 401);
+
+    const familyId = session.family_id || session.id;
     const newRefreshToken = generateRefreshToken();
-    await prisma.authSession.update({
-      where: { id: session.id },
-      data: { refresh_token: newRefreshToken, expires_at: getRefreshExpiry(), last_used_at: new Date() },
+    await prisma.authSession.create({
+      data: {
+        family_id: familyId,
+        user_id: session.user_id,
+        refresh_token: hashToken(newRefreshToken),
+        device_info: req.headers['user-agent'] || session.device_info || null,
+        ip_address: req.ip,
+        expires_at: getRefreshExpiry(),
+      },
     });
 
-    const accessToken = generateAccessToken(session.user.id, session.user.email, session.id);
+    const accessToken = generateAccessToken(session.user.id, session.user.email, familyId);
     return sendSuccess(res, { access_token: accessToken, refresh_token: newRefreshToken, token_type: 'Bearer', expires_in: 900 }, 'Token renovado');
   } catch (err) {
     next(err);
