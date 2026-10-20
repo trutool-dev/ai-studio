@@ -14,7 +14,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const redis = require('./redis.service');
+const redis = require('../services/redis.service');
 const logger = require('../utils/logger.util');
 const { encryptAES256, decryptAES256, hmacSHA256 } = require('../utils/crypto.util');
 

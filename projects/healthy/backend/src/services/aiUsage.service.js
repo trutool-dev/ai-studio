@@ -13,7 +13,7 @@
 'use strict';
 
 const prisma = require('../prisma/client');
-const redis = require('./redis.service');
+const redis = require('../services/redis.service');
 const logger = require('../utils/logger.util');
 
 const DEFAULT_DAILY_TOKEN_LIMIT = 60000;
