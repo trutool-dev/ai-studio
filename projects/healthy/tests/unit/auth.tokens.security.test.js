@@ -126,10 +126,10 @@ describe('SEC-45 — refresh tokens', () => {
   test('un token legacy (en claro en BD) ya no es aceptado', async () => {
     const user = await seedActiveUser();
     prisma._db.authSession.push({
-      id: 'legacy', family_id: 'legacy', user_id: user.id, refresh_token: 'uuid-legacy.123',
+      id: 'legacy', family_id: 'legacy', user_id: user.id, refresh_token: 'uuid-legacy.123', // gitleaks:allow (token ficticio)
       expires_at: new Date(Date.now() + 1e6), revoked_at: null,
     });
-    const r = await call(ctrl.refresh, { refresh_token: 'uuid-legacy.123' });
+    const r = await call(ctrl.refresh, { refresh_token: 'uuid-legacy.123' }); // gitleaks:allow (token ficticio)
     expect(r.status).toBe(401);
   });
 

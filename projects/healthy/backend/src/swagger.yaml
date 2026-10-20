@@ -786,7 +786,7 @@ paths:
               example:
                 success: true
                 data:
-                  access_token: eyJhbGciOiJIUzI1NiIs...
+                  access_token: eyJhbGciOiJIUzI1NiIs...  # gitleaks:allow (ejemplo truncado)
                   refresh_token: 550e8400-e29b-41d4-...1704067200000
                   token_type: Bearer
                   expires_in: 900

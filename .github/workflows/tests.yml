@@ -41,9 +41,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: projects/healthy/package-lock.json
+          cache-dependency-path: |
+            projects/healthy/package-lock.json
+            projects/healthy/backend/package-lock.json
 
       - name: Instalar dependencias del módulo AI
+        run: npm ci
+
+      # Los tests de la raíz importan módulos del backend (mocks, servicios, SDK)
+      - name: Instalar dependencias del backend
+        working-directory: projects/healthy/backend
         run: npm ci
 
       - name: Ejecutar tests unitarios con cobertura
@@ -120,12 +127,12 @@ jobs:
         run: npm ci
 
       - name: Generar cliente Prisma
-        run: npx prisma generate --schema=../database/schema.prisma
+        run: npx prisma generate --schema=./prisma/schema.prisma
 
       - name: Ejecutar migraciones en BD de test
         run: |
           npx prisma migrate deploy \
-            --schema=../database/schema.prisma
+            --schema=./prisma/schema.prisma
 
       - name: Ejecutar tests de integración + E2E con cobertura
         run: |
@@ -206,10 +213,10 @@ jobs:
         run: npm ci
 
       - name: Generar cliente Prisma
-        run: npx prisma generate --schema=../database/schema.prisma
+        run: npx prisma generate --schema=./prisma/schema.prisma
 
       - name: Ejecutar migraciones
-        run: npx prisma migrate deploy --schema=../database/schema.prisma
+        run: npx prisma migrate deploy --schema=./prisma/schema.prisma
 
       - name: Tests completos con umbral de cobertura global 80 %
         run: |
