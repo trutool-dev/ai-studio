@@ -14,8 +14,7 @@ SEC-25/26 (SA-01/02), SEC-27 (SA-03), SEC-28 (JB-01), SEC-29 (JB-02/SA-18), SEC-
 SEC-32, SEC-33, SEC-35, SEC-39, SEC-43, SEC-44, SEC-45, SEC-46, SEC-48, SEC-49, SEC-52,
 SEC-58, SEC-62, SEC-64, SEC-65, SEC-66, SEC-71, SEC-72.
 
-Pendiente de revisar: `promptSanitizer.js` sin seguimiento en la RAÍZ del repo (probablemente
-mal ubicado; debería estar en `projects/healthy/backend/src/...`).
+`promptSanitizer.js` de la raíz: resuelto (archivo vacío eliminado; el real está en `backend/src/validation/`).
 
 ## Agente auth (a250ebc)
 - ✅ `8976e4c` mock Prisma increment · ✅ `f321aa6` SEC-27+SEC-31 · ✅ `1080d1e` SEC-30
@@ -64,5 +63,9 @@ mal ubicado; debería estar en `projects/healthy/backend/src/...`).
 - ✅ `cdb4dbf` `.env.example` consolidado
 - ✅ Suites: backend **901/901** (38 suites) · statements 95,41 % · branches **86,03 %** · líneas 97,03 % · `rateLimiter.middleware.js` ya en cobertura (95,23 % branches). Raíz **721/721** (29 suites). Sin `zz_tmp_debug_auth.test.js`. Grep: ningún test usa red real.
 - ✅ Borrado de cuenta llama a `revokeAllUserSessions` (`user.controller.js:110`)
-- ⏳ EN CURSO: `PROJECT_STATUS.md` + `tasks.md`
+- ⏹ Detenido 2026-10-20 (sin avance >70 min en este paso); `PROJECT_STATUS.md` + `tasks.md` completados por la sesión principal en `f5b1fd4`
+
+## Cierre (2026-10-20)
+- ✅ Consolidación terminada: 44 commits en la rama. Tests verificados: backend 901/901 (branches 86,03 %), raíz 721/721.
+- Pendiente: 👤 rotación de secretos y variables en Railway **antes del merge** (al mergear a develop se redespliega staging y el backend no arranca sin las variables obligatorias).
 - (plan original) consolidación final: (1) mock global del SDK Anthropic + bloqueo de red en tests; (2) suites en verde (integration onboarding/plans healthConsent, e2e criticalFlow pasos 6-7, borrar tests temporales, cobertura de rateLimiter); (3) `.env.example` unificado; (4) limpieza `run_cp_tests*.py`/docs; (5) `PROJECT_STATUS.md` + `tasks.md`.
