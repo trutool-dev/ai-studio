@@ -195,6 +195,15 @@ async function createSession(user, req) {
   };
 }
 
+const MSG_REGISTER = 'Revisa tu email para continuar con el registro.';
+
+// Hash bcrypt de un valor aleatorio, calculado una vez, para comparaciones "en vacío" (SEC-60)
+let dummyHashPromise = null;
+function getDummyPasswordHash() {
+  if (!dummyHashPromise) dummyHashPromise = hashPassword(crypto.randomBytes(16).toString('hex'));
+  return dummyHashPromise;
+}
+
 /** Versión vigente de la política de consentimiento (HEALTH_CONSENT_VERSION, por defecto '1.0'). */
 function getHealthConsentVersion() {
   return process.env.HEALTH_CONSENT_VERSION || '1.0';
@@ -221,7 +230,16 @@ const register = async (req, res, next) => {
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return sendError(res, 'EMAIL_ALREADY_EXISTS', 'Ya existe una cuenta con ese email', 409);
+      // SEC-60 (SA-25): misma respuesta que un registro nuevo. El aviso llega solo al buzón:
+      // registro a medias → nuevo código (permite retomarlo); cuenta completa → email informativo.
+      if (!existing.password_hash) {
+        const code = await issueVerificationCode(existing);
+        await emailService.sendVerificationEmail(email, code);
+      } else {
+        await emailService.sendAccountExistsEmail(email);
+      }
+      logger.info(`[auth] Registro sobre cuenta existente: ${existing.id}`);
+      return sendSuccess(res, { email }, MSG_REGISTER, 201);
     }
 
     // SEC-33 (SA-07): consentimiento de salud (RGPD Art. 9) solo con un `true` booleano explícito.
@@ -244,7 +262,8 @@ const register = async (req, res, next) => {
     const code = await issueVerificationCode({ id: user.id, email });
     await emailService.sendVerificationEmail(email, code);
     logger.info(`[auth] Usuario registrado: ${user.id}`);
-    return sendSuccess(res, { user_id: user.id, email }, 'Cuenta creada. Revisa tu email para verificarla.', 201);
+    // SEC-60: no se devuelve user_id (distinguiría cuentas nuevas de existentes)
+    return sendSuccess(res, { email }, MSG_REGISTER, 201);
   } catch (err) {
     next(err);
   }
@@ -344,14 +363,20 @@ const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.password_hash) return sendError(res, 'INVALID_CREDENTIALS', 'Credenciales incorrectas', 401);
-    if (user.status !== 'active') return sendError(res, 'ACCOUNT_INACTIVE', 'Cuenta no activa', 403);
+    if (!user || !user.password_hash) {
+      // SEC-60: bcrypt "en vacío" para igualar el tiempo de respuesta con el de un usuario real
+      await comparePassword(String(password || ''), await getDummyPasswordHash());
+      logger.warn('[auth] Login fallido: cuenta inexistente o sin contraseña');
+      return sendError(res, 'INVALID_CREDENTIALS', 'Credenciales incorrectas', 401);
+    }
 
     const ok = await comparePassword(password, user.password_hash);
     if (!ok) {
       logger.warn(`[auth] Login fallido: ${user.id}`);
       return sendError(res, 'INVALID_CREDENTIALS', 'Credenciales incorrectas', 401);
     }
+    // SEC-60: el estado de la cuenta solo se revela tras demostrar la contraseña
+    if (user.status !== 'active') return sendError(res, 'ACCOUNT_INACTIVE', 'Cuenta no activa', 403);
 
     const tokens = await createSession(user, req);
     const activePlan = await prisma.plan.findFirst({ where: { user_id: user.id, status: 'active' } });

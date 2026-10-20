@@ -177,8 +177,8 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('user_id');
-    userId = res.body.data.user_id;
+    // SEC-60: register ya no devuelve user_id; se obtiene de la BD
+    userId = (await prisma.user.findUnique({ where: { email } })).id;
   });
 
   // ─── Paso 2: Verificación de email ───────────────────────────────────────

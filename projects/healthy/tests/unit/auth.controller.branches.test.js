@@ -22,6 +22,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-for-tests-on
 jest.mock('../../backend/src/services/email.service', () => ({
   sendVerificationEmail: jest.fn().mockResolvedValue(true),
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+  sendAccountExistsEmail: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock('../../backend/src/services/redis.service', () => ({
@@ -137,15 +138,33 @@ describe('register — branches', () => {
     expect(data).not.toHaveProperty('health_consent_given_at');
   });
 
-  test('devuelve 409 si el email ya existe', async () => {
-    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'existing', email: 'dup@test.com' });
+  test('SEC-60: email existente con cuenta completa → 201 uniforme y aviso por email', async () => {
+    const { sendAccountExistsEmail, sendVerificationEmail } = require('../../backend/src/services/email.service');
+    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'existing', email: 'dup@test.com', password_hash: '$2b$hash' });
+    prisma.user.create = jest.fn();
     const req = makeReq({ body: { email: 'dup@test.com' } });
     const res = makeMockRes();
 
     await register(req, res, jest.fn());
 
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'EMAIL_ALREADY_EXISTS' }));
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, data: { email: 'dup@test.com' } }));
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(sendAccountExistsEmail).toHaveBeenCalledWith('dup@test.com');
+    expect(sendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  test('SEC-60: email existente con registro a medias → 201 uniforme y nuevo código', async () => {
+    const { sendAccountExistsEmail, sendVerificationEmail } = require('../../backend/src/services/email.service');
+    prisma.user.findUnique = jest.fn().mockResolvedValue({ id: 'pending', email: 'half@test.com', password_hash: '' });
+    prisma.verificationCode.create = jest.fn().mockResolvedValue({});
+    const res = makeMockRes();
+
+    await register(makeReq({ body: { email: 'half@test.com' } }), res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(sendVerificationEmail).toHaveBeenCalledWith('half@test.com', expect.stringMatching(/^[0-9]{6}$/));
+    expect(sendAccountExistsEmail).not.toHaveBeenCalled();
   });
 
   test('llama a next en caso de error', async () => {
@@ -294,19 +313,25 @@ describe('login — branches', () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  test('devuelve 403 cuando la cuenta no está activa', async () => {
-    const { comparePassword } = require('../../backend/src/utils/crypto.util');
+  test('SEC-60: cuenta no activa con contraseña incorrecta → 401 (no revela el estado)', async () => {
+    const { hashPassword } = require('../../backend/src/utils/crypto.util');
+    prisma.user.findUnique = jest.fn().mockResolvedValue({
+      id: 'u1', password_hash: await hashPassword('Test1234!'), status: 'suspended', email: 'u@test.com',
+    });
+    const res = makeMockRes();
+    await login(makeReq({ body: { email: 'u@test.com', password: 'Wrong1234!' } }), res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'INVALID_CREDENTIALS' }));
+  });
+
+  test('devuelve 403 cuando la cuenta no está activa (solo con contraseña correcta)', async () => {
+    const { hashPassword } = require('../../backend/src/utils/crypto.util');
     prisma.user.findUnique = jest.fn().mockResolvedValue({
       id: 'u1',
-      password_hash: '$2b$10$hash',
+      password_hash: await hashPassword('Test1234!'),
       status: 'pending_verification',
       email: 'u@test.com',
     });
-    // Mockear comparePassword para devolver true
-    jest.doMock('../../backend/src/utils/crypto.util', () => ({
-      ...jest.requireActual('../../backend/src/utils/crypto.util'),
-      comparePassword: jest.fn().mockResolvedValue(true),
-    }));
 
     const req = makeReq({ body: { email: 'u@test.com', password: 'Test1234!' } });
     const res = makeMockRes();

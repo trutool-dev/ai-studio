@@ -99,4 +99,38 @@ const sendPasswordResetEmail = async (to, token) => {
   }
 };
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail };
+/**
+ * SEC-60 (SA-25): aviso al titular cuando alguien intenta registrarse con un email
+ * que ya tiene cuenta (la API responde igual que a un registro nuevo).
+ * @param {string} to - Email del destinatario
+ */
+const sendAccountExistsEmail = async (to) => {
+  const transporter = getTransporter();
+  if (!transporter) {
+    logger.info('[email] [DEV] Aviso de cuenta existente no enviado (SMTP no configurado)');
+    return true;
+  }
+  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:8081'}/auth/login`;
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'Healthy App <noreply@healthy.app>',
+      to,
+      subject: 'Ya tienes una cuenta en Healthy',
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+          <h2 style="color: #1a1a1a;">Ya tienes una cuenta</h2>
+          <p style="color: #666;">Alguien (probablemente tú) ha intentado crear una cuenta en Healthy con este email, pero ya existe una.</p>
+          <p style="color: #666;">Puedes <a href="${loginUrl}">iniciar sesión</a> o recuperar tu contraseña desde la app. Si no has sido tú, ignora este mensaje.</p>
+        </div>
+      `,
+      text: `Ya existe una cuenta de Healthy con este email. Inicia sesión o recupera tu contraseña desde la app. Si no has sido tú, ignora este mensaje.`,
+    });
+    logger.info('[email] Aviso de cuenta existente enviado');
+    return true;
+  } catch (err) {
+    logger.error(`[email] Error al enviar aviso de cuenta existente (${err.code || err.name || 'error'})`);
+    return false;
+  }
+};
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendAccountExistsEmail };

@@ -17,6 +17,7 @@
 jest.mock('../../backend/src/services/email.service', () => ({
   sendVerificationEmail: jest.fn().mockResolvedValue(true),
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+  sendAccountExistsEmail: jest.fn().mockResolvedValue(true),
 }));
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -62,8 +63,9 @@ describe('POST /auth/register', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('user_id');
     expect(res.body.data).toHaveProperty('email', email);
+    // SEC-60: no se expone user_id (distinguiría cuentas nuevas de existentes)
+    expect(res.body.data).not.toHaveProperty('user_id');
   });
 
   test('crea un registro en la BD con status pending_verification', async () => {
@@ -97,15 +99,17 @@ describe('POST /auth/register', () => {
     expect(new Date(code.expires_at) > new Date()).toBe(true);
   });
 
-  test('devuelve 409 si el email ya existe', async () => {
+  test('SEC-60: email ya registrado → misma respuesta que un registro nuevo', async () => {
     const email = uniqueEmail('register_dup');
     createdEmails.push(email);
 
-    await request(app).post('/auth/register').send({ email });
+    const first = await request(app).post('/auth/register').send({ email });
     const res = await request(app).post('/auth/register').send({ email });
 
-    expect(res.status).toBe(409);
-    expect(res.body.error).toBe('EMAIL_ALREADY_EXISTS');
+    expect(res.status).toBe(first.status);
+    expect(res.body).toEqual(first.body);
+    const users = await prisma.user.findMany({ where: { email } });
+    expect(users).toHaveLength(1);
   });
 
   test('devuelve 400 si el email no es válido', async () => {
