@@ -42,15 +42,17 @@ jest.mock('../../backend/src/prisma/client', () => ({
 
 // apiLimiter espía: registra el req.user que ve en cada petición
 const seenUsers = [];
+// El resto de limitadores (los de auth evolucionan en su propio sub-equipo) son no-op
 jest.mock('../../backend/src/middleware/rateLimiter.middleware', () => {
   const noOp = (_req, _res, next) => next();
-  return {
-    authRateLimiter: noOp,
-    registrationLimiter: noOp,
-    planRegenerateLimiter: noOp,
-    planGenerationLimiter: noOp,
-    apiLimiter: (req, _res, next) => { seenUsers.push(req.user ? req.user.userId : null); next(); },
-  };
+  const apiLimiter = (req, _res, next) => { seenUsers.push(req.user ? req.user.userId : null); next(); };
+  const actual = jest.requireActual('../../backend/src/middleware/rateLimiter.middleware');
+  const mocked = {};
+  for (const [name, value] of Object.entries(actual)) {
+    mocked[name] = name.endsWith('Limiter') && typeof value === 'function' ? noOp : value;
+  }
+  mocked.apiLimiter = apiLimiter;
+  return mocked;
 });
 
 // express solo está instalado en backend/ (la suite raíz no lo resuelve por nombre)
