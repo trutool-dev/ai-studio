@@ -8,13 +8,12 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
+// SEC-62 (SA-27): cliente Prisma compartido (antes se creaba un Pool + PrismaClient por petición)
+const prisma = require('../prisma/client');
+const { parseIntInRange, parseOptionalString } = require('../utils/query.util');
 
-// Lazy-load del exerciseSelector para no romper tests que mockean Prisma
-let exerciseSelector = null;
-function getSelector() {
-  if (!exerciseSelector) exerciseSelector = require('../services/exerciseSelector.service');
-  return exerciseSelector;
-}
+const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
+const MAX_OFFSET = 10000;
 
 /**
  * GET /exercises
@@ -30,31 +29,27 @@ function getSelector() {
  */
 router.get('/', authenticate, async (req, res) => {
   try {
-    const {
-      category,
-      equipment,
-      difficulty,
-      target,
-      limit = 20,
-      offset = 0,
-    } = req.query;
-
-    const { PrismaClient } = require('../generated/prisma');
-    const { PrismaPg } = require('@prisma/adapter-pg');
-    const { Pool } = require('pg');
-
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const adapter = new PrismaPg(pool);
-    const prisma = new PrismaClient({ adapter });
+    // SEC-52: los filtros solo pueden ser cadenas acotadas (nunca objetos/arrays)
+    const filters = {};
+    for (const name of ['category', 'equipment', 'difficulty', 'target']) {
+      const parsed = parseOptionalString(req.query[name], 100);
+      if (!parsed.ok) {
+        return res.status(400).json({ success: false, error: 'VALIDATION_ERROR', message: `${name} no es válido` });
+      }
+      filters[name] = parsed.value;
+    }
+    if (filters.difficulty && !DIFFICULTIES.includes(filters.difficulty)) {
+      return res.status(400).json({ success: false, error: 'VALIDATION_ERROR', message: `difficulty debe ser uno de: ${DIFFICULTIES.join(', ')}` });
+    }
 
     const where = { externalId: { not: null } };
-    if (category) where.category = category;
-    if (equipment) where.equipment = equipment;
-    if (difficulty) where.difficulty = difficulty;
-    if (target) where.target = { contains: target, mode: 'insensitive' };
+    if (filters.category) where.category = filters.category;
+    if (filters.equipment) where.equipment = filters.equipment;
+    if (filters.difficulty) where.difficulty = filters.difficulty;
+    if (filters.target) where.target = { contains: filters.target, mode: 'insensitive' };
 
-    const parsedLimit = Math.min(parseInt(limit, 10) || 20, 100);
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const parsedLimit = parseIntInRange(req.query.limit, { def: 20, min: 1, max: 100 });
+    const parsedOffset = parseIntInRange(req.query.offset, { def: 0, min: 0, max: MAX_OFFSET });
 
     const [exercises, total] = await Promise.all([
       prisma.exercise.findMany({
@@ -79,9 +74,6 @@ router.get('/', authenticate, async (req, res) => {
       prisma.exercise.count({ where }),
     ]);
 
-    await prisma.$disconnect();
-    await pool.end();
-
     return res.json({
       success: true,
       data: { exercises, total, limit: parsedLimit, offset: parsedOffset },
@@ -103,20 +95,11 @@ router.get('/', authenticate, async (req, res) => {
  */
 router.get('/:id', authenticate, async (req, res) => {
   try {
-    const { PrismaClient } = require('../generated/prisma');
-    const { PrismaPg } = require('@prisma/adapter-pg');
-    const { Pool } = require('pg');
-
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const adapter = new PrismaPg(pool);
-    const prisma = new PrismaClient({ adapter });
-
-    const exercise = await prisma.exercise.findUnique({
-      where: { id: req.params.id },
-    });
-
-    await prisma.$disconnect();
-    await pool.end();
+    const { id } = req.params;
+    if (typeof id !== 'string' || id.length > 64) {
+      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Ejercicio no encontrado' });
+    }
+    const exercise = await prisma.exercise.findUnique({ where: { id } });
 
     if (!exercise) {
       return res.status(404).json({
