@@ -61,7 +61,7 @@ jobs:
         run: npm ci
 
       - name: Generar cliente Prisma
-        run: npx prisma generate --schema=../database/schema.prisma
+        run: npx prisma generate --schema=./prisma/schema.prisma
 
       - name: Lint
         run: npm run lint --if-present
@@ -118,10 +118,21 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: projects/healthy/package-lock.json
+          cache-dependency-path: |
+            projects/healthy/package-lock.json
+            projects/healthy/backend/package-lock.json
 
       - name: Instalar dependencias
         run: npm ci
+
+      # Los tests de la raíz importan módulos del backend (mocks, servicios, SDK)
+      - name: Instalar dependencias del backend
+        working-directory: projects/healthy/backend
+        run: npm ci
+
+      - name: Generar cliente Prisma del backend
+        working-directory: projects/healthy/backend
+        run: npx prisma generate --schema=./prisma/schema.prisma
 
       - name: Tests
         run: npm test -- --passWithNoTests

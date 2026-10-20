@@ -10,6 +10,9 @@ const logger = require('../utils/logger.util');
 const redis = require('../services/redis.service');
 
 const FOOD_SEARCH_TTL = 21600; // 6 horas
+const MAX_QUERY_LENGTH = 100;
+// Códigos de barras EAN/UPC/GTIN: solo dígitos, 6-14
+const BARCODE_REGEX = /^\d{6,14}$/;
 
 // Campos a devolver en todas las respuestas de Food (A-6)
 const FOOD_SELECT = {
@@ -39,8 +42,15 @@ const FOOD_SELECT = {
 const searchFoods = async (req, res, next) => {
   try {
     const { q } = req.query;
+    // SEC-52: q debe ser una cadena (un array ?q[]=x provocaba TypeError → 500) y acotada
+    if (q !== undefined && typeof q !== 'string') {
+      return sendError(res, 'VALIDATION_ERROR', 'q debe ser texto', 400);
+    }
     if (!q || q.trim().length < 2) {
       return sendError(res, 'QUERY_TOO_SHORT', 'La búsqueda debe tener al menos 2 caracteres', 400);
+    }
+    if (q.length > MAX_QUERY_LENGTH) {
+      return sendError(res, 'VALIDATION_ERROR', `La búsqueda admite como máximo ${MAX_QUERY_LENGTH} caracteres`, 400);
     }
 
     const query = q.trim().toLowerCase();
@@ -76,6 +86,9 @@ const searchFoods = async (req, res, next) => {
 const getFoodByBarcode = async (req, res, next) => {
   try {
     const { code } = req.params;
+    if (!BARCODE_REGEX.test(code)) {
+      return sendError(res, 'VALIDATION_ERROR', 'Código de barras no válido', 400);
+    }
     const food = await prisma.food.findUnique({ where: { barcode: code }, select: FOOD_SELECT });
     if (!food) return sendError(res, 'NOT_FOUND', `No se encontró alimento con código de barras: ${code}`, 404);
     return sendSuccess(res, { food }, 'Alimento encontrado');

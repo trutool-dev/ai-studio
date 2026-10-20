@@ -15,6 +15,13 @@ jest.mock('../../backend/src/services/email.service', () => ({
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
 }));
 
+// Mock del selector de catálogo: su cliente Prisma propio (pg) no pasa por el mock de
+// Prisma de la suite y dejaba colgado POST /onboarding/complete esperando una BD real.
+jest.mock('../../backend/src/services/exerciseSelector.service', () => ({
+  getExercisesForProfile: jest.fn().mockResolvedValue([]),
+  formatExercisesForPrompt: jest.fn().mockReturnValue(''),
+}));
+
 // Mock del AI service: plan válido sin llamar a Claude
 jest.mock('../../backend/src/services/aiService', () => ({
   calculateMetabolism: jest.fn().mockReturnValue({
@@ -128,6 +135,7 @@ const {
   app,
   prisma,
   uniqueEmail,
+  getLastOtp,
   cleanupUser,
   cleanupAllTestUsers,
   teardown,
@@ -158,6 +166,7 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
   let accessToken;
   let refreshToken;
   let userId;
+  let otp;
   let planId;
   let trainingSessionId;
 
@@ -175,8 +184,8 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('user_id');
-    userId = res.body.data.user_id;
+    // SEC-60: register ya no devuelve user_id; se obtiene de la BD
+    userId = (await prisma.user.findUnique({ where: { email } })).id;
   });
 
   // ─── Paso 2: Verificación de email ───────────────────────────────────────
@@ -190,11 +199,13 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
     });
 
     expect(verification).not.toBeNull();
-    expect(verification.code).toMatch(/^\d{6}$/);
+    // SEC-45: en BD solo está el HMAC; el OTP se toma del email enviado (mock)
+    otp = getLastOtp(email);
+    expect(otp).toMatch(/^\d{6}$/);
 
     const res = await request(app)
       .post('/auth/verify-email')
-      .send({ email, code: verification.code });
+      .send({ email, code: otp });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -205,7 +216,7 @@ describe('Flujo crítico E2E: registro → verificación → contraseña → onb
   test('Paso 3 — Establecer contraseña', async () => {
     const res = await request(app)
       .post('/auth/set-password')
-      .send({ email, password });
+      .send({ email, code: otp, password });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -454,10 +465,8 @@ describe('GET /health', () => {
     // 200 si todo está bien, 503 si hay problemas de conexión en CI
     expect([200, 503]).toContain(res.status);
     expect(res.body).toHaveProperty('data');
-    expect(res.body.data).toHaveProperty('status');
-    expect(res.body.data).toHaveProperty('timestamp');
-    expect(res.body.data).toHaveProperty('db');
-    expect(res.body.data).toHaveProperty('redis');
+    // SEC-71: la respuesta pública solo expone el estado (sin versión ni detalle de BD/Redis)
+    expect(res.body.data).toEqual({ status: expect.stringMatching(/^(ok|degraded)$/) });
   });
 });
 

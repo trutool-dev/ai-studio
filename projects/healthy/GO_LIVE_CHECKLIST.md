@@ -40,8 +40,8 @@ URL: https://railway.app → Tu proyecto → Settings
 |----------|-------|--------------|
 | `NODE_ENV` | `staging` | Literal |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | console.anthropic.com → API Keys |
-| `JWT_SECRET` | Ver `devops/GITHUB_SECRETS.md` § staging | Pre-generado |
-| `JWT_REFRESH_SECRET` | Ver `devops/GITHUB_SECRETS.md` § staging | Pre-generado |
+| `JWT_SECRET` | `<generar en Railway>` | `openssl rand -base64 64` (nunca en archivos; SEC-25) |
+| `JWT_REFRESH_SECRET` | `<generar en Railway>` | `openssl rand -base64 64` (nunca en archivos; SEC-25) |
 | `SUPABASE_URL` | `https://xxx.supabase.co` | Supabase → Settings → API → Project URL |
 | `SUPABASE_KEY` | `eyJ...` | Supabase → Settings → API → anon/public |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | Supabase → Settings → API → service_role |
@@ -74,8 +74,8 @@ URL: `https://github.com/<org>/healthy/settings/secrets/actions`
 
 | Nombre | Valor |
 |--------|-------|
-| `JWT_SECRET` | Ver `devops/GITHUB_SECRETS.md` § staging |
-| `JWT_REFRESH_SECRET` | Ver `devops/GITHUB_SECRETS.md` § staging |
+| `JWT_SECRET` | `<generar en Railway / GitHub Secrets>` — `openssl rand -base64 64` (nunca en archivos; SEC-25) |
+| `JWT_REFRESH_SECRET` | `<generar en Railway / GitHub Secrets>` — `openssl rand -base64 64` (nunca en archivos; SEC-25) |
 | `SUPABASE_URL` | Del proyecto Supabase staging |
 | `SUPABASE_KEY` | Del proyecto Supabase staging |
 | `SUPABASE_SERVICE_ROLE_KEY` | Del proyecto Supabase staging |
@@ -415,7 +415,7 @@ Pendiente: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` (requiere proveedor SMTP).
 Añadidos en **Settings → Secrets and variables → Actions → Repository secrets**:
 - `ANTHROPIC_API_KEY` ✔
 - `RAILWAY_TOKEN` ✔
-- `RAILWAY_STAGING_DATABASE_URL` = `postgresql://postgres:QDPwtSHILsHFwOpaYaQsAKjvtsxdClhK@thomas.proxy.rlwy.net:44480/railway` ✔
+- `RAILWAY_STAGING_DATABASE_URL` = `${RAILWAY_STAGING_DATABASE_URL}` (valor retirado del repo — SEC-26; ver Railway → Postgres → Variables) ✔
 - `RAILWAY_PRODUCTION_SERVICE_ID` = `ec2720da-2f41-436c-a5e2-e39f7b7d9a6e` ✔
 
 Pendiente: `RAILWAY_PRODUCTION_DATABASE_URL` (necesita URL pública del Postgres de producción).
@@ -447,7 +447,7 @@ Gmail App Password (`mvivyeiwdbndypxb`) creado con 2FA activo en `trutool@gmail.
 
 ### 6.12 ✅ RAILWAY_PRODUCTION_DATABASE_URL (2026-06-29)
 
-`postgresql://postgres:uafKvfChkeiZYylgsppDWifuNAYjsdPx@thomas.proxy.rlwy.net:25732/railway` añadido como repo secret en GitHub ✔
+`${RAILWAY_PRODUCTION_DATABASE_URL}` (valor retirado del repo — SEC-26; ver Railway → Postgres → Variables) añadido como repo secret en GitHub ✔
 
 ### 6.13 ✅ Migración Prisma en producción (2026-06-29)
 

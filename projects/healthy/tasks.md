@@ -7,22 +7,30 @@
 `https://healthy-landing-staging.up.railway.app`). **Producción no operativa**: PostgreSQL/Redis del entorno
 production sin desplegar. Tests backend 451/454 con branches 66,34 %.
 
-### Pendientes vigentes (2026-10-18)
+### Pendientes vigentes (2026-10-20)
 
 | ID | Tarea | Responsable | Estado |
 |----|-------|-------------|--------|
-| M-21 | Rotar `JWT_SECRET` / `JWT_REFRESH_SECRET` (valores en `devops/GITHUB_SECRETS.md`) | Antonio | ❌ Pendiente — CRÍTICO |
-| A-24 | Arreglar 3 tests backend + 5 de la suite raíz y subir branches de 66,34 % a ≥ 80 % | Tests Agent | ❌ Pendiente |
+| M-21 / SEC-25 / SEC-26 | **Rotar secretos**: JWT ×4, contraseñas PostgreSQL staging/prod y usuario de staging; cerrar TCP público de PostgreSQL; valorar notificación AEPD (`security/SECRETS_POLICY.md`) | Antonio | ❌ Pendiente — CRÍTICO, bloquea producción |
+| — | **Crear en Railway las variables obligatorias y nuevas** (lista en `backend/.env.example`); sin ellas el backend no arranca | Antonio | ❌ Pendiente — antes del push |
+| — | **OK para push de `fix/security-audit-2026-10-19`** (43 commits, SEC-25..SEC-72) y PR a develop; aplicar 2 migraciones (fuerzan re-login) | Antonio | ⏳ Esperando OK |
+| A-24 | Tests rotos y cobertura de branches | Tests Agent | ✅ En `fix/security-audit-2026-10-19`: backend 901/901 (branches 86,03 %), raíz 721/721 — pendiente de merge |
 | A-25 / DO-20 | Desplegar PostgreSQL y Redis en production + migraciones + seeds | DevOps + Database | ❌ Pendiente — requiere OK |
 | A-4 | Aprobar deploy a producción de `f51a01c` en GitHub Actions | Antonio | ⏳ Esperando aprobación (depende de A-25) |
 | M-19 | Subir APK `96aedf25` a Google Play Console (Internal Testing) | Antonio | ❌ Pendiente |
 | M-22 | Confirmar región y DPA de Railway (y Gmail SMTP) en documentos RGPD | Antonio | ❌ Pendiente |
 | A-20 / DO-19 | Servicio `healthy-landing` en el entorno production | DevOps Agent | ❌ Pendiente |
 | A-26 / DO-21 | `/robots.txt` devuelve 404 (alias de nginx incorrecto) | DevOps Agent | ❌ Pendiente |
-| A-27 / DO-22 | Revisar 10 PRs de dependabot (#8–#17) con CI en rojo | DevOps Agent | ❌ Pendiente |
+| A-27 / DO-22 / SEC-53 / SEC-59 | Dependencias: PRs de dependabot (#8–#17); mayores pendientes nodemailer 6→10, uuid 10→14, SDK Anthropic 0.52→actual, Expo SDK | DevOps Agent | ⏳ Parcial — backend 15→2 vulnerabilidades (`9821a70`), axios (`30d673a`) |
 | M-10 / DO-18 | Lighthouse ≥ 95 — hoy Perf 75/79, Acc 96, BP 100, SEO 100 | Frontend Agent | ⚠️ Parcial |
 | M-9 | DNS `api.healthy.app` → Railway (no resuelve) | Antonio | ❌ Pendiente |
 | M-20 / DO-11 | Dominio propio de la landing | Antonio | ❌ Pendiente |
+| SEC-34 | Dominio de producción de la API (`api.healthy.app` sin titularidad) | Antonio | ❌ Decisión — bloquea producción y pinning |
+| SEC-37 / SEC-28 / SEC-47 | Decisiones: umbrales clínicos y alérgenos (`clinicalSafety.js`), keto/other en el enum, historial de consentimientos | Antonio | ❌ Decisión |
+| SEC-40 / SEC-42 | `git rm --cached` de `.claude/settings.local.json` y docs internos; activar Secret scanning + Push protection | Antonio | ❌ Pendiente |
+| SEC-47 / SEC-48 | Pantallas en la app: retirar consentimiento de salud y borrar cuenta (art. 17) | Frontend Agent | ❌ Pendiente |
+| SEC-50 | Programar el cron diario del job de retención `runRetention` | DevOps Agent | ❌ Pendiente |
+| SEC-65 | Certificate pinning (tras SEC-34 y build EAS) | Frontend Agent | ❌ Pendiente |
 | M-5, M-6, A-2, A-3 | Publicación iOS | — | ⏸ Aplazado |
 
 ---
@@ -181,6 +189,8 @@ production sin desplegar. Tests backend 451/454 con branches 66,34 %.
 - [x] **SEC-08** `security/SECURITY_AUDIT.md` + `INCIDENT_RESPONSE.md` + `VULNERABILITIES.md` creados
 
 > ⚠️ Nueva migración pendiente: `npx prisma migrate dev --schema ../database/schema.prisma --name add_health_consent`
+
+- [x] **SEC-25..SEC-72** Auditoría 2026-10-19 (Opus, security + JailBreak) y correcciones en `fix/security-audit-2026-10-19` — detalle por tarea en `PROJECT_STATUS.md` § «Auditoría de seguridad 2026-10-19» y en `security/SECURITY_TASKS.md`; pendientes manuales arriba en «Pendientes vigentes»
 
 **Dependencias:** BE-01..BE-09 (para auditar endpoints reales)
 

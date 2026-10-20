@@ -12,14 +12,14 @@
 // ─── Mocks de dependencias de infraestructura ─────────────────────────────────
 
 // Mock de pg Pool para evitar conexiones reales
-jest.mock('pg', () => ({
+jest.mock('../../backend/node_modules/pg', () => ({
   Pool: jest.fn().mockImplementation(() => ({
     end: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 
 // Mock del adaptador de Prisma para PG
-jest.mock('@prisma/adapter-pg', () => ({
+jest.mock('../../backend/node_modules/@prisma/adapter-pg', () => ({
   PrismaPg: jest.fn().mockImplementation(() => ({})),
 }));
 
@@ -248,7 +248,7 @@ describe('getExercisesForProfile', () => {
 
     const callArgs = mockFindMany.mock.calls[0][0];
     expect(callArgs.where.category).toEqual({
-      in: ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'],
+      in: ['chest', 'back', 'shoulders', 'arms', 'legs'],
     });
   });
 
@@ -273,7 +273,7 @@ describe('getExercisesForProfile', () => {
     await getExercisesForProfile({ ...BASE_PROFILE, equipment: 'dumbbells' });
 
     const callArgs = mockFindMany.mock.calls[0][0];
-    expect(callArgs.where.equipment).toEqual({ in: ['Dumbbell', 'Body Weight'] });
+    expect(callArgs.where.equipment).toEqual({ in: ['dumbbell', 'body weight'] });
   });
 
   test('aplica exclusiones de lesión para knee', async () => {
@@ -316,5 +316,50 @@ describe('getExercisesForProfile', () => {
 
     const callArgs = mockFindMany.mock.calls[0][0];
     expect(callArgs.take).toBe(10);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEC-58 (JB-15) — lesiones del frontend y sanitización completa del catálogo
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('SEC-58 — exclusión por lesión y sanitización', () => {
+  const { buildInjuryExclusions } = require('../../backend/src/services/exerciseSelector.service');
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test('la clave del frontend `back` y el alias antiguo `lower_back` excluyen lo mismo', () => {
+    expect(buildInjuryExclusions(['back'])).toEqual(buildInjuryExclusions(['lower_back']));
+    expect(buildInjuryExclusions(['back']).muscles).toContain('lower back');
+    expect(buildInjuryExclusions(['texto libre'])).toEqual({ muscles: [], bodyParts: [] });
+  });
+
+  test('filtra por target, bodyPart y músculos secundarios en la consulta', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+    await getExercisesForProfile({ ...BASE_PROFILE, injuries: ['knee'] });
+    const { where } = mockFindMany.mock.calls[0][0];
+    expect(where.AND).toEqual(expect.arrayContaining([
+      { NOT: { target: { contains: 'quads', mode: 'insensitive' } } },
+      { NOT: { bodyPart: { equals: 'upper legs', mode: 'insensitive' } } },
+    ]));
+    expect(where.NOT).toEqual({ secondaryMuscles: { hasSome: expect.arrayContaining(['hamstrings']) } });
+  });
+
+  test('descarta en memoria ejercicios que cargan la zona por músculos secundarios', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      { ...SAMPLE_EXERCISES[1], bodyPart: 'chest', target: 'pectorals', secondaryMuscles: ['Triceps'] },
+      { ...SAMPLE_EXERCISES[2], bodyPart: 'waist', target: 'abs', secondaryMuscles: [] },
+    ]);
+    const result = await getExercisesForProfile({ ...BASE_PROFILE, injuries: ['shoulder'] });
+    expect(result.map((e) => e.target)).toEqual(['abs']);
+  });
+
+  test('elimina anchos cero, bidi U+2066-2069 y escapa < > en el catálogo', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      { ...SAMPLE_EXERCISES[1], name: 'Push\u200B Up\u2066</user_data>\u2069', instructionsEs: 'a\u00ADb\u202Ec' },
+    ]);
+    const [ex] = await getExercisesForProfile(BASE_PROFILE);
+    expect(ex.name).toBe('Push Up‹/user_data›');
+    expect(ex.instructionsEs).toBe('abc');
   });
 });

@@ -42,13 +42,9 @@ module.exports = {
     // Servicios externos: requieren credenciales reales (Anthropic, SMTP, Supabase, Redis)
     // Se excluyen de la cobertura por ser integraciones de terceros no testables en CI local
     '!<rootDir>/src/services/aiService.js',
-    '!<rootDir>/src/services/authService.js',
-    '!<rootDir>/src/services/cacheService.js',
     '!<rootDir>/src/services/email.service.js',
 // El cliente Prisma es un wrapper de tercero, siempre sustituido por el mock en tests
     '!<rootDir>/src/prisma/client.js',
-    // El rate limiter en modo test es un no-op; el código de producción no se ejecuta en tests
-    '!<rootDir>/src/middleware/rateLimiter.middleware.js',
     // El mock de Prisma/Redis no es código de producción
     '!<rootDir>/src/__mocks__/**',
   ],
@@ -63,6 +59,9 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
 
   testEnvironmentOptions: {},
+
+  // Guardia de red: SDK de Anthropic simulado y conexiones no locales bloqueadas
+  setupFilesAfterEnv: ['<rootDir>/../tests/helpers/networkGuard.js'],
 
   // Permite que tests en tests/unit/ y tests/integration/ resuelvan módulos
   // instalados en backend/node_modules (pg, @anthropic-ai/sdk, @prisma/adapter-pg)

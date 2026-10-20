@@ -38,4 +38,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:${PORT:-3000}/health || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma || echo '[WARN] migrate deploy fallo, arrancando servidor de todas formas' && node server.js"]
+# SEC-67 (SA-32): si `prisma migrate deploy` falla, el contenedor termina con error
+# y NO sirve tráfico con un esquema desfasado. Railway no da por bueno el deploy
+# (healthcheck sin responder) y mantiene la versión anterior. `exec` deja a node
+# como proceso hijo directo de dumb-init para recibir las señales.
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma && exec node server.js"]

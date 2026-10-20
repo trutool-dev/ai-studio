@@ -24,6 +24,24 @@ if (process.env.TEST_REDIS_URL) {
 const request = require('supertest');
 const app = require('../../backend/src/app');
 const prisma = require('../../backend/src/prisma/client');
+const emailService = require('../../backend/src/services/email.service');
+
+// SEC-45: los OTP se guardan con HMAC, así que no se pueden leer de la BD.
+// Los tests los obtienen del envío de email (mock de la suite o, si no lo hay, un spy).
+if (!jest.isMockFunction(emailService.sendVerificationEmail)) {
+  jest.spyOn(emailService, 'sendVerificationEmail').mockResolvedValue(true);
+}
+
+/**
+ * Devuelve el último OTP "enviado por email" a esa dirección (o null).
+ */
+function getLastOtp(email) {
+  const calls = emailService.sendVerificationEmail.mock.calls;
+  for (let i = calls.length - 1; i >= 0; i--) {
+    if (calls[i][0] === email) return calls[i][1];
+  }
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS DE AUTENTICACIÓN
@@ -49,22 +67,19 @@ async function createVerifiedUser({ email, password = 'Test1234!' } = {}) {
     .post('/auth/register')
     .send({ email: userEmail });
 
-  // 2. Obtener el OTP directamente de la BD (sin necesitar email real)
+  // 2. Obtener el OTP del email enviado (mock/spy)
   const user = await prisma.user.findUnique({ where: { email: userEmail } });
-  const verification = await prisma.verificationCode.findFirst({
-    where: { user_id: user.id, type: 'email_verification', used_at: null },
-    orderBy: { created_at: 'desc' },
-  });
+  const code = getLastOtp(userEmail);
 
   // 3. Verificar email
   await request(app)
     .post('/auth/verify-email')
-    .send({ email: userEmail, code: verification.code });
+    .send({ email: userEmail, code });
 
-  // 4. Establecer contraseña
+  // 4. Establecer contraseña (SEC-27: exige el OTP verificado)
   await request(app)
     .post('/auth/set-password')
-    .send({ email: userEmail, password });
+    .send({ email: userEmail, code, password });
 
   return { userId: user.id, email: userEmail, password };
 }
@@ -197,6 +212,7 @@ module.exports = {
   app,
   prisma,
   uniqueEmail,
+  getLastOtp,
   createVerifiedUser,
   loginUser,
   getAuthHeader,

@@ -32,6 +32,8 @@ Añadir en **Settings → Secrets and variables → Actions → Repository secre
 
 ---
 
+> ⚠️ **Valores retirados (2026-10-19, SEC-25 / SEC-26).** Este documento contenía valores reales de `JWT_SECRET` / `JWT_REFRESH_SECRET` (staging y producción) y otros archivos del repo contenían URLs de PostgreSQL de Railway con contraseña. Se han sustituido por placeholders, **pero los valores anteriores siguen en el historial git y deben ROTARSE** (SEC-25 / SEC-26, tarea manual de Antonio): generar secretos nuevos en Railway y GitHub Secrets, rotar la contraseña de PostgreSQL de staging/producción y considerar comprometidos los valores antiguos. Procedimiento en `backend/SECRETS_POLICY.md` § Rotación.
+
 ## Secretos del entorno staging
 
 Añadir en **Settings → Environments → staging → Environment secrets**.
@@ -40,8 +42,8 @@ Railway inyecta automáticamente `DATABASE_URL` y `REDIS_URL` en el servicio —
 
 | Secreto | Descripción | Valor / Cómo obtener |
 |---------|-------------|----------------------|
-| `JWT_SECRET` | Clave de firma de access tokens (15 min) | `N3zWWgYKRdq/q8Fxpli4M0rSYToIaud12eJYb5VxNf5d3tcuFNv39KaMS4g4stJi7ZQQV5/MzQBJB3t0vzC6JA==` |
-| `JWT_REFRESH_SECRET` | Clave de firma de refresh tokens (30 días) | `i6AGImeOm95+ynaW0vHDQCauG/DRJRpGYCOJnL/WU9PiCMWn3z4SHkuJQqtCb6kCvyOx7r0LX18yYM8MVkVYzQ==` |
+| `JWT_SECRET` | Clave de firma de access tokens (15 min) | `<JWT_SECRET>` — generar con `openssl rand -base64 64` y pegarlo SOLO en Railway / GitHub Secrets |
+| `JWT_REFRESH_SECRET` | Clave de firma de refresh tokens (30 días) | `<JWT_REFRESH_SECRET>` — generar con `openssl rand -base64 64` y pegarlo SOLO en Railway / GitHub Secrets |
 | `SMTP_HOST` | Servidor SMTP | `smtp.mailgun.org` (Mailgun) o `smtp.gmail.com` |
 | `SMTP_PORT` | Puerto SMTP | `587` (STARTTLS recomendado) |
 | `SMTP_USER` | Usuario SMTP para emails de verificación | `postmaster@mg.healthy.app` (Mailgun) o cuenta Gmail |
@@ -58,8 +60,8 @@ Railway inyecta automáticamente `DATABASE_URL` y `REDIS_URL` en el servicio —
 
 | Secreto | Descripción | Valor / Cómo obtener |
 |---------|-------------|----------------------|
-| `JWT_SECRET` | **Distinto del de staging** | `lkST4/zflJf+UPYjbRJRufIB7guMyoH/dtBzPFbhMFTfqukbOHoQj7YA5ALrQUD0RZ4BmiHqj9k2eYoDHgHYdQ==` |
-| `JWT_REFRESH_SECRET` | **Distinto del de staging** | `nKRX3jr+FuB7gjfjBby05alYwjIRk0GLJ4BO1mFC6MJhT7V8LbnmSnktwxaauRI0/+dOGHqoFtkMHUOuRxKrlg==` |
+| `JWT_SECRET` | **Distinto del de staging** | `<JWT_SECRET>` — generar uno nuevo, distinto del de staging, SOLO en Railway / GitHub Secrets |
+| `JWT_REFRESH_SECRET` | **Distinto del de staging** | `<JWT_REFRESH_SECRET>` — generar uno nuevo, distinto del de staging, SOLO en Railway / GitHub Secrets |
 | `SMTP_HOST` | Servidor SMTP producción | |
 | `SMTP_PORT` | Puerto SMTP producción | `587` |
 | `SMTP_USER` | SMTP producción | |
@@ -98,7 +100,7 @@ Solo necesarios para publicar en App Store / Google Play (`eas-build.yml`, `eas-
 
 ## Notas de seguridad
 
-1. `JWT_SECRET` y `JWT_REFRESH_SECRET` ya están generados arriba — son seguros (512 bits, `openssl rand -base64 64`). Guárdalos también en un gestor de contraseñas.
+1. `JWT_SECRET` y `JWT_REFRESH_SECRET` se generan con `openssl rand -base64 64` (512 bits) **directamente en Railway / GitHub Secrets** y se guardan en un gestor de contraseñas. **Nunca** se pegan en este archivo ni en ningún `.md` versionado (ver `backend/SECRETS_POLICY.md`).
 2. Habilitar **revisión requerida** en el environment `production`: Settings → Environments → production → Required reviewers.
 3. Rotar las claves JWT cada 90 días.
 4. El `RAILWAY_TOKEN` da acceso completo a tu cuenta Railway — no lo compartas ni lo subas al repositorio.

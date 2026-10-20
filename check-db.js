@@ -1,7 +1,20 @@
-// Ejecutar desde: node C:\Users\Antonio\Documents\ai-studio\check-db.js
-process.env.DATABASE_URL = 'postgresql://postgres:uafKvfChkeiZYylgsppDWifuNAYjsdPx@thomas.proxy.rlwy.net:25732/railway';
+// Ejecutar desde la raíz del repo: DATABASE_URL=<url> node check-db.js
+// SEC-26 (SA-02): la cadena de conexión NUNCA se versiona; se lee del entorno.
+// Ver projects/healthy/backend/SECRETS_POLICY.md.
+const path = require('path');
 
-const { PrismaClient } = require('C:/Users/Antonio/Documents/ai-studio/projects/healthy/backend/node_modules/@prisma/client');
+if (!process.env.DATABASE_URL) {
+  console.error(
+    'ERROR: la variable de entorno DATABASE_URL no está definida.\n' +
+      'Defínela en tu sesión (cópiala de Railway → Postgres → Variables) antes de ejecutar este script.\n' +
+      'No la escribas en este archivo ni en ningún otro archivo versionado.'
+  );
+  process.exit(1);
+}
+
+const { PrismaClient } = require(
+  path.join(__dirname, 'projects', 'healthy', 'backend', 'node_modules', '@prisma', 'client')
+);
 
 const prisma = new PrismaClient();
 
@@ -9,7 +22,7 @@ async function main() {
   const tables = await prisma.$queryRawUnsafe(
     "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name"
   );
-  console.log('\n=== TABLAS EN PRODUCCION ===');
+  console.log('\n=== TABLAS ===');
   tables.forEach(r => console.log(' -', r.table_name));
 
   const cols = await prisma.$queryRawUnsafe(

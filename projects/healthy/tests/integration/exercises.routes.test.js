@@ -2,44 +2,35 @@
 
 /**
  * Tests de integración para GET /exercises y GET /exercises/:id.
- * El router crea su propio PrismaClient con PrismaPg+Pool internamente,
- * por lo que mockeamos @prisma/adapter-pg, pg y ../generated/prisma
- * para controlar las respuestas de BD sin conexión real.
+ * SEC-62 (SA-27): el router usa el cliente Prisma compartido (src/prisma/client),
+ * que aquí se sustituye por un mock: no se crea ningún Pool ni PrismaClient.
  *
  * Implementa: TEST-EX-03
  */
 
-// ─── Mocks de infraestructura PG/Prisma ───────────────────────────────────────
-
-// Mapa de ejercicios en memoria que controla el comportamiento del mock
-const exercisesDb = [];
+// ─── Mock del cliente Prisma compartido ───────────────────────────────────────
 
 const mockFindMany = jest.fn();
 const mockFindUnique = jest.fn();
 const mockCount = jest.fn();
-const mockDisconnect = jest.fn().mockResolvedValue(undefined);
-const mockPoolEnd = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('pg', () => ({
-  Pool: jest.fn().mockImplementation(() => ({
-    end: mockPoolEnd,
-  })),
+jest.mock('../../backend/src/prisma/client', () => ({
+  exercise: {
+    findMany: (...args) => mockFindMany(...args),
+    findUnique: (...args) => mockFindUnique(...args),
+    count: (...args) => mockCount(...args),
+  },
+  $queryRaw: jest.fn().mockResolvedValue([{ 1: 1 }]),
 }));
 
-jest.mock('@prisma/adapter-pg', () => ({
-  PrismaPg: jest.fn().mockImplementation(() => ({})),
-}));
-
-jest.mock('../../backend/src/generated/prisma', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    exercise: {
-      findMany: mockFindMany,
-      findUnique: mockFindUnique,
-      count: mockCount,
-    },
-    $disconnect: mockDisconnect,
-  })),
-}));
+// Si alguien vuelve a crear un Pool por petición, este espía lo detecta
+// (se conserva el resto del módulo real: @prisma/adapter-pg lo necesita al cargarse)
+const mockPoolCtor = jest.fn();
+jest.mock('pg', () => {
+  const actual = jest.requireActual('pg');
+  function Pool(...args) { mockPoolCtor(...args); }
+  return { ...actual, Pool };
+});
 
 // ─── Mock de servicios externos ───────────────────────────────────────────────
 
@@ -466,5 +457,61 @@ describe('GET /exercises/:id', () => {
     expect(res.status).toBe(500);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toBe('INTERNAL_ERROR');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEC-62 (SA-27) y SEC-52 (SA-23)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('GET /exercises — cliente compartido y validación de query', () => {
+  let token;
+
+  beforeAll(() => {
+    token = makeToken();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFindMany.mockResolvedValue([]);
+    mockCount.mockResolvedValue(0);
+    mockFindUnique.mockResolvedValue(null);
+  });
+
+  test('no crea Pool ni PrismaClient por petición', async () => {
+    await request(app).get('/exercises').set('Authorization', authHeader(token));
+    await request(app).get('/exercises/uuid-ex-001').set('Authorization', authHeader(token));
+    expect(mockPoolCtor).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    'category=Arms&category=Legs',
+    'difficulty=expert',
+    `target=${'a'.repeat(101)}`,
+  ])('?%s → 400 sin consultar la BD', async (qs) => {
+    const res = await request(app).get(`/exercises?${qs}`).set('Authorization', authHeader(token));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
+
+  test('?category[not]=x no llega como operador a Prisma', async () => {
+    const res = await request(app).get('/exercises?category[not]=Arms').set('Authorization', authHeader(token));
+    expect(res.status).toBe(200);
+    expect(mockFindMany.mock.calls[0][0].where.category).toBeUndefined();
+  });
+
+  test('limit/offset no numéricos o negativos usan valores seguros', async () => {
+    const res = await request(app).get('/exercises?limit=abc&offset=-7').set('Authorization', authHeader(token));
+    expect(res.status).toBe(200);
+    const args = mockFindMany.mock.calls[0][0];
+    expect(args.take).toBe(20);
+    expect(args.skip).toBe(0);
+  });
+
+  test('GET /exercises/:id con id desmesurado → 404 sin consultar la BD', async () => {
+    const res = await request(app).get(`/exercises/${'x'.repeat(65)}`).set('Authorization', authHeader(token));
+    expect(res.status).toBe(404);
+    expect(mockFindUnique).not.toHaveBeenCalled();
   });
 });

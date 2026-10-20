@@ -12,6 +12,10 @@
  * - pausePlan: rama plan null, plan ya pausado
  */
 
+// Prisma y Redis en memoria también con la config raíz (sin conexiones reales)
+jest.mock('../../backend/src/prisma/client', () => jest.requireActual('../../backend/src/__mocks__/prisma'));
+jest.mock('../../backend/src/services/redis.service', () => jest.requireActual('../../backend/src/__mocks__/redis.service'));
+
 jest.mock('../../backend/src/services/email.service', () => ({
   sendVerificationEmail: jest.fn().mockResolvedValue(true),
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
@@ -155,6 +159,38 @@ describe('regeneratePlan — branches', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // SEC-33: consentimiento art. 9 vigente
+    prisma.user.findUnique = jest.fn().mockResolvedValue({ health_consent_given_at: new Date(), health_consent_version: '1.0' });
+  });
+
+  test('devuelve 403 HEALTH_CONSENT_REQUIRED sin consentimiento (SEC-33) y no llama a la IA', async () => {
+    setupBasePrisma();
+    prisma.user.findUnique = jest.fn().mockResolvedValue({ health_consent_given_at: null, health_consent_version: null });
+    const res = makeMockRes();
+    await regeneratePlan(makeReq({ body: {} }), res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'HEALTH_CONSENT_REQUIRED' }));
+    expect(aiService.regeneratePlan).not.toHaveBeenCalled();
+  });
+
+  test('devuelve 400 AGE_RESTRICTION si el perfil guardado es de un menor (SEC-29)', async () => {
+    setupBasePrisma();
+    const birthdate = new Date();
+    birthdate.setFullYear(birthdate.getFullYear() - 13);
+    prisma.profile.findUnique = jest.fn().mockResolvedValue({ birthdate, weight_kg: 45, height_cm: 155, gender: 'female' });
+    const res = makeMockRes();
+    await regeneratePlan(makeReq({ body: {} }), res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'AGE_RESTRICTION' }));
+    expect(aiService.regeneratePlan).not.toHaveBeenCalled();
+  });
+
+  test('normaliza reason a la lista blanca y lo guarda como ai_prompt_used', async () => {
+    setupBasePrisma();
+    const res = makeMockRes();
+    await regeneratePlan(makeReq({ body: { reason: 'texto libre del cliente' } }), res, jest.fn());
+    expect(aiService.regeneratePlan.mock.calls[0][2]).toBe('manual_request');
+    expect(prisma.plan.create.mock.calls[0][0].data.ai_prompt_used).toBe('manual_request');
   });
 
   function setupBasePrisma() {
@@ -244,14 +280,13 @@ describe('regeneratePlan — branches', () => {
     exerciseSelector.getExercisesForProfile.mockResolvedValue([
       { id: 'ex-1', name: 'Squat', externalId: '101', category: 'Legs', bodyPart: 'legs', equipment: 'Body Weight', target: 'quads', secondaryMuscles: [], instructionsEs: null, difficulty: 'beginner' },
     ]);
-    exerciseSelector.formatExercisesForPrompt.mockReturnValue('- Squat (ID:101)');
-
     const req = makeReq({ body: {} });
     const res = makeMockRes();
 
     await regeneratePlan(req, res, jest.fn());
 
-    expect(exerciseSelector.formatExercisesForPrompt).toHaveBeenCalled();
+    // SEC-54: el catálogo se pasa como array `exercises` (5º argumento), no como texto
+    expect(aiService.regeneratePlan.mock.calls[0][4]).toEqual([expect.objectContaining({ externalId: '101' })]);
     expect(res.status).toHaveBeenCalledWith(200);
   });
 

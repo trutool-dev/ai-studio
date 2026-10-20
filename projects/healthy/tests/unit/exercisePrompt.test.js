@@ -150,9 +150,10 @@ describe('buildUserContextPrompt — catálogo de ejercicios', () => {
     expect(prompt).not.toContain('## CONTEXTO ADICIONAL');
   });
 
-  test('el prompt incluye información de estilo de vida', () => {
+  test('el prompt incluye información de estilo de vida pero NO la profesión (minimización, SEC-33)', () => {
     const prompt = buildUserContextPrompt(MINIMAL_ONBOARDING, metrics, null, []);
-    expect(prompt).toContain('Developer');
+    expect(prompt).toContain('Nivel de estrés (1-5): 3');
+    expect(prompt).not.toContain('Developer');
   });
 
   test('el prompt incluye información de entrenamiento', () => {

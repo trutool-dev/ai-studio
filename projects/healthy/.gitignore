@@ -6,7 +6,9 @@ node_modules/
 dist/
 build/
 .expo/
-app.json
+# SEC-42: solo el app.json suelto de la raíz del proyecto; frontend/app.json
+# es la configuración de Expo versionada y no debe ignorarse
+/app.json
 
 # Logs
 *.log

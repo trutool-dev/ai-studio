@@ -15,10 +15,27 @@ const userRoutes = require('./routes/user.routes');
 const exercisesRoutes = require('./routes/exercises.routes');
 const errorHandler = require('./middleware/errorHandler.middleware');
 const { apiLimiter } = require('./middleware/rateLimiter.middleware');
+const { authenticate } = require('./middleware/auth.middleware');
+const { preAuthIpLimiter, aiHealthLimiter, healthLimiter } = require('./middleware/platformRateLimit.middleware');
+const { parseTrustProxy } = require('./config/env');
+const { sendSuccess, sendError } = require('./utils/response.util');
+const { safeEqual } = require('./utils/crypto.util');
+const logger = require('./utils/logger.util');
 const prisma = require('./prisma/client');
 const redis = require('./services/redis.service');
 
 const app = express();
+
+// SEC-32 (SA-06/JB-07): confiar solo en N saltos de proxy para que req.ip sea la IP
+// real del cliente (clave de los rate limiters). Por defecto 1 = el proxy/edge de
+// Railway. Se configura con TRUST_PROXY (entero 0-10). Nunca `true`: haría que
+// X-Forwarded-For fuese falsificable y permitiría eludir los límites.
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+
+// SEC-52 (SA-23): parser de query "simple" (querystring de Node): los query params
+// son cadenas o arrays de cadenas, nunca objetos anidados (?status[not]=x) que
+// pudieran llegar como operadores a Prisma.
+app.set('query parser', 'simple');
 
 // Seguridad y utilidades
 
@@ -42,14 +59,22 @@ app.use(helmet({
 
 // CORS sin fallback a '*': solo orígenes explícitamente permitidos
 // Permite requests sin origin (apps móviles, Postman en desarrollo)
+const CORS_REJECTED = 'CORS_NOT_ALLOWED';
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = (process.env.FRONTEND_URL || '').split(',').filter(Boolean);
+    const allowed = (process.env.FRONTEND_URL || '').split(',').map((o) => o.trim()).filter(Boolean);
     if (!origin || allowed.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    const err = new Error('Not allowed by CORS');
+    err.code = CORS_REJECTED;
+    return callback(err);
   },
   credentials: true,
 }));
+// Origen rechazado por CORS → 403 (antes acababa como 500 en el errorHandler)
+app.use((err, _req, res, next) => {
+  if (err && err.code === CORS_REJECTED) return sendError(res, 'CORS_NOT_ALLOWED', 'Origen no permitido', 403);
+  return next(err);
+});
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '50kb' })); // SEC-12: límite reducido de 10mb a 50kb
 app.use(express.urlencoded({ extended: true }));
@@ -58,31 +83,67 @@ app.use(express.urlencoded({ extended: true }));
 // Health check (BE-10)
 // ─────────────────────────────────────────────────────────────
 
-// Diagnóstico temporal de API key (solo staging/dev) — SEC-19: sin key_prefix, con auth token
-app.get('/health/ai', async (_req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(404).json({ success: false });
-  // Requiere token de admin si está configurado
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (adminToken && _req.headers['x-admin-token'] !== adminToken) {
-    return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
-  }
-  const keySet = !!process.env.ANTHROPIC_API_KEY;
-  try {
-    const Anthropic = require('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const r = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 10,
-      system: 'Responde solo "OK".',
-      messages: [{ role: 'user', content: 'ping' }],
-    });
-    return res.json({ success: true, key_set: keySet, model_response: r.content[0].text });
-  } catch (err) {
-    return res.json({ success: false, key_set: keySet, error: err.message, status: err.status });
-  }
-});
+// ─── /health/ai — diagnóstico de la API key de Anthropic (SEC-39 / SA-15 + JB-08) ───
+// Deshabilitado por defecto (fail-closed). Solo se habilita si se cumplen TODAS:
+//   - ENABLE_DEV_ENDPOINTS === 'true' (misma bandera que los endpoints dev de /auth)
+//   - NODE_ENV en AI_HEALTHCHECK_ENVS (nunca production)
+//   - ADMIN_TOKEN definido con al menos 32 caracteres
+// Si no, responde 404 igual que una ruta inexistente. Con el endpoint habilitado:
+// rate limit estricto por IP (5/h), cabecera X-Admin-Token obligatoria comparada en
+// tiempo constante, y sin devolver err.message / err.status del SDK al cliente.
+const AI_HEALTHCHECK_ENVS = ['development', 'test', 'staging'];
+const MIN_ADMIN_TOKEN_LENGTH = 32;
 
-app.get('/health', async (_req, res) => {
+function isAdminTokenConfigured() {
+  const adminToken = process.env.ADMIN_TOKEN;
+  return typeof adminToken === 'string' && adminToken.length >= MIN_ADMIN_TOKEN_LENGTH;
+}
+
+function hasValidAdminToken(req) {
+  if (!isAdminTokenConfigured()) return false;
+  return safeEqual(req.get('x-admin-token') || '', process.env.ADMIN_TOKEN);
+}
+
+function isAiHealthcheckEnabled() {
+  return process.env.ENABLE_DEV_ENDPOINTS === 'true'
+    && AI_HEALTHCHECK_ENVS.includes(process.env.NODE_ENV)
+    && isAdminTokenConfigured();
+}
+
+const sendRouteNotFound = (res) => sendError(res, 'NOT_FOUND', 'Ruta no encontrada', 404);
+
+app.get('/health/ai',
+  (_req, res, next) => (isAiHealthcheckEnabled() ? next() : sendRouteNotFound(res)),
+  aiHealthLimiter,
+  async (req, res) => {
+    if (!hasValidAdminToken(req)) {
+      logger.warn(`[health/ai] Token de admin inválido desde ${req.ip}`);
+      return sendError(res, 'UNAUTHORIZED', 'No autorizado', 401);
+    }
+    const keySet = !!process.env.ANTHROPIC_API_KEY;
+    try {
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        system: 'Responde solo "OK".',
+        messages: [{ role: 'user', content: 'ping' }],
+      });
+      return sendSuccess(res, { key_set: keySet, ai: 'ok' }, 'API de IA operativa');
+    } catch (err) {
+      // El detalle del proveedor solo va al log del servidor, nunca al cliente
+      logger.warn(`[health/ai] Fallo al llamar a la API de IA (status ${err && err.status ? err.status : 'n/a'})`);
+      return sendError(res, 'AI_UNAVAILABLE', 'La API de IA no está disponible', 503);
+    }
+  });
+
+// ─── /health — healthcheck (SEC-71 / VUL-2026-017, B-02) ───
+// Público y mínimo: solo { status: ok|degraded }, sin versión ni detalle de BD/Redis.
+// El detalle (timestamp, versión, db, redis) solo se devuelve con X-Admin-Token válido.
+// Railway (railway.toml healthcheckPath) y el HEALTHCHECK del Dockerfile usan esta ruta:
+// se mantiene 200 si la BD responde y 503 si no (Redis es caché y no bloquea).
+app.get('/health', healthLimiter, async (req, res) => {
   let dbStatus = 'connected';
   let redisStatus = 'connected';
 
@@ -99,15 +160,16 @@ app.get('/health', async (_req, res) => {
   }
 
   const healthy = dbStatus === 'connected'; // Redis es caché — no bloquea el healthcheck
+  const data = { status: healthy ? 'ok' : 'degraded' };
+  if (hasValidAdminToken(req)) {
+    data.timestamp = new Date().toISOString();
+    data.version = process.env.npm_package_version || '1.0.0';
+    data.db = dbStatus;
+    data.redis = redisStatus;
+  }
   return res.status(healthy ? 200 : 503).json({
     success: healthy,
-    data: {
-      status: healthy ? 'ok' : 'degraded',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.0.0',
-      db: dbStatus,
-      redis: redisStatus,
-    },
+    data,
     message: healthy ? 'Servidor operativo' : 'El servidor tiene problemas',
   });
 });
@@ -116,27 +178,30 @@ app.get('/health', async (_req, res) => {
 // Rutas de la API
 // ─────────────────────────────────────────────────────────────
 
-// Rate limiting global para todas las rutas autenticadas (SEC-06)
-app.use('/onboarding', apiLimiter);
-app.use('/plans', apiLimiter);
-app.use('/training', apiLimiter);
-app.use('/nutrition', apiLimiter);
-app.use('/progress', apiLimiter);
-app.use('/logs', apiLimiter);
-app.use('/foods', apiLimiter);
-app.use('/user', apiLimiter);
-app.use('/exercises', apiLimiter);
+// SEC-32 (SA-06/JB-07): orden de middlewares en las rutas autenticadas:
+//   1. preAuthIpLimiter → límite por IP antes de autenticar (ráfagas anónimas / tokens inválidos)
+//   2. authenticate     → rellena req.user
+//   3. apiLimiter       → límite por usuario (keyGenerator usa req.user.userId)
+// Los routers vuelven a llamar a `authenticate` internamente (defensa en profundidad).
+const authenticatedRoutes = [
+  ['/onboarding', onboardingRoutes],
+  ['/plans', plansRoutes],
+  ['/training', trainingRoutes],
+  ['/nutrition', nutritionRoutes],
+  ['/progress', progressRoutes],
+  ['/logs', logsRoutes],
+  ['/foods', foodsRoutes],
+  ['/user', userRoutes],
+  ['/exercises', exercisesRoutes],
+];
 
-app.use('/auth', authRoutes);
-app.use('/onboarding', onboardingRoutes);
-app.use('/plans', plansRoutes);
-app.use('/training', trainingRoutes);
-app.use('/nutrition', nutritionRoutes);
-app.use('/progress', progressRoutes);
-app.use('/logs', logsRoutes);
-app.use('/foods', foodsRoutes);
-app.use('/user', userRoutes);
-app.use('/exercises', exercisesRoutes);
+// Rutas públicas de autenticación: solo límite por IP (los limitadores específicos
+// de login/registro/etc. están dentro de auth.routes.js)
+app.use('/auth', preAuthIpLimiter, authRoutes);
+
+for (const [path, router] of authenticatedRoutes) {
+  app.use(path, preAuthIpLimiter, authenticate, apiLimiter, router);
+}
 
 // Ruta no encontrada (404)
 app.use((_req, res) => {
