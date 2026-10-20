@@ -15,6 +15,13 @@ jest.mock('../../backend/src/services/email.service', () => ({
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
 }));
 
+// Mock del selector de catálogo: su cliente Prisma propio (pg) no pasa por el mock de
+// Prisma de la suite y dejaba colgado POST /onboarding/complete esperando una BD real.
+jest.mock('../../backend/src/services/exerciseSelector.service', () => ({
+  getExercisesForProfile: jest.fn().mockResolvedValue([]),
+  formatExercisesForPrompt: jest.fn().mockReturnValue(''),
+}));
+
 // Mock del AI service: plan válido sin llamar a Claude
 jest.mock('../../backend/src/services/aiService', () => ({
   calculateMetabolism: jest.fn().mockReturnValue({

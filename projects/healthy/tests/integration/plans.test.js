@@ -13,6 +13,12 @@ jest.mock('../../backend/src/services/email.service', () => ({
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
 }));
 
+// Selector de catálogo con cliente Prisma propio (pg): se simula para no depender de una BD real
+jest.mock('../../backend/src/services/exerciseSelector.service', () => ({
+  getExercisesForProfile: jest.fn().mockResolvedValue([]),
+  formatExercisesForPrompt: jest.fn().mockReturnValue(''),
+}));
+
 jest.mock('../../backend/src/services/aiService', () => ({
   calculateMetabolism: jest.fn().mockReturnValue({ bmr: 1749, tdee: 2711, target_calories: 2168 }),
   generatePlan: jest.fn().mockResolvedValue({
@@ -101,7 +107,7 @@ async function createUserWithPlan() {
   await request(app).put('/onboarding/lifestyle').set('Authorization', getAuthHeader(token)).send(ONBOARDING_LIFESTYLE);
   await request(app).put('/onboarding/training').set('Authorization', getAuthHeader(token)).send(ONBOARDING_TRAINING);
   await request(app).put('/onboarding/nutrition').set('Authorization', getAuthHeader(token)).send(ONBOARDING_NUTRITION);
-  await request(app).put('/onboarding/health').set('Authorization', getAuthHeader(token)).send({ conditions: [], food_restrictions: [] });
+  await request(app).put('/onboarding/health').set('Authorization', getAuthHeader(token)).send({ healthConsent: true, conditions: [], food_restrictions: [] });
   await request(app).put('/onboarding/motivation').set('Authorization', getAuthHeader(token)).send(ONBOARDING_MOTIVATION);
   await request(app).post('/onboarding/complete').set('Authorization', getAuthHeader(token)).send({ answers: [] });
 
@@ -257,6 +263,12 @@ describe('POST /plans/regenerate', () => {
   test('falla si no hay datos de onboarding completos', async () => {
     const user = await createAndLoginUser();
     createdEmails.push(user.email);
+
+    // SEC-33: el consentimiento Art. 9 se comprueba antes que el resto de datos
+    await request(app)
+      .put('/onboarding/health')
+      .set('Authorization', getAuthHeader(user.access_token))
+      .send({ healthConsent: true, conditions: [], food_restrictions: [] });
 
     const res = await request(app)
       .post('/plans/regenerate')
