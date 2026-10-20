@@ -42,8 +42,6 @@ module.exports = {
     // Servicios externos: requieren credenciales reales (Anthropic, SMTP, Supabase, Redis)
     // Se excluyen de la cobertura por ser integraciones de terceros no testables en CI local
     '!<rootDir>/src/services/aiService.js',
-    '!<rootDir>/src/services/authService.js',
-    '!<rootDir>/src/services/cacheService.js',
     '!<rootDir>/src/services/email.service.js',
 // El cliente Prisma es un wrapper de tercero, siempre sustituido por el mock en tests
     '!<rootDir>/src/prisma/client.js',
