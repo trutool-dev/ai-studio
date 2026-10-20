@@ -188,12 +188,17 @@ async function createSession(user, req) {
   };
 }
 
+/** Versión vigente de la política de consentimiento (HEALTH_CONSENT_VERSION, por defecto '1.0'). */
+function getHealthConsentVersion() {
+  return process.env.HEALTH_CONSENT_VERSION || '1.0';
+}
+
 // ─── POST /auth/register ──────────────────────────────────────
 
 /** POST /auth/register */
 const register = async (req, res, next) => {
   try {
-    const { email, phone_number, birthdate, health_consent_given_at } = req.body;
+    const { email, phone_number, birthdate, health_consent } = req.body;
 
     // Verificación de edad mínima 16 años (LOPDGDD Art. 7)
     if (birthdate) {
@@ -212,9 +217,10 @@ const register = async (req, res, next) => {
       return sendError(res, 'EMAIL_ALREADY_EXISTS', 'Ya existe una cuenta con ese email', 409);
     }
 
-    // Preparar datos de consentimiento de salud (RGPD Art. 9)
-    const consentData = health_consent_given_at
-      ? { health_consent_given_at: new Date(health_consent_given_at), health_consent_version: '1.0' }
+    // SEC-33 (SA-07): consentimiento de salud (RGPD Art. 9) solo con un `true` booleano explícito.
+    // La fecha y la versión las fija el servidor; `health_consent_given_at` del cliente se ignora.
+    const consentData = health_consent === true
+      ? { health_consent_given_at: new Date(), health_consent_version: getHealthConsentVersion() }
       : {};
 
     const user = await prisma.user.create({

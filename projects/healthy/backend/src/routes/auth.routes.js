@@ -16,7 +16,12 @@ const ctrl = require('../controllers/auth.controller');
 
 // POST /auth/register — SEC-05: máx 3 cuentas/hora por IP
 router.post('/register', registrationLimiter, authRateLimiter, emailActionLimiter,
-  [body('email').isEmail().withMessage('Email inválido'), body('phone_number').optional()],
+  [
+    body('email').isEmail().withMessage('Email inválido'),
+    body('phone_number').optional(),
+    // SEC-33: si se envía, el consentimiento debe ser booleano estricto (no "true", 1, fechas...)
+    body('health_consent').optional().custom((v) => typeof v === 'boolean').withMessage('health_consent debe ser booleano'),
+  ],
   validate, ctrl.register);
 
 // POST /auth/verify-email

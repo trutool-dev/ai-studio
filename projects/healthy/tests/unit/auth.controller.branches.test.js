@@ -101,23 +101,40 @@ describe('register — branches', () => {
     );
   });
 
-  test('incluye consentimiento cuando health_consent_given_at está definido', async () => {
+  test('SEC-33: registra consentimiento con health_consent === true y fecha del servidor', async () => {
     prisma.user.findUnique = jest.fn().mockResolvedValue(null);
     prisma.user.create = jest.fn().mockResolvedValue({ id: 'user-with-consent', email: 'consent@test.com' });
     prisma.verificationCode.create = jest.fn().mockResolvedValue({});
 
+    const before = Date.now();
     const req = makeReq({
-      body: { email: 'consent@test.com', health_consent_given_at: new Date().toISOString() },
+      body: { email: 'consent@test.com', health_consent: true, health_consent_given_at: '2001-01-01T00:00:00Z' },
     });
     const res = makeMockRes();
 
     await register(req, res, jest.fn());
 
-    expect(prisma.user.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ health_consent_given_at: expect.any(Date) }),
-      })
-    );
+    const data = prisma.user.create.mock.calls[0][0].data;
+    expect(data.health_consent_given_at).toBeInstanceOf(Date);
+    // La fecha enviada por el cliente se ignora: la fija el servidor
+    expect(data.health_consent_given_at.getTime()).toBeGreaterThanOrEqual(before);
+    expect(data.health_consent_version).toBe(process.env.HEALTH_CONSENT_VERSION || '1.0');
+  });
+
+  test.each([
+    ['solo fecha del cliente', { health_consent_given_at: new Date().toISOString() }],
+    ['string "true"', { health_consent: 'true' }],
+    ['false', { health_consent: false }],
+    ['1', { health_consent: 1 }],
+  ])('SEC-33: no registra consentimiento con %s', async (_label, extra) => {
+    prisma.user.findUnique = jest.fn().mockResolvedValue(null);
+    prisma.user.create = jest.fn().mockResolvedValue({ id: 'u-nc', email: 'nc@test.com' });
+    prisma.verificationCode.create = jest.fn().mockResolvedValue({});
+
+    await register(makeReq({ body: { email: 'nc@test.com', ...extra } }), makeMockRes(), jest.fn());
+
+    const data = prisma.user.create.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('health_consent_given_at');
   });
 
   test('devuelve 409 si el email ya existe', async () => {
