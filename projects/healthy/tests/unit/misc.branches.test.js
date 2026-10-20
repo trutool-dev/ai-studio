@@ -188,7 +188,7 @@ describe('auth.middleware — branch TokenExpiredError', () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  test('llama a next con el payload cuando el token es válido', () => {
+  test('llama a next con el payload cuando el token es válido', async () => {
     const validToken = jwt.sign(
       { userId: 'u1', email: 'u@test.com', sessionId: 's1' },
       JWT_SECRET,
@@ -198,7 +198,8 @@ describe('auth.middleware — branch TokenExpiredError', () => {
     const res = makeRes();
     const next = jest.fn();
 
-    authenticate(req, res, next);
+    // SEC-44: la comprobación de revocación es asíncrona
+    await authenticate(req, res, next);
 
     expect(next).toHaveBeenCalled();
     expect(req.user).toHaveProperty('userId', 'u1');

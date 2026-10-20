@@ -9,7 +9,7 @@ const { sendSuccess, sendError } = require('../utils/response.util');
 const { hashPassword, comparePassword, generateVerificationCode } = require('../utils/crypto.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
-const jwt = require('jsonwebtoken');
+const { signAccessToken, revokeSession, revokeAllUserSessions } = require('../middleware/auth.middleware');
 // Se accede vía objeto de módulo (no desestructurado) para que los tests puedan espiar los envíos
 const emailService = require('../services/email.service');
 const redis = require('../services/redis.service');
@@ -130,12 +130,9 @@ async function issueVerificationCode(user) {
 
 // ─── helpers JWT / tokens ────────────────────────────────────
 
+// SEC-44: HS256 fijado al firmar (y algorithms: ['HS256'] al verificar en auth.middleware)
 function generateAccessToken(userId, email, sessionId) {
-  return jwt.sign(
-    { userId, email, sessionId },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '15m' },
-  );
+  return signAccessToken({ userId, email, sessionId }, process.env.JWT_EXPIRES_IN || '15m');
 }
 
 function generateRefreshToken() {
@@ -413,6 +410,8 @@ const resetPassword = async (req, res, next) => {
       prisma.passwordResetToken.update({ where: { id: record.id }, data: { used_at: new Date() } }),
       prisma.authSession.deleteMany({ where: { user_id: record.user_id } }),
     ]);
+    // SEC-44: los access tokens ya emitidos dejan de valer
+    await revokeAllUserSessions(record.user_id);
 
     return sendSuccess(res, {}, 'Contraseña restablecida. Ya puedes iniciar sesión.');
   } catch (err) {
@@ -426,6 +425,8 @@ const logout = async (req, res, next) => {
     const sessionId = req.user?.sessionId;
     if (sessionId) {
       await prisma.authSession.deleteMany({ where: { id: sessionId } });
+      // SEC-44: el access token de esta sesión deja de valer inmediatamente
+      await revokeSession(sessionId);
       try {
         await redis.del(`session:${sessionId}`);
       } catch (redisErr) {
