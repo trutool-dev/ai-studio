@@ -12,12 +12,15 @@ router.get('/', ctrl.getProgress);
 router.post('/',
   [
     body('log_date').notEmpty().isISO8601().withMessage('Fecha inválida (ISO8601 requerido)'),
-    body('weight_kg').optional().isFloat({ gt: 0 }).withMessage('weight_kg debe ser positivo'),
+    body('weight_kg').optional().isFloat({ gt: 0, max: 999 }).withMessage('weight_kg debe estar entre 0 y 999'),
     body('body_fat_percentage').optional().isFloat({ min: 0, max: 100 }).withMessage('body_fat_percentage debe estar entre 0 y 100'),
-    body('muscle_mass_kg').optional().isFloat({ gt: 0 }).withMessage('muscle_mass_kg debe ser positivo'),
-    body('waist_cm').optional().isFloat({ gt: 0 }).withMessage('waist_cm debe ser positivo'),
-    body('hip_cm').optional().isFloat({ gt: 0 }).withMessage('hip_cm debe ser positivo'),
-    body('chest_cm').optional().isFloat({ gt: 0 }).withMessage('chest_cm debe ser positivo'),
+    body('muscle_mass_kg').optional().isFloat({ gt: 0, max: 999 }).withMessage('muscle_mass_kg debe estar entre 0 y 999'),
+    body('waist_cm').optional().isFloat({ gt: 0, max: 999 }).withMessage('waist_cm debe estar entre 0 y 999'),
+    body('hip_cm').optional().isFloat({ gt: 0, max: 999 }).withMessage('hip_cm debe estar entre 0 y 999'),
+    body('chest_cm').optional().isFloat({ gt: 0, max: 999 }).withMessage('chest_cm debe estar entre 0 y 999'),
+    // SEC-52 / SA-28: texto libre acotado
+    body('notes').optional({ values: 'null' }).isString().withMessage('notes debe ser texto')
+      .isLength({ max: 1000 }).withMessage('notes admite como máximo 1000 caracteres'),
     body('photo_url').optional().isURL().withMessage('photo_url debe ser una URL válida'),
   ],
   validate, ctrl.createProgress);

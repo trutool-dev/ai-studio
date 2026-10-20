@@ -32,6 +32,11 @@ const app = express();
 // X-Forwarded-For fuese falsificable y permitiría eludir los límites.
 app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 
+// SEC-52 (SA-23): parser de query "simple" (querystring de Node): los query params
+// son cadenas o arrays de cadenas, nunca objetos anidados (?status[not]=x) que
+// pudieran llegar como operadores a Prisma.
+app.set('query parser', 'simple');
+
 // Seguridad y utilidades
 
 // Helmet con CSP explícita y X-Frame-Options DENY (RGPD / hardening)
