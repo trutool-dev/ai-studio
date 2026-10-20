@@ -16,3 +16,7 @@ PR-*.md
 auditoria_*.md
 apple-design-audit.md
 *.jsonl
+
+# SEC-42 (SA-11): los entregables de seguridad SÍ se versionan aunque encajen
+# en los patrones anteriores (p. ej. ATLAS_AUDIT.md con *_AUDIT.md)
+!projects/healthy/security/*.md

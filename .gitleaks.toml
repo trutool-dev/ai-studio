@@ -1,0 +1,58 @@
+# Configuración de gitleaks — SEC-42 (SA-11 + JB-20)
+# Usa las reglas por defecto de gitleaks y añade las específicas del estudio.
+# Las mismas familias de secretos las detecta el hook local .husky/pre-commit.
+# Falso positivo verificado: añadir el comentario `gitleaks:allow` en esa línea.
+
+title = "ai-studio gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Artefactos generados que no contienen secretos"
+paths = [
+  '''(^|/)coverage/''',
+  '''(^|/)node_modules/''',
+  '''package-lock\.json$''',
+  '''(^|/)\.git/''',
+]
+
+# URLs de PostgreSQL / Redis / MySQL / MongoDB con contraseña embebida (SA-02)
+[[rules]]
+id = "db-url-with-password"
+description = "Connection string with embedded password"
+regex = '''(?i)\b(?:postgres(?:ql)?|rediss?|mysql|mongodb(?:\+srv)?)://[^:/@\s]+:([^@\s]+)@[^/:\s`"']+'''
+secretGroup = 1
+keywords = ["postgres", "redis", "mysql", "mongodb"]
+
+  [rules.allowlist]
+  description = "Placeholders y hosts de desarrollo local (CI, docker-compose)"
+  regexTarget = "match"
+  regexes = [
+    '''://[^:]+:(?:<[^>]*>|\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]*%|\*+|[xX]{3,}|\.\.\.|password|pass|pwd|secret|changeme)@''',
+    '''@(?:localhost|127\.0\.0\.1|\[::1\]|host|<[^>]*>|\$\{[^}]*\})$''',
+  ]
+
+# JWT_SECRET= / JWT_REFRESH_SECRET= con valor real (SA-01)
+[[rules]]
+id = "jwt-secret-assignment"
+description = "JWT signing secret assigned a literal value"
+regex = '''JWT_(?:REFRESH_)?SECRET\s*[=:]\s*["'`]?([A-Za-z0-9+/=_\-]{16,})'''
+secretGroup = 1
+keywords = ["jwt_secret", "jwt_refresh_secret"]
+
+  [rules.allowlist]
+  description = "Valores de ejemplo / CI"
+  regexTarget = "secret"
+  regexes = [
+    '''(?i)(test|example|your-|change|placeholder|dummy|fake|sample|ci-only|not-used|development)''',
+  ]
+
+# Valor base64 largo junto a una palabra de secreto (caso SA-01: tabla Markdown)
+[[rules]]
+id = "secret-context-high-entropy"
+description = "Long base64 value on a line mentioning a secret"
+regex = '''(?i)(?:secret|token|password|passwd|api[_-]?key|private[_-]?key)[^\n]{0,120}?([A-Za-z0-9+/]{40,}={0,2})'''
+secretGroup = 1
+entropy = 4.0
+keywords = ["secret", "token", "password", "passwd", "api_key", "api-key", "apikey", "private_key", "private-key"]
