@@ -424,6 +424,12 @@ const resetPassword = async (req, res, next) => {
     if (record.used_at) return sendError(res, 'TOKEN_USED', 'Este enlace ya fue utilizado', 400);
     if (new Date() > new Date(record.expires_at)) return sendError(res, 'TOKEN_EXPIRED', 'El enlace ha expirado', 400);
 
+    // SEC-72 (VUL-2026-015): la nueva contraseña no puede ser la actual (el enlace no se consume)
+    const owner = await prisma.user.findUnique({ where: { id: record.user_id } });
+    if (owner && owner.password_hash && await comparePassword(password, owner.password_hash)) {
+      return sendError(res, 'PASSWORD_REUSED', 'La nueva contraseña debe ser distinta de la actual', 400);
+    }
+
     // Consumo condicional: el mismo enlace no sirve dos veces aunque lleguen peticiones en paralelo
     const consumed = await prisma.passwordResetToken.updateMany({
       where: { id: record.id, used_at: null },

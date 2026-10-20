@@ -193,6 +193,20 @@ describe('SEC-45 — tokens de reset', () => {
     expect((await call(ctrl.resetPassword, { token, password: 'Other123!' })).body.error).toBe('TOKEN_USED');
   });
 
+  test('SEC-72: rechaza la misma contraseña actual sin consumir el enlace', async () => {
+    await seedActiveUser('same@test.com', 'SamePass123!');
+    await call(ctrl.forgotPassword, { email: 'same@test.com' });
+    const token = emailService.sendPasswordResetEmail.mock.calls[0][1];
+
+    const same = await call(ctrl.resetPassword, { token, password: 'SamePass123!' });
+    expect(same.status).toBe(400);
+    expect(same.body.error).toBe('PASSWORD_REUSED');
+    expect(prisma._db.passwordResetToken[0].used_at).toBeNull();
+
+    // Con una contraseña distinta el mismo enlace sí funciona
+    expect((await call(ctrl.resetPassword, { token, password: 'Different123!' })).status).toBe(200);
+  });
+
   test('reset: consumo condicional ante peticiones en paralelo', async () => {
     await seedActiveUser();
     await call(ctrl.forgotPassword, { email: 'tok@test.com' });
