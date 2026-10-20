@@ -8,6 +8,7 @@ const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
 const redis = require('../services/redis.service');
 const { comparePassword } = require('../utils/crypto.util');
+const { revokeAllUserSessions } = require('../middleware/auth.middleware');
 
 // ─── Purga de Redis ──────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ async function purgeUserFromRedis(userId, sessionIds) {
  * - Borrado atómico en `prisma.$transaction`: `user.delete` borra en cascada todas las
  *   tablas dependientes (onDelete: Cascade en schema.prisma), incluidas las sesiones
  *   (AuthSession) → los refresh tokens quedan revocados.
+ * - Revocación de los access tokens emitidos (revokeAllUserSessions, SEC-44).
  * - Purga en Redis de sesiones, planes cacheados, cuota de IA y caché de perfil.
  * Los backups de la BD conservan los datos hasta su rotación (política documentada aparte).
  */
@@ -102,6 +104,10 @@ const deleteAccount = async (req, res, next) => {
       await tx.user.delete({ where: { id: userId } });
       return sessions.map((s) => s.id);
     });
+
+    // Revoca los access tokens ya emitidos (SA-13: si no, seguirían valiendo hasta expirar).
+    // La marca de revocación (auth:revoked:user:*) no la borra la purga posterior.
+    await revokeAllUserSessions(userId);
 
     const currentSession = req.user && req.user.sessionId;
     if (currentSession && !sessionIds.includes(currentSession)) sessionIds.push(currentSession);

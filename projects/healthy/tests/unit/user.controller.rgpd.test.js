@@ -32,6 +32,12 @@ jest.mock('../../backend/src/prisma/client', () => mockPrisma);
 const mockRedis = { del: jest.fn(), keys: jest.fn(), scan: undefined };
 jest.mock('../../backend/src/services/redis.service', () => mockRedis);
 
+const mockRevokeAll = jest.fn().mockResolvedValue(undefined);
+jest.mock('../../backend/src/middleware/auth.middleware', () => ({
+  authenticate: (_req, _res, next) => next(),
+  revokeAllUserSessions: (...args) => mockRevokeAll(...args),
+}));
+
 const { hashPassword } = require('../../backend/src/utils/crypto.util');
 const {
   deleteAccount,
@@ -92,6 +98,7 @@ describe('deleteAccount — reautenticación', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     expect(mockPrisma.user.delete).not.toHaveBeenCalled();
     expect(mockRedis.del).not.toHaveBeenCalled();
+    expect(mockRevokeAll).not.toHaveBeenCalled();
   });
 
   test('usuario sin password_hash → 401', async () => {
@@ -119,6 +126,8 @@ describe('deleteAccount — borrado', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: USER_ID } });
+    // Los access tokens emitidos quedan revocados
+    expect(mockRevokeAll).toHaveBeenCalledWith(USER_ID);
 
     const deleted = mockRedis.del.mock.calls[0];
     expect(deleted).toEqual(expect.arrayContaining([
