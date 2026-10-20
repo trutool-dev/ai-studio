@@ -45,8 +45,6 @@ module.exports = {
     '!<rootDir>/src/services/email.service.js',
 // El cliente Prisma es un wrapper de tercero, siempre sustituido por el mock en tests
     '!<rootDir>/src/prisma/client.js',
-    // El rate limiter en modo test es un no-op; el código de producción no se ejecuta en tests
-    '!<rootDir>/src/middleware/rateLimiter.middleware.js',
     // El mock de Prisma/Redis no es código de producción
     '!<rootDir>/src/__mocks__/**',
   ],
@@ -61,6 +59,9 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
 
   testEnvironmentOptions: {},
+
+  // Guardia de red: SDK de Anthropic simulado y conexiones no locales bloqueadas
+  setupFilesAfterEnv: ['<rootDir>/../tests/helpers/networkGuard.js'],
 
   // Permite que tests en tests/unit/ y tests/integration/ resuelvan módulos
   // instalados en backend/node_modules (pg, @anthropic-ai/sdk, @prisma/adapter-pg)
