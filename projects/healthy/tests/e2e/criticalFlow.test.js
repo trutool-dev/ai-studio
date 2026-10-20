@@ -458,10 +458,8 @@ describe('GET /health', () => {
     // 200 si todo está bien, 503 si hay problemas de conexión en CI
     expect([200, 503]).toContain(res.status);
     expect(res.body).toHaveProperty('data');
-    expect(res.body.data).toHaveProperty('status');
-    expect(res.body.data).toHaveProperty('timestamp');
-    expect(res.body.data).toHaveProperty('db');
-    expect(res.body.data).toHaveProperty('redis');
+    // SEC-71: la respuesta pública solo expone el estado (sin versión ni detalle de BD/Redis)
+    expect(res.body.data).toEqual({ status: expect.stringMatching(/^(ok|degraded)$/) });
   });
 });
 
