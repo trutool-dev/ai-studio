@@ -12,14 +12,14 @@
 // ─── Mocks de dependencias de infraestructura ─────────────────────────────────
 
 // Mock de pg Pool para evitar conexiones reales
-jest.mock('pg', () => ({
+jest.mock('../../backend/node_modules/pg', () => ({
   Pool: jest.fn().mockImplementation(() => ({
     end: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 
 // Mock del adaptador de Prisma para PG
-jest.mock('@prisma/adapter-pg', () => ({
+jest.mock('../../backend/node_modules/@prisma/adapter-pg', () => ({
   PrismaPg: jest.fn().mockImplementation(() => ({})),
 }));
 
@@ -248,7 +248,7 @@ describe('getExercisesForProfile', () => {
 
     const callArgs = mockFindMany.mock.calls[0][0];
     expect(callArgs.where.category).toEqual({
-      in: ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'],
+      in: ['chest', 'back', 'shoulders', 'arms', 'legs'],
     });
   });
 
@@ -273,7 +273,7 @@ describe('getExercisesForProfile', () => {
     await getExercisesForProfile({ ...BASE_PROFILE, equipment: 'dumbbells' });
 
     const callArgs = mockFindMany.mock.calls[0][0];
-    expect(callArgs.where.equipment).toEqual({ in: ['Dumbbell', 'Body Weight'] });
+    expect(callArgs.where.equipment).toEqual({ in: ['dumbbell', 'body weight'] });
   });
 
   test('aplica exclusiones de lesión para knee', async () => {
