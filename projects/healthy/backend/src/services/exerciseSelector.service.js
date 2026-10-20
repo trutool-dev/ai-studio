@@ -9,6 +9,8 @@
 const { PrismaClient } = require('../generated/prisma');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
+const { sanitizeTextField } = require('../validation/promptSanitizer');
+const { canonicalInjuryKey } = require('../validation/onboardingInput');
 
 // Mapeo de equipamiento del onboarding → nombre en el dataset
 const EQUIPMENT_MAP = {
@@ -45,36 +47,56 @@ const DIFFICULTY_MAP = {
   'advanced': ['beginner', 'intermediate', 'advanced'],
 };
 
-// Zonas corporales a excluir por tipo de lesión
+// SEC-58 (JB-15): claves canónicas = las que envía el frontend (OnboardingHealth.tsx),
+// compartidas con validation/onboardingInput (alias lower_back → back, rodilla → knee...).
+// Para cada lesión: músculos (target / secondaryMuscles) y zonas (bodyPart) a excluir.
 const INJURY_ZONES = {
-  'knee': ['quadriceps', 'hamstrings', 'calves', 'glutes'],
-  'lower_back': ['spine', 'lower back', 'lats'],
-  'shoulder': ['shoulders', 'triceps', 'chest'],
-  'wrist': ['forearms', 'biceps', 'triceps'],
-  'ankle': ['calves', 'hamstrings'],
-  'neck': ['traps', 'neck'],
+  knee:     { muscles: ['quads', 'quadriceps', 'hamstrings', 'calves', 'glutes', 'adductors', 'abductors'], bodyParts: ['upper legs', 'lower legs'] },
+  back:     { muscles: ['spine', 'lower back', 'erector spinae', 'lats', 'upper back'], bodyParts: ['back'] },
+  shoulder: { muscles: ['delts', 'deltoids', 'shoulders', 'rotator cuff', 'triceps', 'pectorals', 'chest', 'serratus anterior'], bodyParts: ['shoulders', 'chest'] },
+  wrist:    { muscles: ['forearms', 'wrists', 'wrist flexors', 'wrist extensors', 'grip muscles', 'biceps', 'triceps'], bodyParts: ['lower arms', 'upper arms'] },
+  ankle:    { muscles: ['calves', 'ankles', 'soleus', 'tibialis anterior', 'hamstrings'], bodyParts: ['lower legs'] },
+  neck:     { muscles: ['traps', 'trapezius', 'levator scapulae', 'neck', 'sternocleidomastoid'], bodyParts: ['neck'] },
+  hip:      { muscles: ['glutes', 'hip flexors', 'adductors', 'abductors', 'hamstrings'], bodyParts: ['upper legs'] },
 };
 
 /**
- * Construye la lista de zonas a excluir según las lesiones del usuario.
+ * Construye las exclusiones según las lesiones del usuario (claves del frontend
+ * o alias antiguos). Las claves desconocidas (texto libre) no excluyen nada aquí:
+ * llegan al prompt como lesión declarada.
  * @param {string[]} injuries
- * @returns {string[]} Zonas únicas a excluir
+ * @returns {{ muscles: string[], bodyParts: string[] }}
  */
 function buildInjuryExclusions(injuries) {
-  const zones = [];
-  for (const injury of injuries) {
-    const affected = INJURY_ZONES[injury] || [];
-    zones.push(...affected);
+  const muscles = new Set();
+  const bodyParts = new Set();
+  for (const injury of injuries || []) {
+    const key = canonicalInjuryKey(injury);
+    const zone = key && INJURY_ZONES[key];
+    if (!zone) continue;
+    zone.muscles.forEach((m) => muscles.add(m));
+    zone.bodyParts.forEach((b) => bodyParts.add(b));
   }
-  return [...new Set(zones)]; // Eliminar duplicados
+  return { muscles: [...muscles], bodyParts: [...bodyParts] };
+}
+
+/** ¿El ejercicio carga alguna zona excluida? (comprobación en memoria, sin distinguir mayúsculas) */
+function loadsExcludedZone(exercise, exclusions) {
+  const lc = (s) => (typeof s === 'string' ? s.toLowerCase() : '');
+  const target = lc(exercise.target);
+  const bodyPart = lc(exercise.bodyPart);
+  const secondary = Array.isArray(exercise.secondaryMuscles) ? exercise.secondaryMuscles.map(lc) : [];
+  return exclusions.muscles.some((m) => target.includes(m) || secondary.some((s) => s.includes(m)))
+    || exclusions.bodyParts.some((b) => bodyPart === b);
 }
 
 /**
  * Sanitiza los campos de texto de un ejercicio del catálogo externo.
- * Protege contra indirect prompt injection (SEC-15, MITRE ATLAS AML.T0051.002).
+ * Protege contra indirect prompt injection (SEC-15/SEC-58, MITRE ATLAS AML.T0051.002):
+ * NFKC, sin Cc/Cf (anchos cero, U+2066-2069, bidi, U+00AD), `<`/`>` escapados.
  */
 function sanitizeCatalogExercise(exercise) {
-  const maxLen = (s, n) => (typeof s === 'string' ? s.slice(0, n).replace(/[­‪-‮]/g, '') : s);
+  const maxLen = (s, n) => (typeof s === 'string' ? sanitizeTextField(s, n) : s);
   return {
     ...exercise,
     name:            maxLen(exercise.name, 100),
@@ -124,14 +146,17 @@ async function getExercisesForProfile(profile, limit = 80) {
       where.category = { in: categories };
     }
 
-    // Excluir ejercicios que afecten zonas lesionadas
-    // injuries es un array de strings como ['knee', 'lower_back', 'shoulder']
-    if (profile.injuries && profile.injuries.length > 0) {
-      const injuryExclusions = buildInjuryExclusions(profile.injuries);
-      if (injuryExclusions.length > 0) {
-        where.AND = injuryExclusions.map(zone => ({
-          target: { not: { contains: zone, mode: 'insensitive' } },
-        }));
+    // Excluir ejercicios que afecten zonas lesionadas (target, bodyPart y músculos secundarios)
+    // injuries: claves del frontend ['back', 'knee', ...] o alias antiguos ('lower_back')
+    const exclusions = buildInjuryExclusions(Array.isArray(profile.injuries) ? profile.injuries : []);
+    const hasExclusions = exclusions.muscles.length > 0 || exclusions.bodyParts.length > 0;
+    if (hasExclusions) {
+      where.AND = [
+        ...exclusions.muscles.map((m) => ({ NOT: { target: { contains: m, mode: 'insensitive' } } })),
+        ...exclusions.bodyParts.map((b) => ({ NOT: { bodyPart: { equals: b, mode: 'insensitive' } } })),
+      ];
+      if (exclusions.muscles.length > 0) {
+        where.NOT = { secondaryMuscles: { hasSome: exclusions.muscles } };
       }
     }
 
@@ -160,7 +185,9 @@ async function getExercisesForProfile(profile, limit = 80) {
       orderBy: { name: 'asc' },
     });
 
-    return exercises.map(sanitizeCatalogExercise);
+    // Defensa en profundidad: filtro en memoria (mayúsculas, subcadenas en secundarios)
+    const safe = hasExclusions ? exercises.filter((ex) => !loadsExcludedZone(ex, exclusions)) : exercises;
+    return safe.map(sanitizeCatalogExercise);
   } catch (err) {
     // No propagar el error: el generador de planes tiene fallback propio
     const logger = require('../utils/logger.util');
@@ -208,4 +235,4 @@ function getPrismaClient() {
   return _prismaClient;
 }
 
-module.exports = { getExercisesForProfile, formatExercisesForPrompt };
+module.exports = { getExercisesForProfile, formatExercisesForPrompt, buildInjuryExclusions, loadsExcludedZone, sanitizeCatalogExercise, INJURY_ZONES };
