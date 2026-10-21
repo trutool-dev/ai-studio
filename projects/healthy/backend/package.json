@@ -15,6 +15,7 @@
     "test:watch": "jest --config=jest.config.js --watch",
     "test:coverage": "jest --config=jest.config.js --coverage --runInBand --forceExit",
     "test:load": "node ../tests/load/planGeneration.js",
+    "retention": "node src/jobs/retention.js",
     "seed:foods": "node prisma/seed-foods.js",
     "import:bedca": "node prisma/import-bedca.js",
     "import:usda": "node prisma/import-usda.js",

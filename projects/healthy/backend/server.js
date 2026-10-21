@@ -19,3 +19,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`[server] Servidor corriendo en puerto ${PORT} — entorno: ${process.env.NODE_ENV}`);
 });
+
+// SEC-50: purga diaria de datos de autenticación caducados (solo con RETENTION_SCHEDULER_ENABLED=true)
+const { startRetentionScheduler } = require('./src/jobs/scheduler');
+startRetentionScheduler({ prisma: require('./src/prisma/client'), logger });
