@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A-26: la landing es una sola página. Al configurar el dominio propio (M-20)
+     hay que actualizar esta URL, el canonical/og:url de index4.html y robots.txt. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://healthy-landing-staging.up.railway.app/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
