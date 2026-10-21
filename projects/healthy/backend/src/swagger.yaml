@@ -152,6 +152,21 @@ components:
               format: email
             status:
               type: string
+            has_plan:
+              type: boolean
+              description: true si el usuario tiene un plan activo
+
+    SessionResponse:
+      type: object
+      description: Sesión nueva (login y set-password). El refresh token es opaco y se guarda hasheado en el servidor.
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/TokenPair'
+        message:
+          type: string
 
     # ── Plan ─────────────────────────────────────────────────
     Plan:
@@ -491,18 +506,42 @@ components:
           type: integer
           nullable: true
 
+  # ── Parámetros comunes ────────────────────────────────────
+  parameters:
+    DevTokenHeader:
+      name: X-Dev-Token
+      in: header
+      required: true
+      description: Token de los endpoints de depuración (`DEV_ENDPOINTS_TOKEN` o `ADMIN_TOKEN`, ≥ 32 caracteres)
+      schema:
+        type: string
+
   # ── Respuestas comunes ────────────────────────────────────
   responses:
     Unauthorized:
-      description: Token JWT ausente, inválido o expirado
+      description: |
+        Token JWT ausente, inválido, expirado o revocado. Códigos: `UNAUTHORIZED`,
+        `INVALID_TOKEN`, `TOKEN_EXPIRED`, `TOKEN_REVOKED` (sesión cerrada con logout o por
+        reutilización de refresh token).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            error: UNAUTHORIZED
-            message: Token inválido o expirado
+            error: TOKEN_REVOKED
+            message: La sesión ha sido cerrada
+
+    HealthConsentRequired:
+      description: Falta el consentimiento explícito de datos de salud (RGPD art. 9) o fue retirado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: HEALTH_CONSENT_REQUIRED
+            message: Necesitamos tu consentimiento explícito para tratar tus datos de salud (RGPD art. 9).
 
     NotFound:
       description: Recurso no encontrado
@@ -549,9 +588,19 @@ paths:
     get:
       tags: [System]
       summary: Estado del servidor
-      description: Verifica conectividad con la base de datos y Redis. No requiere autenticación.
+      description: |
+        Healthcheck público y mínimo (SEC-71): solo devuelve `status`. Responde 200 si la base
+        de datos responde y 503 si no (Redis es caché y no bloquea). El detalle (timestamp,
+        versión, db, redis) solo se incluye con una cabecera `X-Admin-Token` válida.
       security: []
       operationId: healthCheck
+      parameters:
+        - name: X-Admin-Token
+          in: header
+          required: false
+          description: Token de administración (`ADMIN_TOKEN`, ≥ 32 caracteres). Opcional; añade el detalle.
+          schema:
+            type: string
       responses:
         '200':
           description: Servidor operativo
@@ -564,6 +613,7 @@ paths:
                     type: boolean
                   data:
                     type: object
+                    required: [status]
                     properties:
                       status:
                         type: string
@@ -571,27 +621,36 @@ paths:
                       timestamp:
                         type: string
                         format: date-time
+                        description: Solo con X-Admin-Token válido
                       version:
                         type: string
+                        description: Solo con X-Admin-Token válido
                       db:
                         type: string
                         enum: [connected, error]
+                        description: Solo con X-Admin-Token válido
                       redis:
                         type: string
                         enum: [connected, error]
+                        description: Solo con X-Admin-Token válido
                   message:
                     type: string
               example:
                 success: true
                 data:
                   status: ok
-                  timestamp: '2024-01-15T10:30:00.000Z'
-                  version: 1.0.0
-                  db: connected
-                  redis: connected
                 message: Servidor operativo
+        '429':
+          description: Demasiadas peticiones
         '503':
           description: Servidor con problemas (base de datos inaccesible)
+          content:
+            application/json:
+              example:
+                success: false
+                data:
+                  status: degraded
+                message: El servidor tiene problemas
 
   # ════════════════════════════════════════════════════════════
   # AUTH — sin autenticación salvo /logout y /me
@@ -601,9 +660,11 @@ paths:
       tags: [Auth]
       summary: Registrar nuevo usuario
       description: |
-        Crea una cuenta pendiente de verificación. Envía un código OTP de 6 dígitos al email.
-        Rate limit: 5 req / 15 min por IP.
-        Requiere consentimiento de usuario mayor de 16 años (LOPDGDD Art. 7).
+        Crea una cuenta pendiente de verificación y envía un código OTP de 6 dígitos al email.
+        Anti-enumeración (SEC-60): la respuesta es **siempre 201 `{ email }`**, exista o no la
+        cuenta; si ya existía, el aviso llega solo al buzón (nuevo código o email informativo).
+        Limitado por IP (máx. 3 cuentas/hora) y por email (hash).
+        Edad mínima 16 años (LOPDGDD Art. 7).
       security: []
       operationId: authRegister
       requestBody:
@@ -624,16 +685,18 @@ paths:
                 birthdate:
                   type: string
                   format: date
-                  description: Necesario para verificar mayoría de edad (16+)
+                  description: Si se envía, se rechaza a menores de 16 años (AGE_RESTRICTION)
                   example: '1995-06-15'
-                health_consent_given_at:
-                  type: string
-                  format: date-time
-                  description: Fecha/hora del consentimiento de datos de salud (RGPD Art. 9)
-                  example: '2024-01-15T10:00:00Z'
+                health_consent:
+                  type: boolean
+                  description: |
+                    Consentimiento explícito para datos de salud (RGPD Art. 9). Debe ser un
+                    booleano estricto; la fecha y la versión las fija el servidor
+                    (`health_consent_given_at` enviado por el cliente se ignora).
+                  example: true
       responses:
         '201':
-          description: Cuenta creada — se envía email con código OTP
+          description: Respuesta uniforme — si procede, se envía un email con el código OTP
           content:
             application/json:
               schema:
@@ -641,29 +704,26 @@ paths:
               example:
                 success: true
                 data:
-                  user_id: 550e8400-e29b-41d4-a716-446655440000
                   email: usuario@ejemplo.com
-                message: Cuenta creada. Revisa tu email para verificarla.
+                message: Revisa tu email para continuar con el registro.
         '400':
-          $ref: '#/components/responses/ValidationError'
-        '409':
-          description: El email ya está registrado
+          description: Datos inválidos o menor de 16 años (`VALIDATION_ERROR`, `AGE_RESTRICTION`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                success: false
-                error: EMAIL_ALREADY_EXISTS
-                message: Ya existe una cuenta con ese email
+        '429':
+          description: Demasiadas peticiones
 
   /auth/verify-email:
     post:
       tags: [Auth]
       summary: Verificar email con código OTP
       description: |
-        Valida el código de 6 dígitos enviado al email. Máximo 3 intentos por código.
-        Rate limit: 5 req / 15 min por IP.
+        Valida el código de 6 dígitos enviado al email (comparación en tiempo constante,
+        intentos contados por código, SEC-31). Si la cuenta aún no tiene contraseña, el mismo
+        código queda como prueba de posesión de un solo uso (15 min) para `POST /auth/set-password`.
+        Errores: `INVALID_CODE`, `CODE_EXPIRED`, `CODE_MAX_ATTEMPTS` (todos 400).
       security: []
       operationId: authVerifyEmail
       requestBody:
@@ -706,7 +766,12 @@ paths:
     post:
       tags: [Auth]
       summary: Establecer contraseña tras verificar email
-      description: Paso 3 del flujo de registro. Activa la cuenta.
+      description: |
+        Paso 3 del registro (SEC-27). Exige el **mismo código OTP** verificado en
+        `POST /auth/verify-email` como prueba de posesión (un solo uso, 15 min). Solo vale para
+        cuentas sin contraseña; para cambiarla se usa forgot/reset-password. Activa la cuenta y
+        **devuelve una sesión** (mismo formato que login). Respuesta de error uniforme
+        (`INVALID_CODE`, `CODE_EXPIRED`, `CODE_MAX_ATTEMPTS`) sin revelar el estado de la cuenta.
       security: []
       operationId: authSetPassword
       requestBody:
@@ -715,43 +780,62 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required: [email, code, password]
               properties:
                 email:
                   type: string
                   format: email
                   example: usuario@ejemplo.com
+                code:
+                  type: string
+                  pattern: '^\d{6}$'
+                  example: '123456'
                 password:
                   type: string
                   minLength: 8
                   example: miContraseña123
       responses:
         '200':
-          description: Contraseña establecida y cuenta activada
+          description: Contraseña establecida, cuenta activada y sesión iniciada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/SessionResponse'
               example:
                 success: true
-                data: {}
+                data:
+                  access_token: eyJhbGciOiJIUzI1NiIs...  # gitleaks:allow (ejemplo truncado)
+                  refresh_token: 3f9c...e1
+                  token_type: Bearer
+                  expires_in: 900
+                  user:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    email: usuario@ejemplo.com
+                    status: active
+                    has_plan: false
                 message: Contraseña establecida. Ya puedes iniciar sesión.
         '400':
-          description: Email no verificado o contraseña demasiado corta
+          description: Código inválido, caducado o agotado; contraseña demasiado corta
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              example:
+                success: false
+                error: INVALID_CODE
+                message: Código de verificación inválido
+        '429':
+          description: Demasiadas peticiones
 
   /auth/login:
     post:
       tags: [Auth]
       summary: Iniciar sesión
       description: |
-        Retorna un access token JWT (15 min) y un refresh token (30 días).
-        Rate limit: 5 req / 15 min por IP.
+        Retorna un access token JWT (15 min, HS256 fijado) y un refresh token opaco rotatorio.
+        Mismo tiempo de respuesta y mismo error exista o no la cuenta (SEC-60); el estado de la
+        cuenta (`ACCOUNT_INACTIVE`) solo se revela tras validar la contraseña.
+        Limitado por IP y por email.
       security: []
       operationId: authLogin
       requestBody:
@@ -775,25 +859,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    $ref: '#/components/schemas/TokenPair'
-                  message:
-                    type: string
+                $ref: '#/components/schemas/SessionResponse'
               example:
                 success: true
                 data:
                   access_token: eyJhbGciOiJIUzI1NiIs...  # gitleaks:allow (ejemplo truncado)
-                  refresh_token: 550e8400-e29b-41d4-...1704067200000
+                  refresh_token: 3f9c...e1
                   token_type: Bearer
                   expires_in: 900
                   user:
                     id: 550e8400-e29b-41d4-a716-446655440000
                     email: usuario@ejemplo.com
                     status: active
+                    has_plan: true
                 message: Sesión iniciada
         '401':
           description: Credenciales incorrectas
@@ -817,9 +895,8 @@ paths:
       tags: [Auth]
       summary: Solicitar restablecimiento de contraseña
       description: |
-        Envía un email con enlace de restablecimiento (válido 24h).
-        Por seguridad, responde igual si el email existe o no.
-        Rate limit: 5 req / 15 min por IP.
+        Envía un email con enlace de restablecimiento. El token se guarda hasheado (SEC-45).
+        Por seguridad, responde igual si el email existe o no. Limitado por IP y por email.
       security: []
       operationId: authForgotPassword
       requestBody:
@@ -850,7 +927,11 @@ paths:
     post:
       tags: [Auth]
       summary: Restablecer contraseña con token
-      description: Invalida el token y todas las sesiones activas del usuario.
+      description: |
+        Consume el token de un solo uso (consumo condicional ante peticiones concurrentes) y
+        revoca todas las sesiones activas del usuario. La nueva contraseña debe ser distinta de
+        la actual (SEC-72). Errores 400: `INVALID_TOKEN`, `TOKEN_USED`, `TOKEN_EXPIRED`,
+        `PASSWORD_REUSED`.
       security: []
       operationId: authResetPassword
       requestBody:
@@ -863,8 +944,7 @@ paths:
               properties:
                 token:
                   type: string
-                  description: Token UUID recibido por email
-                  example: 550e8400-e29b-41d4-a716-446655440000
+                  description: Token opaco recibido por email
                 password:
                   type: string
                   minLength: 8
@@ -876,18 +956,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data: {}
+                message: Contraseña restablecida. Ya puedes iniciar sesión.
         '400':
-          description: Token inválido, ya usado o expirado
+          description: Token inválido, ya usado o expirado, o contraseña reutilizada
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: PASSWORD_REUSED
+                message: La nueva contraseña debe ser distinta de la actual
+        '429':
+          description: Demasiadas peticiones
 
   /auth/resend-code:
     post:
       tags: [Auth]
       summary: Reenviar código OTP de verificación
-      description: Genera un nuevo código y lo envía al email. Rate limit: 5 req / 15 min por IP.
+      description: |
+        Genera un nuevo código y lo envía al email (invalida los anteriores).
+        Respuesta neutral exista o no la cuenta. Límite por IP y por email.
       security: []
       operationId: authResendCode
       requestBody:
@@ -918,7 +1010,11 @@ paths:
     post:
       tags: [Auth]
       summary: Renovar access token
-      description: Rota el refresh token y devuelve un nuevo par de tokens.
+      description: |
+        Rotación por familias (SEC-45): cada uso revoca el refresh token presentado y emite uno
+        nuevo de la misma familia. Si se presenta un token **ya revocado** (reutilización), se
+        revocan todas las sesiones del usuario y se responde 401 `INVALID_TOKEN`.
+        Errores: 401 `INVALID_TOKEN` / `TOKEN_EXPIRED`, 403 `ACCOUNT_INACTIVE`.
       security: []
       operationId: authRefresh
       requestBody:
@@ -931,7 +1027,7 @@ paths:
               properties:
                 refresh_token:
                   type: string
-                  example: 550e8400-e29b-41d4-...1704067200000
+                  example: 3f9c...e1
       responses:
         '200':
           description: Token renovado
@@ -956,17 +1052,23 @@ paths:
                   message:
                     type: string
         '401':
-          description: Refresh token inválido o sesión expirada
+          description: Refresh token inválido, reutilizado o sesión expirada
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Cuenta inactiva (`ACCOUNT_INACTIVE`)
+        '429':
+          description: Demasiadas peticiones
 
   /auth/logout:
     post:
       tags: [Auth]
       summary: Cerrar sesión
-      description: Elimina la sesión activa del servidor y la caché Redis.
+      description: |
+        Elimina la familia de refresh tokens de la sesión y revoca el access token al momento
+        (SEC-44): cualquier petición posterior con ese access token responde 401 `TOKEN_REVOKED`.
       operationId: authLogout
       responses:
         '200':
@@ -1009,6 +1111,89 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  # ── Depuración (SEC-30): deshabilitados por defecto ───────────
+  /auth/dev/code:
+    post:
+      tags: [Auth]
+      summary: (Solo staging/dev) Emitir y devolver un OTP de verificación
+      description: |
+        Responde **404** salvo que `ENABLE_DEV_ENDPOINTS=true`, `NODE_ENV` esté en la lista
+        permitida y la cabecera `X-Dev-Token` coincida con `DEV_ENDPOINTS_TOKEN` (o `ADMIN_TOKEN`).
+        Solo admite emails de los dominios de `DEV_ENDPOINTS_EMAIL_DOMAINS`. El email va en el
+        body, nunca en la query. Invalida los códigos anteriores.
+      security: []
+      operationId: authDevCode
+      parameters:
+        - $ref: '#/components/parameters/DevTokenHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: qa@example.com
+      responses:
+        '200':
+          description: Código emitido
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  code: '123456'
+                message: Código (solo staging/dev)
+        '403':
+          description: Email fuera del dominio de pruebas (`FORBIDDEN`)
+        '404':
+          description: Endpoint deshabilitado, token ausente/inválido o usuario inexistente
+
+  /auth/dev/auto-verify:
+    post:
+      tags: [Auth]
+      summary: (Solo staging/dev) Verificar email y fijar contraseña en un paso
+      description: Mismas condiciones de acceso que `/auth/dev/code`. No hay contraseña por defecto.
+      security: []
+      operationId: authDevAutoVerify
+      parameters:
+        - $ref: '#/components/parameters/DevTokenHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: qa@example.com
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Usuario verificado y contraseña establecida
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  user_id: 550e8400-e29b-41d4-a716-446655440000
+                  email: qa@example.com
+                message: Usuario verificado y contraseña establecida (solo staging/dev)
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          description: Email fuera del dominio de pruebas (`FORBIDDEN`)
+        '404':
+          description: Endpoint deshabilitado, token ausente/inválido o usuario inexistente
 
   # ════════════════════════════════════════════════════════════
   # ONBOARDING — requiere JWT
@@ -1271,7 +1456,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          description: |
+            Validación fallida o falta el consentimiento: hay que enviar `healthConsent: true`
+            (booleano estricto) para guardar datos de salud (`HEALTH_CONSENT_REQUIRED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /onboarding/health-consent:
+    delete:
+      tags: [Onboarding]
+      summary: Retirar el consentimiento de datos de salud (RGPD Art. 7.3 y 9)
+      description: |
+        Retira el consentimiento (SEC-47) y borra los datos de salud asociados: condiciones,
+        restricciones alimentarias y lesiones/limitaciones; invalida la caché del plan. A partir
+        de ese momento `POST /onboarding/complete` y `POST /plans/regenerate` responden
+        **403 `HEALTH_CONSENT_REQUIRED`** hasta que el usuario vuelva a consentir con
+        `PUT /onboarding/health` y `healthConsent: true`.
+      operationId: withdrawHealthConsent
+      responses:
+        '200':
+          description: Consentimiento retirado y datos de salud eliminados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      withdrawn:
+                        type: boolean
+                      withdrawn_at:
+                        type: string
+                        format: date-time
+                      deleted:
+                        type: object
+                        properties:
+                          conditions:
+                            type: integer
+                          food_restrictions:
+                            type: integer
+                          injuries_cleared:
+                            type: boolean
+                  message:
+                    type: string
+              example:
+                success: true
+                data:
+                  withdrawn: true
+                  withdrawn_at: '2026-10-21T10:00:00.000Z'
+                  deleted:
+                    conditions: 2
+                    food_restrictions: 1
+                    injuries_cleared: true
+                message: Consentimiento retirado y datos de salud eliminados
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1334,6 +1578,8 @@ paths:
                 message: Debes completar el onboarding primero
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HealthConsentRequired'
 
   # ════════════════════════════════════════════════════════════
   # PLANES — requiere JWT
@@ -1484,6 +1730,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HealthConsentRequired'
         '429':
           description: Límite de regeneraciones alcanzado (3 por 24h)
           content:
@@ -2484,8 +2732,25 @@ paths:
     delete:
       tags: [User]
       summary: Eliminar cuenta (derecho al olvido — RGPD Art. 17)
-      description: Elimina permanentemente la cuenta y todos los datos del usuario.
+      description: |
+        Elimina permanentemente la cuenta y todos los datos del usuario (SEC-48), revoca sus
+        sesiones y limpia su caché. Exige **reautenticación con la contraseña actual** y está
+        limitado a 5 intentos / 15 min por usuario. Tras el 200 la app debe cerrar sesión y
+        borrar los tokens locales.
       operationId: deleteAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Contraseña actual del usuario
       responses:
         '200':
           description: Cuenta eliminada
@@ -2493,8 +2758,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data: {}
+                message: Account deleted permanently
+        '400':
+          description: Falta la contraseña (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Contraseña incorrecta (`INVALID_CREDENTIALS`) o token inválido/revocado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: INVALID_CREDENTIALS
+                message: Contraseña incorrecta
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          description: Demasiados intentos (`TOO_MANY_REQUESTS`)
 
   /user/me/export:
     get:
