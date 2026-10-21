@@ -1,3 +1,5 @@
+# AVISO (2026-10-21): eas-cli NO lee este archivo; solo usa el .easignore de la raíz del
+# repositorio git (ai-studio/.easignore). Se conserva por compatibilidad; candidato a borrar.
 node_modules/
 .expo/
 android/

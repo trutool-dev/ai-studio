@@ -58,6 +58,26 @@ Esto actualiza `app.json` con el `projectId` de Expo y crea el `eas.json` si no 
 | `preview` | Pruebas en dispositivos reales sin stores | Interna (APK directo en Android) |
 | `production` | Build final para App Store y Google Play | Stores |
 
+### Qué se sube a EAS (`.easignore`, 2026-10-21)
+
+- eas-cli empaqueta desde la **raíz del repositorio git** (`ai-studio/`) y solo lee el `.easignore`
+  de esa raíz (el de `frontend/` no se usa). Si existe, los `.gitignore` dejan de aplicarse.
+- `ai-studio/.easignore` es una lista blanca: solo sube `projects/healthy/frontend` (sin `.git`,
+  `node_modules`, `.expo`, `dist`, `.env*`, `.claude`, credenciales de firma ni tests).
+  Antes se subía el monorepo entero (~1,7 GB, con `.claude/settings*.json`).
+- Comprobar sin subir nada ni lanzar builds (usa el código de la eas-cli global):
+
+  ```bash
+  node projects/healthy/devops/scripts/check-eas-archive.js        # resumen
+  node projects/healthy/devops/scripts/check-eas-archive.js --list # lista de archivos
+  ```
+
+  Resultado 2026-10-21: 61 archivos, 0,84 MB sin comprimir; falla (código 1) si aparece algo
+  fuera de `frontend/` o un secreto.
+- Patrones de carpeta **sin barra final**: el paquete `ignore` de eas-cli no casa `dir/` con la
+  ruta `dir` al copiar el directorio de trabajo.
+- Pendiente de confirmar en el próximo build (👤): que EAS compila sin `.git` en el archivo.
+
 ---
 
 ## 5. Primer build — perfil preview (recomendado para probar)
