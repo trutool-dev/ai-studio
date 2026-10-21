@@ -2,9 +2,8 @@
  * Controlador de logs diarios (BE-06).
  */
 
-const { sendSuccess, sendError } = require('../utils/response.util');
+const { sendSuccess } = require('../utils/response.util');
 const prisma = require('../prisma/client');
-const logger = require('../utils/logger.util');
 const { parseIntInRange } = require('../utils/query.util');
 
 async function getOrCreateTodayLog(userId, todayStart) {

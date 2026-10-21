@@ -116,7 +116,6 @@ class RedisRateLimitStore {
   getClient() {
     if (this.client === undefined) {
       // Carga perezosa: evita abrir conexión al importar el módulo
-      // eslint-disable-next-line global-require
       this.client = require('../services/redis.service');
     }
     return this.client;

@@ -17,7 +17,6 @@ const { parseStringPromise } = require('xml2js');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-const BEDCA_URL = 'http://www.bedca.net/bdpub/procquery.php';
 const CONCURRENCY = 3;   // peticiones simultáneas a BEDCA (no spamear)
 const DELAY_MS    = 300; // ms entre lotes
 

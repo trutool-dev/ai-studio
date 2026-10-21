@@ -4,7 +4,6 @@
 
 const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
-const logger = require('../utils/logger.util');
 const { parseDateParam } = require('../utils/query.util');
 
 const SESSION_STATUSES = ['scheduled', 'completed', 'skipped'];

@@ -36,7 +36,6 @@ async function findKeys(pattern) {
     const found = new Set();
     let cursor = '0';
     do {
-      // eslint-disable-next-line no-await-in-loop
       const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
       keys.forEach((k) => found.add(k));
       cursor = String(next);
@@ -58,7 +57,6 @@ async function purgeUserFromRedis(userId, sessionIds) {
       ...sessionIds.map((id) => `session:${id}`),
     ]);
     for (const pattern of userKeyPatterns(userId)) {
-      // eslint-disable-next-line no-await-in-loop
       (await findKeys(pattern)).forEach((k) => keys.add(k));
     }
     return await redis.del(...keys);

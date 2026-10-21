@@ -91,11 +91,8 @@ module.exports = { runRetention, getRetentionConfig, DEFAULT_RETENTION_DAYS };
 
 /* istanbul ignore next -- punto de entrada CLI, no se ejecuta en tests */
 if (require.main === module) {
-  // eslint-disable-next-line global-require
   require('dotenv').config();
-  // eslint-disable-next-line global-require
   const prisma = require('../prisma/client');
-  // eslint-disable-next-line global-require
   const logger = require('../utils/logger.util');
   runRetention({ prisma, logger })
     .then(() => prisma.$disconnect())

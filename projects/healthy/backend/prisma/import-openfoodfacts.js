@@ -100,7 +100,8 @@ function getBestSpanishName(product) {
 }
 
 function extractMacros(nutriments = {}) {
-  const kcal    = parseFloat(nutriments['energy-kcal_100g']      ?? nutriments['energy_100g'] / 4.184 ?? null);
+  const kJ      = nutriments['energy_100g'];
+  const kcal    = parseFloat(nutriments['energy-kcal_100g'] ?? (kJ != null ? kJ / 4.184 : null));
   const protein = parseFloat(nutriments['proteins_100g']          ?? null);
   const carbs   = parseFloat(nutriments['carbohydrates_100g']     ?? null);
   const fat     = parseFloat(nutriments['fat_100g']               ?? null);
