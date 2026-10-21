@@ -25,6 +25,8 @@ interface AuthState {
   // Acciones
   login:         (user: User, accessToken: string, refreshToken: string) => Promise<void>;
   logout:        () => Promise<void>;
+  /** Cierra la sesión solo en el dispositivo (sin llamar a la API): tras borrar la cuenta */
+  clearLocalSession: () => Promise<void>;
   refreshTokens: (newAccessToken: string, newRefreshToken?: string) => Promise<void>;
   loadStoredAuth:() => Promise<void>;
 
@@ -57,6 +59,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     logout: async () => {
       try { await api.post('/auth/logout'); } catch { /* ignorar errores de red */ }
+      await get().clearLocalSession();
+    },
+
+    clearLocalSession: async () => {
       await SecureStore.deleteItemAsync('access_token');
       await SecureStore.deleteItemAsync('refresh_token');
       await SecureStore.deleteItemAsync('auth_user');

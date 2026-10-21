@@ -9,6 +9,7 @@ const logger = require('../utils/logger.util');
 const redis = require('../services/redis.service');
 const { comparePassword } = require('../utils/crypto.util');
 const { revokeAllUserSessions } = require('../middleware/auth.middleware');
+const consentService = require('../services/healthConsent.service');
 
 // ─── Purga de Redis ──────────────────────────────────────────────
 
@@ -313,6 +314,7 @@ const getProfile = async (req, res, next) => {
       prisma.nutritionPreferences.findUnique({ where: { user_id: userId } }),
     ]);
     if (!profile) return sendError(res, 'NOT_FOUND', 'Perfil no encontrado', 404);
+    const consent = await consentService.getConsentState(prisma, userId);
 
     const birthdate = new Date(profile.birthdate);
     const age = new Date().getFullYear() - birthdate.getFullYear();
@@ -325,6 +327,11 @@ const getProfile = async (req, res, next) => {
       goal: profile.goal,
       diet_type: nutrition?.diet_type ?? null,
       sessions_per_week: training?.available_days_per_week ?? null,
+      // SEC-47: estado del consentimiento art. 9 (lo usa la pantalla de privacidad de la app)
+      health_consent: {
+        valid: consent.valid,
+        given_at: consent.user?.health_consent_given_at ?? null,
+      },
     }, 'Perfil del usuario');
   } catch (err) { next(err); }
 };

@@ -2783,6 +2783,39 @@ paths:
         '429':
           description: Demasiados intentos (`TOO_MANY_REQUESTS`)
 
+  /user/me/profile:
+    get:
+      tags: [User]
+      summary: Resumen del perfil y estado del consentimiento de salud
+      description: |
+        Datos que muestra la pantalla de perfil y, desde SEC-47, el estado del consentimiento
+        art. 9 (`health_consent.valid` es false si nunca se dio, se retiró o es de una versión
+        anterior a `HEALTH_CONSENT_VERSION`).
+      operationId: getUserProfile
+      responses:
+        '200':
+          description: Perfil del usuario
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  age: 34
+                  weight_kg: 70
+                  height_cm: 175
+                  gender: male
+                  goal: lose_weight
+                  diet_type: omnivore
+                  sessions_per_week: 3
+                  health_consent:
+                    valid: true
+                    given_at: '2026-10-01T10:00:00.000Z'
+                message: Perfil del usuario
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /user/me/export:
     get:
       tags: [User]
