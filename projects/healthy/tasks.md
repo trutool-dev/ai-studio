@@ -20,16 +20,19 @@ production sin desplegar. Tests backend 451/454 con branches 66,34 %.
 | M-19 | Subir APK `96aedf25` a Google Play Console (Internal Testing) | Antonio | ❌ Pendiente |
 | M-22 | Confirmar región y DPA de Railway (y Gmail SMTP) en documentos RGPD | Antonio | ❌ Pendiente |
 | A-20 / DO-19 | Servicio `healthy-landing` en el entorno production | DevOps Agent | ❌ Pendiente |
-| A-26 / DO-21 | `/robots.txt` devuelve 404 (alias de nginx incorrecto) | DevOps Agent | ❌ Pendiente |
-| A-27 / DO-22 / SEC-53 / SEC-59 | Dependencias: PRs de dependabot (#8–#17); mayores pendientes nodemailer 6→10, uuid 10→14, SDK Anthropic 0.52→actual, Expo SDK | DevOps Agent | ⏳ Parcial — backend 15→2 vulnerabilidades (`9821a70`), axios (`30d673a`) |
-| M-10 / DO-18 | Lighthouse ≥ 95 — hoy Perf 75/79, Acc 96, BP 100, SEO 100 | Frontend Agent | ⚠️ Parcial |
+| A-26 / DO-21 | `/robots.txt` devuelve 404 (alias de nginx incorrecto) | DevOps Agent | ✅ `dd093fb` (rama `feat/post-audit-tasks-2026-10-21`) — pendiente de deploy |
+| A-27 / DO-22 / SEC-53 / SEC-59 | Dependencias: PRs de dependabot (#8–#17); mayores pendientes nodemailer 6→10, SDK Anthropic 0.52→actual, Expo SDK | DevOps Agent | ⏳ Parcial — backend 15→2 (`9821a70`) → 1 al quitar `uuid` (`daefdc3`), axios (`30d673a`) |
+| M-10 / DO-18 | Lighthouse ≥ 95 — hoy Perf 75/79, Acc 96, BP 100, SEO 100 | Frontend Agent | ⚠️ Parcial — contraste del pie corregido (`cc0a1dd`); queda comprimir vídeos (Perf) y re-medir |
 | M-9 | DNS `api.healthy.app` → Railway (no resuelve) | Antonio | ❌ Pendiente |
 | M-20 / DO-11 | Dominio propio de la landing | Antonio | ❌ Pendiente |
 | SEC-34 | Dominio de producción de la API (`api.healthy.app` sin titularidad) | Antonio | ❌ Decisión — bloquea producción y pinning |
 | SEC-37 / SEC-28 / SEC-47 | Decisiones: umbrales clínicos y alérgenos (`clinicalSafety.js`), keto/other en el enum, historial de consentimientos | Antonio | ❌ Decisión |
 | SEC-40 / SEC-42 | `git rm --cached` de `.claude/settings.local.json` y docs internos; activar Secret scanning + Push protection | Antonio | ❌ Pendiente |
-| SEC-47 / SEC-48 | Pantallas en la app: retirar consentimiento de salud y borrar cuenta (art. 17) | Frontend Agent | ❌ Pendiente |
-| SEC-50 | Programar el cron diario del job de retención `runRetention` | DevOps Agent | ❌ Pendiente |
+| SEC-47 / SEC-48 | Pantallas en la app: retirar consentimiento de salud y borrar cuenta (art. 17) | Frontend Agent | ✅ `2f1b78f` (rama apilada) — probar en el próximo APK |
+| SEC-50 | Programar el cron diario del job de retención `runRetention` | DevOps Agent | ✅ `21cd9ab` (rama apilada) — 👤 activar `RETENTION_SCHEDULER_ENABLED=true` |
+| A-28 / A-29 | ESLint en el backend; `swagger.yaml` válido y al día | Backend + Docs | ✅ `89ff447`, `39f3caf` (rama apilada) |
+| — | `.easignore` en la raíz git (EAS subía ~1,7 GB con secretos) | DevOps Agent | ✅ `86d1e3b` — 👤 confirmar en el próximo build |
+| — | **OK para push de `feat/post-audit-tasks-2026-10-21`** y PR apilada sobre la #19 | Antonio | ⏳ Esperando OK |
 | SEC-65 | Certificate pinning (tras SEC-34 y build EAS) | Frontend Agent | ❌ Pendiente |
 | M-5, M-6, A-2, A-3 | Publicación iOS | — | ⏸ Aplazado |
 
@@ -215,7 +218,7 @@ production sin desplegar. Tests backend 451/454 con branches 66,34 %.
 - [ ] **DO-19** Servicio `healthy-landing` en el entorno production de Railway (tras merge a `main`) — desbloqueada; en production no existe aún (verificado 2026-10-18)
 - [x] **DO-13** Cabeceras de seguridad de la landing en nginx: `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
 - [ ] **DO-20** (A-25) Desplegar PostgreSQL y Redis en el entorno production de Railway, configurar `DATABASE_URL`/`REDIS_URL` en `ai-studio`, `prisma migrate deploy` y seeds — hoy `/health` de producción → 503 `db: error, redis: error`
-- [ ] **DO-21** (A-26) Corregir `location = /robots.txt` en `landing/nginx.conf.template` (el `alias` apunta a `public/robots.txt`, que no existe en la imagen) y crear `sitemap.xml` o quitarlo de `robots.txt`
+- [x] **DO-21** (A-26, `dd093fb`) Corregir `location = /robots.txt` en `landing/nginx.conf.template` (el `alias` apunta a `public/robots.txt`, que no existe en la imagen) y crear `sitemap.xml` o quitarlo de `robots.txt`
 - [ ] **DO-22** (A-27) Revisar las 10 PRs de dependabot (#8–#17): mergear menores con CI verde; planificar las mayores (`@anthropic-ai/sdk` 0.52→0.133, `expo-secure-store` 15→58, `tailwindcss` 3→4, `dotenv` 16→18)
 
 **Dependencias:** SEC-01 (variables de entorno auditadas antes de configurar CI); DO-09 antes de DO-10 antes de DO-11 antes de DO-12
