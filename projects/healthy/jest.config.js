@@ -28,4 +28,7 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
 
   testTimeout: 10000,
+
+  // Guardia de red: SDK de Anthropic simulado y conexiones no locales bloqueadas
+  setupFilesAfterEnv: ['<rootDir>/tests/helpers/networkGuard.js'],
 };

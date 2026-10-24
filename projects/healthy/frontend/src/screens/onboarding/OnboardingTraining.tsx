@@ -9,6 +9,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 import api from '@/services/api';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingTraining'>;
 
@@ -19,6 +20,7 @@ export function OnboardingTraining({ navigation }: Props) {
   const [equipment,  setEquipment]  = useState<Equipment[]>(prev?.equipment ?? []);
   const [experience, setExperience] = useState<Experience | undefined>(prev?.experience);
   const [loading,    setLoading]    = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const toggleEq = (item: Equipment) => setEquipment((p) => {
     if (item === 'none') return ['none'];
@@ -29,6 +31,7 @@ export function OnboardingTraining({ navigation }: Props) {
   const handleContinue = async () => {
     const trainingData = { daysPerWeek: days!, equipment, experience: experience! };
     setLoading(true);
+    setSaveError(null);
     try {
       await api.put('/onboarding/training', {
         days_per_week: trainingData.daysPerWeek,
@@ -37,9 +40,9 @@ export function OnboardingTraining({ navigation }: Props) {
       });
       setTraining(trainingData);
       navigation.navigate('OnboardingNutrition');
-    } catch {
-      setTraining(trainingData);
-      navigation.navigate('OnboardingNutrition');
+    } catch (err) {
+      // SEC-35 (JB-03): si el guardado falla no avanzamos; mostramos el error y el usuario reintenta
+      setSaveError(extractApiError(err, 'No se pudieron guardar tus preferencias de entrenamiento. Inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -52,6 +55,8 @@ export function OnboardingTraining({ navigation }: Props) {
       subtitle="Diseñamos sesiones que encajen con tu tiempo y recursos"
       onBack={() => navigation.goBack()}
       onContinue={handleContinue}
+      errorMessage={saveError}
+      onDismissError={() => setSaveError(null)}
       canContinue={!!days && equipment.length > 0 && !!experience}
       loading={loading}
     >

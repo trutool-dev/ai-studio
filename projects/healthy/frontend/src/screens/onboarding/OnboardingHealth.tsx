@@ -8,6 +8,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 import api from '@/services/api';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingHealth'>;
 
@@ -42,21 +43,33 @@ export function OnboardingHealth({ navigation }: Props) {
   const [injuries,      setInjuries]      = useState<string[]>(data.health?.injuries   ?? []);
   const [healthConsent, setHealthConsent] = useState(false);
   const [loading,       setLoading]       = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const canContinue = conditions.length > 0 && injuries.length > 0 && healthConsent;
 
   const handleContinue = async () => {
+    // SEC-35 (JB-03): consentimiento explícito Art. 9 obligatorio. Además de deshabilitar
+    // el botón, cortamos aquí por si se invoca el handler sin consentimiento.
+    if (!healthConsent) {
+      setSaveError('Debes aceptar el tratamiento de tus datos de salud para continuar.');
+      return;
+    }
+    if (!canContinue) return;
     const healthData = { conditions, injuries };
     setLoading(true);
+    setSaveError(null);
     try {
       await api.put('/onboarding/health', {
         conditions:    healthData.conditions.filter(c => !c.startsWith('none')),
         injuries:      healthData.injuries.filter(i => !i.startsWith('none')),
-        healthConsent: true,
+        // Se envía el estado real del checkbox (antes iba `true` fijo)
+        healthConsent,
       });
       setHealth(healthData);
       navigation.navigate('OnboardingMotivation');
-    } catch {
-      setHealth(healthData);
-      navigation.navigate('OnboardingMotivation');
+    } catch (err) {
+      // SEC-35 (JB-03): si el guardado falla no avanzamos; mostramos el error y el usuario reintenta
+      setSaveError(extractApiError(err, 'No se pudieron guardar tus datos de salud. Inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -69,7 +82,9 @@ export function OnboardingHealth({ navigation }: Props) {
       subtitle="Solo usamos esto para adaptar tu plan y evitar ejercicios o alimentos que puedan afectarte"
       onBack={() => navigation.goBack()}
       onContinue={handleContinue}
-      canContinue={conditions.length > 0 && injuries.length > 0 && healthConsent}
+      errorMessage={saveError}
+      onDismissError={() => setSaveError(null)}
+      canContinue={canContinue}
       loading={loading}
     >
       <View style={s.badge}>
@@ -143,7 +158,7 @@ const s = StyleSheet.create({
   checkbox:      { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.neutral.midGray, alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0 },
   checkboxChecked: { borderColor: colors.primary.darkGreen, backgroundColor: colors.primary.darkGreen },
   checkmark:     { color: colors.neutral.white, fontSize: 13, fontWeight: '700' },
-  consentText:   { ...textStyles.bodySmall, color: colors.neutral.darkGray, flex: 1, lineHeight: 20 },
+  consentText:   { ...textStyles.bodyNormal, color: colors.neutral.darkGray, flex: 1, lineHeight: 20 },
   consentBold:   { fontWeight: '700', color: colors.primary.darkGreen },
 });
 export default OnboardingHealth;

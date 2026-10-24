@@ -3,7 +3,7 @@
 > Archivo de estado del proyecto. El agente orquestador lo lee al iniciar cada sesión
 > y lo actualiza al finalizar. Es la fuente de verdad del proyecto.
 >
-> Ultima actualización: 2026-10-18b | Sesión: auditoría de estado real — verificadas tareas contra código, Railway, GitHub y DNS. Detectados: tests fallando, producción caída (sin PostgreSQL/Redis), robots.txt 404, 10 PRs de dependabot abiertas.
+> Ultima actualización: 2026-10-20b | Sesión: [PR #19](https://github.com/trutool-dev/ai-studio/pull/19) abierta hacia develop con CI en verde (8/8). Pendiente: rotar secretos y variables en Railway → merge. Ver «Próxima sesión — arrancar aquí».
 
 ---
 
@@ -11,15 +11,64 @@
 
 | Campo | Valor |
 |-------|-------|
-| Fase actual | Post-release v1.0.0 (main `f51a01c`, tag `v1.0.0`). Staging operativo (backend + landing). **Producción NO operativa**: backend `ai-studio` responde `degraded` (db/redis error, plugins PostgreSQL y Redis de production sin desplegar). Tests backend con 3 fallos y cobertura de branches 66 %. |
-| Rama activa | develop — commit `8997fd4` (main en `f51a01c`, tag `v1.0.0`). 10 PRs de dependabot abiertas (#8–#17) con CI en rojo |
+| Fase actual | Post-release v1.0.0 (main `f51a01c`/`aaf4a90`, tag `v1.0.0`). **Correcciones de seguridad listas en `fix/security-audit-2026-10-19`** (sin push, pendiente de OK de Antonio). Staging operativo; **producción NO operativa** (A-25). |
+| Rama activa | `fix/security-audit-2026-10-19` — 47 commits sobre develop `4993123`, subida a GitHub. [PR #19](https://github.com/trutool-dev/ai-studio/pull/19) → develop: **CI en verde 8/8** (CI, tests, cobertura ≥ 80 %, build Docker, gitleaks). **Sin mergear.** develop sin cambios. 10 PRs de dependabot abiertas (#8–#17) |
 | Backend staging | ✅ ACTIVO — `backend-staging-01ee.up.railway.app` (`/health`: db y redis connected, verificado 2026-10-18) |
 | Backend producción | ❌ DEGRADADO — `ai-studio-production-1835.up.railway.app/health` → 503 `db: error, redis: error` (verificado 2026-10-18). Ver A-25 |
-| Tests | ⚠️ Backend: **451/454** (3 fallan) — líneas 86,87 % · branches **66,34 %** (< 80 %). Suite raíz `projects/healthy`: 256/261 (5 fallan). Ejecutado verificado 2026-10-18. Ver A-24 |
+| Tests | ✅ Backend **901/901** (38 suites) — branches **86,03 %**, líneas 97,03 % · Raíz **721/721** (29 suites). Guardia de red global: ningún test puede llamar a red real ni a Anthropic. Verificado 2026-10-20 en `fix/security-audit-2026-10-19` |
 | APK Android | ✅ Build `96aedf25` (último, con todos los fixes) · `fb35f492` (probado en emulador 2026-10-17) |
 | Icono app | ✅ Completado — hoja estilizada + ECG blanco. Aplicado en app y en `landing/index4.html` (A-21 completada) |
 | Landing | ✅ ACTIVA en staging — https://healthy-landing-staging.up.railway.app · Lighthouse 2026-10-18: móvil 75/96/100/100, escritorio 79/96/100/100 (Perf/Acc/BP/SEO) |
-| Siguiente accion inmediata | **M-21** (rotar JWT secrets — CRÍTICO) → **A-24** (arreglar tests) → **A-25** (PostgreSQL/Redis en production) → **A-4** (aprobar deploy a producción) → **M-19** (Play Store) |
+| Siguiente accion inmediata | Ver sección **«Próxima sesión — arrancar aquí»** justo debajo: 👤 rotar secretos + variables de staging en Railway → merge de [PR #19](https://github.com/trutool-dev/ai-studio/pull/19) y verificación de staging → producción |
+
+---
+
+## Próxima sesión — arrancar aquí (plan acordado 2026-10-20)
+
+Estado de partida: [PR #19](https://github.com/trutool-dev/ai-studio/pull/19) (`fix/security-audit-2026-10-19` → develop) con **CI en verde 8/8** y sin mergear. **No mergear antes del paso 1**: al mergear se redespliega staging, el backend **no arranca** sin las variables obligatorias y se aplican 2 migraciones que **cierran la sesión de todos los usuarios**.
+
+### Paso 1 — 👤 Antonio: preparar staging (antes del merge, ~20-30 min)
+
+- [ ] **Rotar secretos** (`security/SECRETS_POLICY.md`, SEC-25/26/41):
+  - [ ] 4 JWT nuevos (2 staging + 2 producción), distintos entre sí y ≥ 32 caracteres: `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`
+  - [ ] Contraseña nueva de PostgreSQL de staging (y de producción cuando exista) y cerrar el acceso TCP público
+  - [ ] Contraseña nueva del usuario de pruebas de staging
+  - [ ] Valorar notificación a la AEPD por la exposición de credenciales (art. 33 RGPD, 72 h)
+- [ ] **Variables del servicio `backend` de staging en Railway** (lista completa en `backend/.env.example`):
+  - [ ] `NODE_ENV=staging` (exacto)
+  - [ ] `JWT_SECRET` y `JWT_REFRESH_SECRET` (los nuevos)
+  - [ ] `REDIS_ENCRYPTION_KEY` — 64 caracteres hex: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+  - [ ] `REDIS_HMAC_SECRET` — ≥ 32 caracteres
+  - [ ] Opcional, para `/health/ai` y endpoints de depuración en staging: `ENABLE_DEV_ENDPOINTS=true` + `ADMIN_TOKEN` (≥ 32)
+  - [ ] Actualizar los GitHub Secrets `RAILWAY_*_DATABASE_URL` con la contraseña nueva
+- [ ] Avisar de que el merge cerrará la sesión de todos los usuarios de staging
+
+### Paso 2 — 🤖 Claude: merge y verificación (cuando Antonio diga «merge»)
+
+- [ ] Mergear [PR #19](https://github.com/trutool-dev/ai-studio/pull/19) a develop y vigilar el deploy de staging (`deploy.yml`)
+- [ ] Verificar que el backend arranca, `/health` responde 200 y las 2 migraciones quedan aplicadas (`20261019120000_auth_password_setup_hashed_otp`, `20261019130000_auth_hashed_tokens_rotation`)
+- [ ] Smoke test de la API: registro → verificación → set-password → onboarding con consentimiento → plan (sin llamadas reales a Anthropic salvo autorización)
+- [ ] Actualizar este archivo con el resultado
+
+### Paso 3 — Producción (otra sesión, con OK de Antonio)
+
+- [ ] 👤 Decidir el dominio de la API (SEC-34) — bloquea producción y certificate pinning
+- [ ] A-25: desplegar PostgreSQL y Redis en el entorno production, variables de producción (incluidas SMTP) y seeds
+- [ ] A-4: aprobar el deploy a producción en GitHub Actions
+- [ ] M-19: subir el APK a Google Play (Internal Testing)
+
+### En paralelo — 🤖 agentes, en una rama nueva sin tocar la PR #19 (elegir a, b o c)
+
+- [ ] **a) A-28 + A-29**: configurar ESLint en el backend y arreglar `backend/src/swagger.yaml` (YAML inválido)
+- [ ] **b) SEC-47/48**: pantallas de la app para borrar la cuenta (art. 17 RGPD) y retirar el consentimiento de salud
+- [ ] **c) SEC-50**: programar el cron diario del job de retención `runRetention`
+
+### Otras decisiones pendientes de Antonio (sin prisa)
+
+- [ ] Validar umbrales clínicos y listas de alérgenos de `backend/src/services/clinicalSafety.js` (SEC-37)
+- [ ] keto/other como opciones propias del enum de dieta (SEC-28) e historial de consentimientos (SEC-47) — ambos requieren migración
+- [ ] `git rm --cached` de `.claude/settings.local.json` y docs internos (SEC-40/42); activar Secret scanning y Push protection en GitHub
+- [ ] DPA de Railway (y región) y de Anthropic; proveedor SMTP; responsable/DPO; revalidar EIPD (SEC-33/69, M-22)
 
 ---
 
@@ -108,10 +157,12 @@
 | **A-22** | **Resolver discrepancia de calorías**: el brief dice "-500 kcal/día" y el código implementa "80 % TDEE" | AI + Backend Agents | ✅ Resuelta — Antonio confirma mantener **80% TDEE** (déficit relativo, adapta a cualquier perfil). Sin cambio de código. (sesión 2026-10-15) | Nada |
 | **A-23** | **CI: `deploy.yml` redespliega el backend de staging en cualquier push a `develop`** (sin filtro de rutas). Añadir `paths: projects/healthy/backend/**` para no redesplegar con cambios de docs/landing | DevOps Agent | ✅ Completada — `paths: projects/healthy/backend/**` añadido en trigger `on.push` (sesión 2026-10-15) | Nada |
 | **N-3** | **Frontend: refrescar macros de la comida tras añadir alimento** — Tras la llamada exitosa de N-2, llamar `fetchTodayNutrition()` para refrescar `todayMeals` en el store. Los `MacroCard` y el resumen calórico se actualizarán automáticamente al cambiar el store. | Frontend Agent | ✅ Completada — verificado en `NutritionScreen.tsx` (sesión 2026-10-15) | N-2 |
-| **A-24** | **Tests rotos y cobertura de branches < 80 %** — Backend 451/454: fallan `auth.controller.branches` (`me` devuelve datos del usuario — probablemente por `has_plan` de A-15) y `exerciseSelector` (filtros `muscle_gain` y `dumbbells` — probablemente por el cambio a minúsculas de A-12). Suite raíz 256/261: además fallan `app.branches` (CORS, 2 tests) y `onboarding.controller.branches` (2 tests). Branches 66,34 % (antes 85,01 %): el código nuevo (A-6, SEC-01..24, N-1..N-3) no tiene tests de ramas | Tests Agent | Pendiente | Nada |
+| **A-24** | **Tests rotos y cobertura de branches < 80 %** | Tests Agent | ✅ Completada en `fix/security-audit-2026-10-19` (commits `c82610c`, `946bb70` y los de cada SEC) — backend 901/901, branches 86,03 %; raíz 721/721 (2026-10-20). Pendiente de merge | Nada |
 | **A-25** | **Producción caída: PostgreSQL y Redis del entorno production sin desplegar** — `ai-studio` (production) responde 503 `db: error, redis: error`. Desplegar los plugins, configurar `DATABASE_URL`/`REDIS_URL` en el servicio, ejecutar `prisma migrate deploy` y seeds (ejercicios + alimentos) antes de abrir a usuarios | DevOps + Database Agents | Pendiente — requiere OK de Antonio (toca producción) | Nada |
 | **A-26** | **Landing: `/robots.txt` devuelve 404** — en `nginx.conf.template` el `alias` apunta a `/usr/share/nginx/html/public/robots.txt`, pero el Dockerfile copia `public/` a la raíz (el fichero está en `/usr/share/nginx/html/robots.txt`). Además `robots.txt` declara un `sitemap.xml` que no existe | DevOps Agent | Pendiente | Nada |
-| **A-27** | **Revisar las 10 PRs de dependabot (#8–#17)** — todas con CI/tests/security-audit en rojo. Varias son saltos mayores con riesgo: `@anthropic-ai/sdk` 0.52→0.133, `expo-secure-store` 15→58, `tailwindcss` 3→4, `dotenv` 16→18. Mergear solo las menores tras CI verde; cerrar o planificar las mayores | DevOps Agent | Pendiente | A-24 |
+| **A-27** | **Revisar las 10 PRs de dependabot (#8–#17)** — todas con CI/tests/security-audit en rojo. Varias son saltos mayores con riesgo: `@anthropic-ai/sdk` 0.52→0.133, `expo-secure-store` 15→58, `tailwindcss` 3→4, `dotenv` 16→18. Mergear solo las menores tras CI verde; cerrar o planificar las mayores | DevOps Agent | ⏳ Parcial — SEC-53 (`9821a70`) sube express/morgan/prisma/proxy-addr (backend: de 15 a 2 vulnerabilidades); axios ^1.20.0 en frontend (SEC-66). Siguen abiertas las PRs; mayores pendientes: nodemailer 6→10, uuid 10→14, `@anthropic-ai/sdk` 0.52→0.133 (SEC-59), `expo-secure-store` (va con el SDK de Expo) | A-24 |
+| **A-28** | **ESLint en el backend** — el script `lint` llamaba a `eslint` sin tenerlo instalado ni configurado y hacía fallar el CI desde el 2026-10-12; se eliminó el script en `e76ee6d`. Instalar ESLint con configuración, recuperar `npm run lint` y corregir lo que salga | Backend Agent | Pendiente | Nada |
+| **A-29** | **`backend/src/swagger.yaml` inválido** — YAML roto desde `410db46` (agosto): línea ~890, `description: ... Rate limit: 5 req / 15 min` sin comillas. Además, revisar que la especificación refleje el contrato nuevo de auth (SEC-27/30/45) | Docs Agent | Pendiente | Nada |
 
 ---
 
@@ -250,18 +301,88 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 
 ---
 
+## Auditoría de seguridad 2026-10-19 (Opus) — correcciones
+
+Auditoría renovada con **Claude Opus** (el proyecto se implementó con Sonnet 4.6): agente **security** (OWASP Top 10, RGPD, secretos, dependencias) y agente **JailBreak** (MITRE ATLAS v4.5 + OWASP LLM Top 10). Informes en `security/`: `SECURITY_AUDIT_2026-10-19.md`, `ATLAS_AUDIT.md`, `LLM_THREATS.md`, `PROMPT_REVIEW.md`, `SECURITY_TASKS.md`, `AUDIT_SUMMARY_2026-10-19.md`, `FIX_PROGRESS.md`.
+
+- **Resultado de la auditoría:** security 34 hallazgos (🔴 3 · 🟠 5 · 🟡 16 · 🟢 10); JailBreak 20 (🔴 2 · 🟠 7 · 🟡 7 · 🟢 4). De SEC-01..SEC-24 (Sonnet): 7 ✅, 13 ⚠️, 4 ❌ — reabiertas y absorbidas en SEC-25..SEC-72.
+- **Correcciones:** rama `fix/security-audit-2026-10-19`, 43 commits, **sin push**. Tests: backend 901/901 (branches 86,03 %), raíz 721/721.
+- **Incidente:** durante el desarrollo, un test hizo **una llamada real a la API de Anthropic** (mock resuelto a otra copia del SDK; respuesta 401 con clave falsa, sin coste ni datos reales). Corregido con una guardia de red global en ambas suites (`c82610c`).
+- **Migraciones creadas sin aplicar:** `20261019120000_auth_password_setup_hashed_otp` (anula OTP pendientes en claro) y `20261019130000_auth_hashed_tokens_rotation` (revoca sesiones y enlaces de reset existentes → **todos los usuarios deberán volver a iniciar sesión**).
+- **Variables de entorno** (lista completa en `backend/.env.example`, `cdb4dbf`). **Obligatorias en staging/producción o el servidor no arranca:** `NODE_ENV` exacto (`staging`/`production`), `JWT_SECRET` y `JWT_REFRESH_SECRET` (≥ 32, distintos), `DATABASE_URL`, `REDIS_ENCRYPTION_KEY` (64 hex), `REDIS_HMAC_SECRET` (≥ 32); SMTP en producción. **Nuevas opcionales:** `TRUST_PROXY`, `ENABLE_DEV_ENDPOINTS`, `ADMIN_TOKEN`, `DEV_ENDPOINTS_TOKEN`, `DEV_ENDPOINTS_EMAIL_DOMAINS`, `PHOTO_URL_ALLOWED_HOSTS`, `OTP_HASH_SECRET`, `HEALTH_CONSENT_VERSION`, `AI_DAILY_TOKEN_LIMIT`, `ANTHROPIC_TIMEOUT_MS`, `ANTHROPIC_MAX_RETRIES`, `ANTHROPIC_MODEL` (lista blanca), `RETENTION_*_DAYS`.
+
+Leyenda: ✅ hecho (commit en la rama, pendiente de merge) · ⏳ pendiente (agente) · 👤 manual o decisión de Antonio.
+
+| ID | Sev | Origen | Problema | Estado |
+|----|-----|--------|----------|--------|
+| SEC-25 | 🔴 | SA-01 | JWT expuestos en `GITHUB_SECRETS.md` | ✅ archivos `7cce351` · 👤 **rotar** los 4 secretos JWT |
+| SEC-26 | 🔴 | SA-02 | Credenciales PostgreSQL versionadas | ✅ archivos `7cce351` · 👤 **rotar** contraseñas staging/prod, cerrar TCP público, valorar notificación AEPD (art. 33) |
+| SEC-27 | 🔴 | SA-03 | `set-password` sin prueba de posesión (toma de cuentas) | ✅ `f321aa6` |
+| SEC-28 | 🔴 | JB-01 | Alergias/lesiones/condiciones no llegaban al prompt; fallback con alérgenos; 500 keto/other | ✅ `c59bb38` · 👤 decidir si keto/other entran en el enum (migración) |
+| SEC-29 | 🔴 | JB-02 + SA-18 | Edad mínima 16 y rangos eludibles | ✅ `c59bb38` |
+| SEC-30 | 🟠 | SA-04 | Endpoints dev abiertos en staging | ✅ `1080d1e` (+ `fe0cb29` scripts CP) |
+| SEC-31 | 🟠 | SA-05 | OTP con fuerza bruta | ✅ `f321aa6` |
+| SEC-32 | 🟠 | SA-06 + JB-07 | Rate limiting ineficaz tras el proxy | ✅ `1661a42`, `5b4c2cb`, `b72b521` |
+| SEC-33 | 🟠 | SA-07 + JB-09 | Consentimiento Art. 9 no validado en servidor | ✅ `c59bb38`, `2c0ff41`, `946bb70` · 👤 DPA/SCC con Anthropic |
+| SEC-34 | 🟠 | SA-08 | Build de producción apunta a `api.healthy.app` sin titularidad | 👤 decidir dominio (bloquea producción y pinning) |
+| SEC-35 | 🟠 | JB-03 | Frontend ignoraba errores y enviaba consentimiento fijo | ✅ `ebe8e8f` |
+| SEC-36 | 🟠 | JB-04 | Salida del LLM sin validar; persistencia no transaccional | ✅ `c59bb38`, `d128869` |
+| SEC-37 | 🟠 | JB-05 | Salvaguardas clínicas | ✅ `c59bb38` · 👤 **validar umbrales clínicos y listas de alérgenos** (`clinicalSafety.js`) |
+| SEC-38 | 🟠 | JB-06 | Sanitizador de prompt eludible | ✅ `c59bb38`, `d128869` |
+| SEC-39 | 🟠 | SA-15 + JB-08 | `/health/ai` fail-open y con coste | ✅ `910ba8f` |
+| SEC-40 | 🟡 | SA-09 | `.claude/settings.local.json` versionado con secretos | 👤 aprobar `git rm --cached` + `.gitignore` (lista en informe devops) |
+| SEC-41 | 🟡 | SA-10 | Credenciales de staging en la memoria del orquestador | ✅ valores retirados de la memoria (2026-10-20) · 👤 rotar la contraseña del usuario de staging |
+| SEC-42 | 🟡 | SA-11 + JB-20 | Escaneo de secretos insuficiente | ✅ `71cc5ff`, `5383a38` · 👤 activar Secret scanning + Push protection en GitHub; verificar versión/checksum de gitleaks y SHA de checkout en el 1.er run |
+| SEC-43 | 🟡 | SA-12 | Sin limitador en reset/refresh/dev | ✅ `5b4c2cb` |
+| SEC-44 | 🟡 | SA-13 | JWT sin algoritmo fijado ni revocación | ✅ `bfea7f1` |
+| SEC-45 | 🟡 | SA-14 | Tokens en claro, sin detección de reutilización | ✅ `6b21337` (migración sin aplicar) |
+| SEC-46 | 🟡 | SA-16 + JB-14 | Validación de entorno; cifrado de caché fail-open | ✅ `e845a85`, `fa885c9`, `c59bb38` |
+| SEC-47 | 🟡 | SA-17 | Consentimiento sin versión ni retirada | ✅ backend `c59bb38` (`DELETE /onboarding/health-consent`) · ⏳ pantalla en la app · 👤 historial de consentimientos (migración) |
+| SEC-48 | 🟡 | SA-19 | Borrado de cuenta incompleto | ✅ `ffcb134`, `8ccfcaf` · ⏳ la app no tiene pantalla de borrado (art. 17) |
+| SEC-49 | 🟡 | SA-20 | Export RGPD incompleto | ✅ `ffcb134` |
+| SEC-50 | 🟡 | SA-21 | Sin retención de datos caducados | ✅ job `1a8d003` · ⏳ programar el cron diario (devops) |
+| SEC-51 | 🟡 | SA-22 + JB-19 | PII, OTP y enlaces en logs | ✅ `30ecdf8` |
+| SEC-52 | 🟡 | SA-23 | Validación de entrada incompleta | ✅ `8f5a960` |
+| SEC-53 | 🟡 | SA-24 | Dependencias backend vulnerables | ✅ `9821a70` (15→2) · ⏳ nodemailer 6→10 y uuid 10→14 (mayores) |
+| SEC-54 | 🟡 | JB-10 | Catálogo de ejercicios mal pasado al modelo | ✅ `c59bb38`, `d128869` |
+| SEC-55 | 🟡 | JB-11 | Cliente Anthropic sin timeout ni `stop_reason` | ✅ `c59bb38`, `d128869` |
+| SEC-56 | 🟡 | JB-12 | Sin medición de tokens ni prompt caching | ✅ `c59bb38`, `d128869` |
+| SEC-57 | 🟡 | JB-13 | Fallback cacheado; caché sin invalidar | ✅ `c59bb38`, `d128869` |
+| SEC-58 | 🟡 | JB-15 | Exclusión por lesión no funcionaba | ✅ `ccfb3f7` |
+| SEC-59 | 🟡 | JB-16 | SDK de Anthropic 0.52 desactualizado | ⏳ subir a la versión actual con tests simulados antes; no mergear la PR de dependabot con CI en rojo |
+| SEC-60 | 🟢 | SA-25 | Enumeración de usuarios | ✅ `aff62d9` |
+| SEC-61 | 🟢 | SA-26 | Asignación masiva | ✅ `c59bb38` |
+| SEC-62 | 🟢 | SA-27 | `/exercises` creaba conexiones por petición | ✅ `7dc407b` |
+| SEC-63 | 🟢 | SA-28 | Texto libre de salud sin límite | ✅ `c59bb38` |
+| SEC-64 | 🟢 | SA-29 | `photo_url` arbitraria | ✅ `d03781c` (rechaza todo hasta configurar `PHOTO_URL_ALLOWED_HOSTS`) |
+| SEC-65 | 🟢 | SA-30 | HTTP por defecto y sin pinning en la app | ✅ https obligatorio `7fdad85` · ⏳ certificate pinning (depende de SEC-34 y build EAS) |
+| SEC-66 | 🟢 | SA-31 | Dependencias del frontend | ✅ axios `30d673a` · ⏳ resto ligado a Expo SDK/React Native (mayores) |
+| SEC-67 | 🟢 | SA-32 | Contenedor arrancaba aunque fallase la migración | ✅ `1b35acf` |
+| SEC-68 | 🟢 | SA-33 + JB-18 | Código muerto con `require` roto | ✅ `a190ebd` |
+| SEC-69 | 🟢 | SA-34 | RAT desactualizado | ✅ `587798b` · 👤 DPA Railway (región) y Anthropic, SMTP, responsable/DPO, revalidar EIPD |
+| SEC-70 | 🟢 | JB-17 | `AI_SYSTEM_PROMPT` sustituía las reglas de seguridad | ✅ `c59bb38` |
+| SEC-71 | 🟢 | VUL-017 / B-02 | `/health` exponía detalle sin límite | ✅ `80b88dd`, `b27763d` |
+| SEC-72 | 🟢 | VUL-015 | Nueva contraseña igual a la actual | ✅ `2636da9` |
+
+**Acciones de Antonio, en orden:** (1) rotar JWT ×4 y contraseñas de PostgreSQL (`security/SECRETS_POLICY.md`) y la contraseña del usuario de staging; valorar notificación a la AEPD; (2) crear en Railway las variables obligatorias y nuevas; (3) OK para push de la rama y PR a develop; (4) aplicar las 2 migraciones (re-login forzado); (5) Secret scanning + Push protection en GitHub; (6) `git rm --cached` de SEC-40; (7) decisiones: dominio (SEC-34), umbrales clínicos (SEC-37), keto/other (SEC-28), historial de consentimientos (SEC-47), DPA Railway/Anthropic (SEC-33/69).
+
+**Pendientes de agentes:** pantalla de borrado de cuenta y de retirada del consentimiento en la app (SEC-47/48), cron de retención (SEC-50), nodemailer/uuid (SEC-53), SDK Anthropic (SEC-59), certificate pinning (SEC-65), dependencias Expo (SEC-66), robots.txt (A-26).
+
+---
+
 ## Checklist Go-live
 
 | Criterio | Objetivo | Estado |
 |----------|----------|--------|
-| Tests lineas | >= 80% | ✅ OK — 86,87 % backend (verificado 2026-10-18) |
-| Tests branches | >= 80% | ❌ NO — 66,34 % backend + 3 tests fallando (verificado 2026-10-18, ver A-24) |
+| Tests lineas | >= 80% | ✅ OK — 97,03 % backend (2026-10-20) |
+| Tests branches | >= 80% | ✅ OK en `fix/security-audit-2026-10-19` — 86,03 % backend, 901/901 (2026-10-20); pendiente de merge |
 | Lighthouse landing | >= 95 | ⚠️ PARCIAL — 2026-10-18: SEO y Best Practices 100; Accesibilidad 96; Rendimiento 75 móvil / 79 escritorio (ver M-10) |
 | Landing publicada | Activa | ⚠️ Activa en Railway staging; falta producción (A-20) y dominio propio (M-20) |
 | App Android Google Play Internal | Publicada | ⚠️ APK funcionando en emulador (M-18 ✅) — pendiente subida manual a Play Console (M-19) |
 | App iOS TestFlight | Publicada | ❌ APLAZADO indefinidamente — sin publicación iOS |
 | Backend staging operativo | Activo | ✅ ACTIVO (verificado 2026-10-18) |
 | Backend producción operativo | Activo | ❌ NO — db/redis error (A-25) |
+| Auditoría de seguridad sin 🔴 abiertos | 0 críticos | ⚠️ Código corregido en `fix/security-audit-2026-10-19`; quedan 👤 rotación de secretos (SEC-25/26) y dominio (SEC-34) — bloquean producción |
 | ANTHROPIC_API_KEY en staging | Configurado | ✅ Configurado |
 | Créditos Anthropic | Disponibles | ✅ ACTIVO — M-11b completada, /health/ai confirma success:true |
 | Seed 1.324 ejercicios ejecutado | Completo | ✅ COMPLETADO — M-4 ejecutada sesión 2026-10-12 |
@@ -295,6 +416,8 @@ Cada tarea AD-{n} es atómica: un archivo, un componente.
 | Sesion 2026-10-12f | **Orquestador**: Tareas **N-1/N-2/N-3** registradas — flujo completo "food search asignable a comidas": N-1 backend endpoint `POST /nutrition/meals/:mealId/foods` (crear `meal_foods` + recalcular macros), N-2 frontend `<TouchableOpacity>` en resultados + modal de asignación (cantidad g + selección comida), N-3 frontend `fetchTodayNutrition()` tras confirmar para refrescar macros en pantalla. Contexto técnico: `NutritionScreen.tsx` línea 98 (`<View>` no presionable), tabla `meal_foods` ya existe en schema, tabla `meals` tiene columnas de macros a actualizar. | pendiente | 2026-10-12 |
 | Sesion 2026-10-12c | **DOC-01..DOC-08** ✅ Verificadas y marcadas como completadas en tasks.md — todos los documentos existían con contenido completo (api-reference, deployment-guide, ai-architecture, rgpd-compliance, README, architecture-web, landing-deploy, landing-content). Commit `e0dde65`. **M-15** ✅ Icono app diseñado: hoja estilizada + ECG blanco (1024×1024px). Aplicado en `frontend/assets/icon.png`, `adaptive-icon.png` y `landing/public/images/app-icon.png`. Landing actualizada: navbar, footer, sección descarga y favicon usan icono real. Commit `f4dc665`. | f4dc665 | 2026-10-12 |
 | Sesión 2026-10-17 | **Orquestación masiva tareas automáticas**: N-1/N-2/N-3 verificadas completadas. A-15/A-16 verificadas. A-16 fix: SecureStore persiste `has_plan` (`ce0bb6f`). A-18/A-21: landing Lighthouse — defer Tailwind, IntersectionObserver frames, robots.txt, OG/canonical, contraste, icono app (`e5f32c2`). A-19/A-23: deploy-landing.yml + paths filter CI (`f604533`). A-6: micronutrientes DB schema + migración + backend FOOD_SELECT + frontend NutritionTable (`8b0a7a7`, `43db3ae`, `601a80a`). A-22: mantenemos 80% TDEE. **Migración A-6** ejecutada en Railway staging con DATABASE_PUBLIC_URL. **M-7/M-18**: APK `fb35f492` instalado y funcionando en emulador Android. **TODOS_LOS_AGENTES.txt**: 13 agentes fusionados en un solo archivo. | e749094 | 2026-10-17 |
+| Sesión 2026-10-20b | [PR #19](https://github.com/trutool-dev/ai-studio/pull/19) abierta (por Antonio) hacia develop. **CI arreglado**: los workflows usaban `database/schema.prisma` obsoleto (inválido con Prisma 7.10) → esquema real del backend; la suite raíz no instalaba las dependencias del backend ni generaba Prisma; falsos positivos de gitleaks (`.gitleaksignore` + `gitleaks:allow`); script `lint` roto eliminado (A-28). Resultado: **8/8 checks en verde**. Plan de próxima sesión anotado. GitHub CLI configurado. | `e76ee6d` | 2026-10-20 |
+| Sesión 2026-10-19/20 | **Auditoría de seguridad renovada con Opus** (security + JailBreak): 54 hallazgos; SEC-01..24 de Sonnet re-verificadas (7 ✅ · 13 ⚠️ · 4 ❌). **Corrección** por 5 agentes (auth, onboarding+IA, plataforma, frontend, devops+docs) coordinados por el orquestador, con puntos de control en `security/FIX_PROGRESS.md` y vigilante automático ante cortes por límite de uso: SEC-25..SEC-72 resueltas en código salvo las manuales. Incluye SA-03 (toma de cuentas), SA-04 (endpoints dev), JB-01 (datos de salud fuera del prompt) y JB-02 (menores). Tests backend 901/901 (branches 86,03 %), raíz 721/721. Incidente: 1 llamada real a Anthropic en un test (401, sin coste), blindado. Rama `fix/security-audit-2026-10-19`, sin push. | `4d905af` | 2026-10-20 |
 | Sesión 2026-10-18b | **Auditoría de estado real** contra código, Railway, GitHub y DNS: los 16 commits citados como hechos están en develop; A-19 (workflow `deploy-landing.yml`) y A-23 (filtro de rutas) verificados. **Discrepancias**: tests backend 451/454 con branches 66,34 % (documento decía 454/454 y 85,01 %); producción degradada sin PostgreSQL/Redis; `/robots.txt` 404; M-21 sin hacer (JWT siguen en el documento); A-4 aún esperando aprobación; 10 PRs de dependabot en rojo. Nuevas tareas A-24..A-27. | — | 2026-10-18 |
 | Sesión 2026-10-18 | **Coherencia de PROJECT_STATUS**: M-13/M-14 y tag v1.0.0 reflejados como hechos (camino crítico, checklist); M-8 marcada como sustituida por M-19; nota de calorías alineada con A-22. **Lighthouse staging** (verificado que sirve el `index4.html` de develop): móvil 75/96/100/100, escritorio 79/96/100/100 (antes 34/90/100/92 y 74/90/100/92). Detectado `/robots.txt` 404 en staging. | — | 2026-10-18 |
 | Sesion 2026-10-13/14 | **Revisión de estado** del proyecto (agentes, PROJECT_STATUS, git). **Landing**: confirmado que la landing publicada es `landing/index4.html` (HTML + Tailwind CDN, sin build); nuevos `landing/Dockerfile` + `nginx.conf.template` + `.dockerignore` (nginx sirve `index4.html` en `/` con `public/` images/videos/frames, puerto `${PORT}`), probado en local con Docker. **Limpieza**: eliminados `devops/infra/` (Terraform S3/CloudFront/Route 53), `devops/.github/workflows/deploy-landing.yml`, `devops/cloudrun/` y `landing/Dockerfile.txt`; ~50 documentos actualizados de AWS a Railway (`landing-deploy`, `MONITORING`, `BACKUP_STRATEGY` reescritos). Commit `9f5b847` en develop con `[skip ci]` (para no redesplegar el backend de staging). **Railway**: servicio `healthy-landing` creado en `healthy-staging` / entorno staging, primer deploy OK, dominio https://healthy-landing-staging.up.railway.app — verificados 200 en `/`, vídeos y frames + cabeceras de seguridad. **Lighthouse** (M-10) móvil 34/90/100/92, escritorio 74/90/100/92 → A-18. Nuevas tareas M-20..M-22 y A-18..A-23. | 9f5b847 | 2026-10-14 |

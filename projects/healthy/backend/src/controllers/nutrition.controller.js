@@ -5,13 +5,20 @@
 const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
+const { parseDateParam, isUuid } = require('../utils/query.util');
+
+// Máximo representable en las columnas Decimal(6,2) de macros de Meal
+const MAX_MEAL_MACRO_G = 9999.9; // con 1 decimal (toFixed(1)) para no redondear a 10000.0
+const MAX_QUANTITY_G = 5000;
 
 /** GET /nutrition/meals — Comidas del día actual (solo del plan activo) */
 const getMeals = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const dateParam = req.query.date;
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
+    // SEC-52: fecha validada (antes una fecha inválida o un objeto acababan en 500)
+    const parsed = parseDateParam(req.query.date);
+    if (!parsed.ok) return sendError(res, 'VALIDATION_ERROR', 'date debe ser una fecha ISO 8601 (YYYY-MM-DD)', 400);
+    const targetDate = parsed.date || new Date();
     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
 
@@ -61,7 +68,14 @@ const addFoodToMeal = async (req, res, next) => {
     const { mealId } = req.params;
     const { food_id, quantity_g = 100 } = req.body;
 
-    if (!food_id) return sendError(res, 'VALIDATION_ERROR', 'food_id es requerido', 400);
+    // SEC-52 (N-1): validación también en el controlador (defensa en profundidad)
+    if (!isUuid(food_id)) return sendError(res, 'VALIDATION_ERROR', 'food_id debe ser un UUID válido', 400);
+    const quantity = typeof quantity_g === 'number' ? quantity_g : parseFloat(quantity_g);
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > MAX_QUANTITY_G) {
+      return sendError(res, 'VALIDATION_ERROR', `quantity_g debe estar entre 1 y ${MAX_QUANTITY_G}`, 400);
+    }
+
+    // IDOR: la comida debe pertenecer al usuario autenticado
 
     const meal = await prisma.meal.findFirst({ where: { id: mealId, user_id: userId } });
     if (!meal) return sendError(res, 'NOT_FOUND', 'Comida no encontrada', 404);
@@ -71,7 +85,7 @@ const addFoodToMeal = async (req, res, next) => {
 
     // Crear el registro meal_foods
     await prisma.mealFood.create({
-      data: { meal_id: mealId, food_id, quantity_g: parseFloat(quantity_g) },
+      data: { meal_id: mealId, food_id, quantity_g: quantity },
     });
 
     // Recalcular macros de la comida sumando todos sus alimentos
@@ -94,14 +108,15 @@ const addFoodToMeal = async (req, res, next) => {
       where: { id: mealId },
       data: {
         calories:  Math.round(totals.calories),
-        protein_g: totals.protein_g.toFixed(1),
-        carbs_g:   totals.carbs_g.toFixed(1),
-        fat_g:     totals.fat_g.toFixed(1),
+        // Acotado al máximo de la columna para no desbordar el Decimal (500)
+        protein_g: Math.min(totals.protein_g, MAX_MEAL_MACRO_G).toFixed(1),
+        carbs_g:   Math.min(totals.carbs_g, MAX_MEAL_MACRO_G).toFixed(1),
+        fat_g:     Math.min(totals.fat_g, MAX_MEAL_MACRO_G).toFixed(1),
       },
       include: { meal_foods: { include: { food: true } } },
     });
 
-    logger.info(`[nutrition] Alimento ${food_id} añadido a comida ${mealId} (${quantity_g}g)`);
+    logger.info(`[nutrition] Alimento ${food_id} añadido a comida ${mealId} (${quantity}g)`);
     return sendSuccess(res, { meal: updatedMeal }, 'Alimento añadido correctamente');
   } catch (err) { next(err); }
 };

@@ -1,110 +1,181 @@
 /**
  * Controlador de usuario (RGPD).
- * Implementa el derecho al olvido (Art. 17) y portabilidad de datos (Art. 20).
+ * Implementa el derecho de supresión (Art. 17), acceso (Art. 15) y portabilidad (Art. 20).
  */
 
 const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
 const redis = require('../services/redis.service');
+const { comparePassword } = require('../utils/crypto.util');
+const { revokeAllUserSessions } = require('../middleware/auth.middleware');
 
-// ─── DELETE /user/me — Derecho al olvido (RGPD Art. 17) ─────────
+// ─── Purga de Redis ──────────────────────────────────────────────
+
+/**
+ * Patrones de claves Redis con datos o estado de un usuario.
+ * - plan:{userId}:*        planes cacheados (derivados de datos de salud)
+ * - ai:tokens:{userId}:*   cuota diaria de tokens de IA
+ * - user:{userId}*         caché de perfil/preferencias
+ */
+const userKeyPatterns = (userId) => [
+  `plan:${userId}:*`,
+  `ai:tokens:${userId}:*`,
+  `user:${userId}*`,
+];
+
+/** Claves exactas del usuario (además de las de sesión). */
+const userExactKeys = (userId) => [`plan:idx:${userId}`, `user:${userId}`];
+
+/**
+ * Devuelve las claves que coinciden con un patrón. Usa SCAN (no bloquea Redis)
+ * y, si el cliente no lo soporta, KEYS.
+ */
+async function findKeys(pattern) {
+  if (typeof redis.scan === 'function') {
+    const found = new Set();
+    let cursor = '0';
+    do {
+      // eslint-disable-next-line no-await-in-loop
+      const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
+      keys.forEach((k) => found.add(k));
+      cursor = String(next);
+    } while (cursor !== '0');
+    return [...found];
+  }
+  return redis.keys(pattern);
+}
+
+/**
+ * Borra de Redis todas las claves del usuario y sus sesiones.
+ * No es fatal: si Redis falla se registra (las claves caducan por TTL).
+ * @returns {Promise<number>} número de claves borradas
+ */
+async function purgeUserFromRedis(userId, sessionIds) {
+  try {
+    const keys = new Set([
+      ...userExactKeys(userId),
+      ...sessionIds.map((id) => `session:${id}`),
+    ]);
+    for (const pattern of userKeyPatterns(userId)) {
+      // eslint-disable-next-line no-await-in-loop
+      (await findKeys(pattern)).forEach((k) => keys.add(k));
+    }
+    return await redis.del(...keys);
+  } catch (redisErr) {
+    logger.warn(`[user] Redis no disponible al purgar la cuenta: ${redisErr.message}`);
+    return 0;
+  }
+}
+
+// ─── DELETE /user/me — Derecho de supresión (RGPD Art. 17) ───────
 
 /**
  * Elimina permanentemente la cuenta del usuario autenticado y todos sus datos.
- * El borrado se realiza en orden respetando las foreign keys.
+ * SEC-48 (SA-19):
+ * - Reautenticación: exige la contraseña actual en el body (`password`); 401 si no coincide.
+ * - Borrado atómico en `prisma.$transaction`: `user.delete` borra en cascada todas las
+ *   tablas dependientes (onDelete: Cascade en schema.prisma), incluidas las sesiones
+ *   (AuthSession) → los refresh tokens quedan revocados.
+ * - Revocación de los access tokens emitidos (revokeAllUserSessions, SEC-44).
+ * - Purga en Redis de sesiones, planes cacheados, cuota de IA y caché de perfil.
+ * Los backups de la BD conservan los datos hasta su rotación (política documentada aparte).
  */
 const deleteAccount = async (req, res, next) => {
   try {
     const userId = req.user.userId;
+    const { password } = req.body || {};
 
-    // Verificar que el usuario existe antes de intentar el borrado
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (typeof password !== 'string' || password.length === 0) {
+      return sendError(res, 'VALIDATION_ERROR', 'Se requiere la contraseña actual para eliminar la cuenta', 400);
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, password_hash: true } });
     if (!user) return sendError(res, 'NOT_FOUND', 'Usuario no encontrado', 404);
 
-    // 1. Eliminar logs de tokens de IA
-    await prisma.tokenUsageLog.deleteMany({ where: { user_id: userId } });
+    const passwordOk = user.password_hash ? await comparePassword(password, user.password_hash) : false;
+    if (!passwordOk) {
+      logger.warn(`[user] Reautenticación fallida al eliminar cuenta: ${userId} (ip ${req.ip})`);
+      return sendError(res, 'INVALID_CREDENTIALS', 'Contraseña incorrecta', 401);
+    }
 
-    // 2. Eliminar datos de autenticación
-    await prisma.verificationCode.deleteMany({ where: { user_id: userId } });
-    await prisma.passwordResetToken.deleteMany({ where: { user_id: userId } });
-    await prisma.authSession.deleteMany({ where: { user_id: userId } });
-
-    // 3. Eliminar datos de onboarding y salud
-    await prisma.onboardingAnswer.deleteMany({ where: { user_id: userId } });
-    await prisma.healthCondition.deleteMany({ where: { user_id: userId } });
-    await prisma.foodRestriction.deleteMany({ where: { user_id: userId } });
-
-    // 4. Eliminar perfiles
-    await prisma.lifestyleProfile.deleteMany({ where: { user_id: userId } });
-    await prisma.trainingPreferences.deleteMany({ where: { user_id: userId } });
-    await prisma.nutritionPreferences.deleteMany({ where: { user_id: userId } });
-    await prisma.motivationProfile.deleteMany({ where: { user_id: userId } });
-
-    // 5. Eliminar ejercicios de sesiones y sesiones de entrenamiento
-    const trainingSessions = await prisma.trainingSession.findMany({
-      where: { user_id: userId },
-      select: { id: true },
+    const sessionIds = await prisma.$transaction(async (tx) => {
+      const sessions = await tx.authSession.findMany({ where: { user_id: userId }, select: { id: true } });
+      await tx.user.delete({ where: { id: userId } });
+      return sessions.map((s) => s.id);
     });
-    const trainingSessionIds = trainingSessions.map(s => s.id);
-    if (trainingSessionIds.length > 0) {
-      await prisma.sessionExercise.deleteMany({ where: { session_id: { in: trainingSessionIds } } });
-    }
-    await prisma.trainingSession.deleteMany({ where: { user_id: userId } });
 
-    // 6. Eliminar foods de comidas y comidas
-    const meals = await prisma.meal.findMany({
-      where: { user_id: userId },
-      select: { id: true },
-    });
-    const mealIds = meals.map(m => m.id);
-    if (mealIds.length > 0) {
-      await prisma.mealFood.deleteMany({ where: { meal_id: { in: mealIds } } });
-    }
-    await prisma.meal.deleteMany({ where: { user_id: userId } });
+    // Revoca los access tokens ya emitidos (SA-13: si no, seguirían valiendo hasta expirar).
+    // La marca de revocación (auth:revoked:user:*) no la borra la purga posterior.
+    await revokeAllUserSessions(userId);
 
-    // 7. Eliminar logs de progreso y diarios
-    await prisma.progressLog.deleteMany({ where: { user_id: userId } });
-    await prisma.dailyLog.deleteMany({ where: { user_id: userId } });
-
-    // 8. Eliminar planes
-    await prisma.plan.deleteMany({ where: { user_id: userId } });
-
-    // 9. Eliminar perfil
-    await prisma.profile.deleteMany({ where: { user_id: userId } });
-
-    // 10. Eliminar usuario principal
-    await prisma.user.delete({ where: { id: userId } });
-
-    // 11. Invalidar todas las sesiones en caché Redis (no-fatal si Redis no disponible)
-    try {
-      const sessionId = req.user?.sessionId;
-      if (sessionId) {
-        await redis.del(`session:${sessionId}`);
-      }
-      await redis.del(`user:${userId}`);
-    } catch (redisErr) {
-      logger.warn(`[user] Redis no disponible al eliminar cuenta: ${redisErr.message}`);
-    }
+    const currentSession = req.user && req.user.sessionId;
+    if (currentSession && !sessionIds.includes(currentSession)) sessionIds.push(currentSession);
+    await purgeUserFromRedis(userId, sessionIds);
 
     logger.info(`[user] Cuenta eliminada permanentemente: ${userId}`);
-    return res.status(200).json({ success: true, message: 'Account deleted permanently' });
+    return sendSuccess(res, {}, 'Account deleted permanently');
   } catch (err) {
     next(err);
   }
 };
 
-// ─── GET /user/me/export — Portabilidad de datos (RGPD Art. 20) ──
+// ─── GET /user/me/export — Acceso y portabilidad (RGPD Art. 15/20) ──
 
 /**
- * Exporta todos los datos del usuario en formato JSON.
- * Devuelve el archivo como adjunto descargable.
+ * Modelos con `user_id` y la sección del export en la que aparecen. Un test
+ * compara esta lista con schema.prisma y falla si se añade un modelo con
+ * `user_id` sin exportarlo (o sin declararlo excluido).
+ */
+const EXPORTED_USER_MODELS = {
+  Profile: 'profile',
+  LifestyleProfile: 'lifestyle',
+  TrainingPreferences: 'training_preferences',
+  NutritionPreferences: 'nutrition_preferences',
+  HealthCondition: 'health_conditions',
+  FoodRestriction: 'food_restrictions',
+  MotivationProfile: 'motivation',
+  OnboardingAnswer: 'onboarding_answers',
+  Plan: 'plans',
+  TrainingSession: 'training_sessions',
+  Meal: 'meals',
+  ProgressLog: 'progress_logs',
+  DailyLog: 'daily_logs',
+  AuthSession: 'sessions',
+  TokenUsageLog: 'ai_usage',
+};
+
+/**
+ * Modelos con `user_id` excluidos a propósito: solo contienen secretos de un solo
+ * uso (hashes de OTP y tokens de reset), que no se entregan.
+ */
+const EXCLUDED_USER_MODELS = ['VerificationCode', 'PasswordResetToken'];
+
+// Campos internos que no se incluyen en ningún registro exportado
+const INTERNAL_FIELDS = ['user_id'];
+
+function stripInternal(record) {
+  if (!record || typeof record !== 'object') return record;
+  const out = {};
+  for (const [k, v] of Object.entries(record)) {
+    if (!INTERNAL_FIELDS.includes(k)) out[k] = v;
+  }
+  return out;
+}
+
+const stripAll = (records) => (records || []).map(stripInternal);
+
+/**
+ * Exporta todos los datos personales del usuario en JSON (descargable).
+ * SEC-49 (SA-20): incluye comidas, sesiones de entrenamiento, respuestas de onboarding,
+ * consentimiento, teléfono, sesiones (fecha/IP/dispositivo), planes y uso de IA.
+ * Nunca incluye secretos: hash de contraseña, refresh tokens, OTP ni tokens de reset.
  */
 const exportData = async (req, res, next) => {
   try {
     const userId = req.user.userId;
+    const byUser = { where: { user_id: userId } };
 
-    // Recopilar todos los datos del usuario en paralelo
     const [
       user,
       profile,
@@ -114,55 +185,68 @@ const exportData = async (req, res, next) => {
       healthConditions,
       foodRestrictions,
       motivation,
+      onboardingAnswers,
       plans,
+      trainingSessions,
+      meals,
       progressLogs,
       dailyLogs,
+      sessions,
+      tokenUsage,
     ] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
-        select: { email: true, created_at: true, status: true },
+        select: {
+          email: true,
+          phone_number: true,
+          email_verified: true,
+          phone_verified: true,
+          status: true,
+          created_at: true,
+          updated_at: true,
+          health_consent_given_at: true,
+          health_consent_version: true,
+        },
       }),
-      prisma.profile.findUnique({
-        where: { user_id: userId },
-        select: { name: true, birthdate: true, gender: true, weight_kg: true, height_cm: true, goal: true, activity_level: true, body_type: true, daily_calories_target: true, daily_protein_target: true, daily_carbs_target: true, daily_fat_target: true },
-      }),
-      prisma.lifestyleProfile.findUnique({
-        where: { user_id: userId },
-        select: { profession: true, work_type: true, work_hours_per_day: true, stress_level: true, usual_schedule: true, sleep_hours_usual: true, sleep_quality: true, alcohol_consumption: true, smoker: true, daily_water_glasses: true },
-      }),
-      prisma.trainingPreferences.findUnique({
-        where: { user_id: userId },
-        select: { available_days_per_week: true, max_session_duration_minutes: true, preferred_training_time: true, has_gym_access: true, home_equipment: true, experience_level: true, injuries_or_limitations: true },
-      }),
-      prisma.nutritionPreferences.findUnique({
-        where: { user_id: userId },
-        select: { diet_type: true, meals_per_day_preferred: true, cooks_at_home: true, eats_out_frequency: true, monthly_food_budget_range: true },
-      }),
-      prisma.healthCondition.findMany({
-        where: { user_id: userId },
-        select: { condition_name: true, condition_type: true, notes: true },
-      }),
-      prisma.foodRestriction.findMany({
-        where: { user_id: userId },
-        select: { restriction_type: true, food_name: true, severity: true },
-      }),
-      prisma.motivationProfile.findUnique({
-        where: { user_id: userId },
-        select: { main_motivation: true, previous_attempts: true, previous_attempts_notes: true, tracking_preference: true, has_support_network: true },
-      }),
+      prisma.profile.findUnique(byUser),
+      prisma.lifestyleProfile.findUnique(byUser),
+      prisma.trainingPreferences.findUnique(byUser),
+      prisma.nutritionPreferences.findUnique(byUser),
+      prisma.healthCondition.findMany(byUser),
+      prisma.foodRestriction.findMany(byUser),
+      prisma.motivationProfile.findUnique(byUser),
+      prisma.onboardingAnswer.findMany({ ...byUser, orderBy: { created_at: 'asc' } }),
       prisma.plan.findMany({
-        where: { user_id: userId },
-        select: { type: true, start_date: true, status: true, generated_by_ai: true },
+        ...byUser,
+        select: {
+          id: true, type: true, start_date: true, end_date: true, status: true,
+          generated_by_ai: true, ai_model_version: true, ai_prompt_used: true,
+          created_at: true, updated_at: true,
+        },
+        orderBy: { created_at: 'asc' },
       }),
-      prisma.progressLog.findMany({
-        where: { user_id: userId },
-        select: { log_date: true, weight_kg: true, body_fat_percentage: true, muscle_mass_kg: true, waist_cm: true, hip_cm: true, chest_cm: true, notes: true },
-        orderBy: { log_date: 'asc' },
+      prisma.trainingSession.findMany({
+        ...byUser,
+        include: { session_exercises: { include: { exercise: { select: { name: true } } } } },
+        orderBy: { scheduled_date: 'asc' },
       }),
-      prisma.dailyLog.findMany({
-        where: { user_id: userId },
-        select: { log_date: true, water_ml: true, sleep_hours: true, energy_level: true, steps: true, mood: true },
-        orderBy: { log_date: 'asc' },
+      prisma.meal.findMany({
+        ...byUser,
+        include: { meal_foods: { include: { food: { select: { name: true, brand: true } } } } },
+        orderBy: { scheduled_date: 'asc' },
+      }),
+      prisma.progressLog.findMany({ ...byUser, orderBy: { log_date: 'asc' } }),
+      prisma.dailyLog.findMany({ ...byUser, orderBy: { log_date: 'asc' } }),
+      prisma.authSession.findMany({
+        ...byUser,
+        // Sin refresh_token: es un secreto de sesión
+        select: { id: true, device_info: true, ip_address: true, created_at: true, last_used_at: true, expires_at: true },
+        orderBy: { created_at: 'asc' },
+      }),
+      prisma.tokenUsageLog.findMany({
+        ...byUser,
+        select: { request_type: true, input_tokens: true, output_tokens: true, model_version: true, created_at: true },
+        orderBy: { created_at: 'asc' },
       }),
     ]);
 
@@ -172,19 +256,38 @@ const exportData = async (req, res, next) => {
       exportDate: new Date().toISOString(),
       user: {
         email: user.email,
-        created_at: user.created_at,
+        phone_number: user.phone_number ?? null,
+        email_verified: user.email_verified ?? null,
+        phone_verified: user.phone_verified ?? null,
         status: user.status,
+        created_at: user.created_at,
+        updated_at: user.updated_at ?? null,
       },
-      profile: profile || null,
-      lifestyle: lifestyle || null,
-      training_preferences: trainingPrefs || null,
-      nutrition_preferences: nutritionPrefs || null,
-      health_conditions: healthConditions,
-      food_restrictions: foodRestrictions,
-      motivation: motivation || null,
-      plans,
-      progress_logs: progressLogs,
-      daily_logs: dailyLogs,
+      consent: {
+        health_consent_given_at: user.health_consent_given_at ?? null,
+        health_consent_version: user.health_consent_version ?? null,
+      },
+      profile: stripInternal(profile) || null,
+      lifestyle: stripInternal(lifestyle) || null,
+      training_preferences: stripInternal(trainingPrefs) || null,
+      nutrition_preferences: stripInternal(nutritionPrefs) || null,
+      health_conditions: stripAll(healthConditions),
+      food_restrictions: stripAll(foodRestrictions),
+      motivation: stripInternal(motivation) || null,
+      onboarding_answers: stripAll(onboardingAnswers),
+      plans: stripAll(plans),
+      training_sessions: stripAll(trainingSessions),
+      meals: stripAll(meals),
+      progress_logs: stripAll(progressLogs),
+      daily_logs: stripAll(dailyLogs),
+      sessions: stripAll(sessions),
+      ai_usage: stripAll(tokenUsage),
+      // Art. 15.1.c: destinatarios / encargados del tratamiento
+      recipients: [
+        { name: 'Anthropic', purpose: 'Generación de planes personalizados con IA (datos de perfil, preferencias y salud)' },
+        { name: 'Railway', purpose: 'Alojamiento de la aplicación, base de datos y caché' },
+        { name: 'Proveedor SMTP', purpose: 'Envío de correos de verificación y recuperación de contraseña' },
+      ],
     };
 
     logger.info(`[user] Exportación de datos solicitada: ${userId}`);
@@ -228,4 +331,12 @@ const getProfile = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { deleteAccount, exportData, getProfile };
+module.exports = {
+  deleteAccount,
+  exportData,
+  getProfile,
+  // Exportados para tests
+  EXPORTED_USER_MODELS,
+  EXCLUDED_USER_MODELS,
+  purgeUserFromRedis,
+};

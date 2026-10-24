@@ -84,6 +84,25 @@ describe('GET /user/me/export', () => {
     expect(res.body).toHaveProperty('plans');
     expect(res.body).toHaveProperty('progress_logs');
     expect(res.body).toHaveProperty('daily_logs');
+    // SEC-49: secciones añadidas (Art. 15/20)
+    expect(res.body).toHaveProperty('consent');
+    expect(res.body).toHaveProperty('onboarding_answers');
+    expect(res.body).toHaveProperty('training_sessions');
+    expect(res.body).toHaveProperty('meals');
+    expect(res.body).toHaveProperty('sessions');
+    expect(res.body).toHaveProperty('ai_usage');
+    expect(res.body).toHaveProperty('recipients');
+    expect(res.body.user).toHaveProperty('phone_number');
+  });
+
+  test('no incluye secretos (hash de contraseña ni tokens)', async () => {
+    const res = await request(app)
+      .get('/user/me/export')
+      .set('Authorization', getAuthHeader(token));
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toMatch(/password_hash/);
+    expect(raw).not.toMatch(/refresh_token/);
+    expect(raw).not.toMatch(/\$2[aby]\$/); // hash bcrypt
   });
 
   test('devuelve arrays vacíos para datos que no existen', async () => {
@@ -141,7 +160,8 @@ describe('DELETE /user/me', () => {
 
     const res = await request(app)
       .delete('/user/me')
-      .set('Authorization', getAuthHeader(token));
+      .set('Authorization', getAuthHeader(token))
+      .send({ password: user.password });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -154,7 +174,8 @@ describe('DELETE /user/me', () => {
     // Borrar cuenta
     await request(app)
       .delete('/user/me')
-      .set('Authorization', getAuthHeader(token));
+      .set('Authorization', getAuthHeader(token))
+      .send({ password: user.password });
 
     // Intentar acceder con el token del usuario borrado
     const res = await request(app)
@@ -170,6 +191,31 @@ describe('DELETE /user/me', () => {
     expect(res.status).toBe(401);
   });
 
+  // SEC-48: reautenticación obligatoria
+  test('sin contraseña → 400 y la cuenta no se borra', async () => {
+    const user = await createAndLoginUser();
+    createdEmails.push(user.email);
+    const res = await request(app)
+      .delete('/user/me')
+      .set('Authorization', getAuthHeader(user.access_token));
+    expect(res.status).toBe(400);
+    const still = await prisma.user.findUnique({ where: { email: user.email } });
+    expect(still).not.toBeNull();
+  });
+
+  test('contraseña incorrecta → 401 y la cuenta no se borra (token robado no basta)', async () => {
+    const user = await createAndLoginUser();
+    createdEmails.push(user.email);
+    const res = await request(app)
+      .delete('/user/me')
+      .set('Authorization', getAuthHeader(user.access_token))
+      .send({ password: 'WrongPassword1!' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
+    const still = await prisma.user.findUnique({ where: { email: user.email } });
+    expect(still).not.toBeNull();
+  });
+
   test('borra todos los datos del usuario de la base de datos', async () => {
     const user = await createAndLoginUser();
     const token = user.access_token;
@@ -181,7 +227,8 @@ describe('DELETE /user/me', () => {
 
     await request(app)
       .delete('/user/me')
-      .set('Authorization', getAuthHeader(token));
+      .set('Authorization', getAuthHeader(token))
+      .send({ password: user.password });
 
     // Verificar que ya no existe en BD
     const afterDelete = await prisma.user.findUnique({ where: { id: userId } });

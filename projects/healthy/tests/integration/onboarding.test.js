@@ -15,6 +15,12 @@ jest.mock('../../backend/src/services/email.service', () => ({
 }));
 
 // Mock del AI service: devuelve un plan válido sin llamar a Claude
+// Selector de catálogo con cliente Prisma propio (pg): se simula para no depender de una BD real
+jest.mock('../../backend/src/services/exerciseSelector.service', () => ({
+  getExercisesForProfile: jest.fn().mockResolvedValue([]),
+  formatExercisesForPrompt: jest.fn().mockReturnValue(''),
+}));
+
 jest.mock('../../backend/src/services/aiService', () => ({
   calculateMetabolism: jest.fn().mockReturnValue({
     bmr: 1749,
@@ -351,7 +357,7 @@ describe('PUT /onboarding/health', () => {
     const res = await request(app)
       .put('/onboarding/health')
       .set('Authorization', getAuthHeader(token))
-      .send({ conditions: [], food_restrictions: [] });
+      .send({ healthConsent: true, conditions: [], food_restrictions: [] });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -361,7 +367,7 @@ describe('PUT /onboarding/health', () => {
     const res = await request(app)
       .put('/onboarding/health')
       .set('Authorization', getAuthHeader(token))
-      .send({
+      .send({ healthConsent: true,
         conditions: [{ condition_name: 'Hypertension', condition_type: 'chronic', affects_training: false, affects_nutrition: true }],
         food_restrictions: [{ restriction_type: 'allergy', food_name: 'Peanuts' }],
       });
@@ -442,7 +448,7 @@ describe('POST /onboarding/complete', () => {
     await request(app)
       .put('/onboarding/health')
       .set('Authorization', getAuthHeader(token))
-      .send({ conditions: [], food_restrictions: [] });
+      .send({ healthConsent: true, conditions: [], food_restrictions: [] });
 
     // Paso 6: Motivación
     await request(app)
@@ -511,6 +517,12 @@ describe('POST /onboarding/complete', () => {
       .set('Authorization', getAuthHeader(newUser.access_token))
       .send(ONBOARDING_TRAINING);
 
+    // SEC-33: el consentimiento Art. 9 se comprueba antes que el resto de datos
+    await request(app)
+      .put('/onboarding/health')
+      .set('Authorization', getAuthHeader(newUser.access_token))
+      .send({ healthConsent: true, conditions: [], food_restrictions: [] });
+
     const res = await request(app)
       .post('/onboarding/complete')
       .set('Authorization', getAuthHeader(newUser.access_token))
@@ -529,6 +541,12 @@ describe('POST /onboarding/complete', () => {
       .put('/onboarding/profile')
       .set('Authorization', getAuthHeader(newUser.access_token))
       .send(ONBOARDING_PROFILE);
+
+    // SEC-33: el consentimiento Art. 9 se comprueba antes que el resto de datos
+    await request(app)
+      .put('/onboarding/health')
+      .set('Authorization', getAuthHeader(newUser.access_token))
+      .send({ healthConsent: true, conditions: [], food_restrictions: [] });
 
     const res = await request(app)
       .post('/onboarding/complete')

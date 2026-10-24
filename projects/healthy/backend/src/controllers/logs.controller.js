@@ -5,6 +5,7 @@
 const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
+const { parseIntInRange } = require('../utils/query.util');
 
 async function getOrCreateTodayLog(userId, todayStart) {
   let log = await prisma.dailyLog.findFirst({
@@ -57,7 +58,8 @@ const updateToday = async (req, res, next) => {
 const getHistory = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const days = Math.min(parseInt(req.query.days || '30', 10), 365);
+    // SEC-52: acotado a [1, 365] (antes un valor no numérico daba NaN → 500)
+    const days = parseIntInRange(req.query.days, { def: 30, min: 1, max: 365 });
 
     const since = new Date();
     since.setDate(since.getDate() - days);

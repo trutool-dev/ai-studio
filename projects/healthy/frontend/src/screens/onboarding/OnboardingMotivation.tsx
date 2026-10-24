@@ -12,6 +12,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 import api from '@/services/api';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingMotivation'>;
 
@@ -102,10 +103,12 @@ export function OnboardingMotivation({ navigation }: Props) {
   const [attempts,    setAttempts]    = useState<PreviousAttempts | undefined>(prev?.previousAttempts);
   const [challenge,   setChallenge]   = useState(prev?.mainChallenge ?? '');
   const [loading,     setLoading]     = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleContinue = async () => {
     const motivationData = { motivations, previousAttempts: attempts!, mainChallenge: challenge };
     setLoading(true);
+    setSaveError(null);
     try {
       await api.put('/onboarding/motivation', {
         motivations:       motivationData.motivations,
@@ -114,9 +117,9 @@ export function OnboardingMotivation({ navigation }: Props) {
       });
       setMotivation(motivationData);
       navigation.navigate('OnboardingComplete');
-    } catch {
-      setMotivation(motivationData);
-      navigation.navigate('OnboardingComplete');
+    } catch (err) {
+      // SEC-35 (JB-03): si el guardado falla no avanzamos; mostramos el error y el usuario reintenta
+      setSaveError(extractApiError(err, 'No se pudo guardar tu motivación. Inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -129,6 +132,8 @@ export function OnboardingMotivation({ navigation }: Props) {
       subtitle="Entender qué te mueve nos ayuda a diseñar un plan que no abandones"
       onBack={() => navigation.goBack()}
       onContinue={handleContinue}
+      errorMessage={saveError}
+      onDismissError={() => setSaveError(null)}
       continueLabel="Generar mi plan"
       canContinue={motivations.length > 0 && !!attempts}
       loading={loading}

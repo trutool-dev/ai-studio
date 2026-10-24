@@ -3,10 +3,26 @@ Script para ejecutar los tests de evaluacion CP-01..CP-10 contra staging.
 """
 import urllib.request, json, sys
 
-BASE = "https://backend-staging-01ee.up.railway.app"
+import os
+
+# Configuración por variables de entorno (SEC-30/SEC-41): sin URLs ni contraseñas en el código.
+#   HEALTHY_API_URL      URL base del backend (p. ej. la de staging). Obligatoria.
+#   EVAL_TEST_PASSWORD   Contraseña de los usuarios de evaluación. Obligatoria.
+#   EVAL_EMAIL_DOMAIN    Dominio de los emails de prueba (debe estar en DEV_ENDPOINTS_EMAIL_DOMAINS
+#                        del backend; por defecto test.healthy.com).
+#   DEV_ENDPOINTS_TOKEN  Token de los endpoints dev (cabecera X-Dev-Token), solo si el backend
+#                        tiene ENABLE_DEV_ENDPOINTS=true.
+BASE = os.environ.get("HEALTHY_API_URL", "").rstrip("/")
+EVAL_PASSWORD = os.environ.get("EVAL_TEST_PASSWORD", "")
+EVAL_EMAIL_DOMAIN = os.environ.get("EVAL_EMAIL_DOMAIN", "test.healthy.com")
+DEV_TOKEN = os.environ.get("DEV_ENDPOINTS_TOKEN", "")
+if not BASE or not EVAL_PASSWORD:
+    sys.exit("Define HEALTHY_API_URL y EVAL_TEST_PASSWORD antes de ejecutar este script.")
 
 def api(method, path, data=None, token=None):
     headers = {"Content-Type": "application/json"}
+    if DEV_TOKEN and path.startswith("/auth/dev/"):
+        headers["X-Dev-Token"] = DEV_TOKEN
     if token:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(
@@ -27,8 +43,8 @@ def api(method, path, data=None, token=None):
         return {"success": False, "error": str(e)}
 
 def get_token(n):
-    email = f"eval_20260902_{n:02d}@healthyapp.test"
-    r = api("POST", "/auth/login", {"email": email, "password": "EvalTest2026!"})
+    email = f"eval_20260902_{n:02d}@{EVAL_EMAIL_DOMAIN}"
+    r = api("POST", "/auth/login", {"email": email, "password": EVAL_PASSWORD})
     if not r:
         return ""
     return (r.get("data") or {}).get("access_token", "")
@@ -38,7 +54,7 @@ def complete_onboarding(token, profile, lifestyle, training, nutrition, health, 
     api("PUT", "/onboarding/lifestyle", lifestyle, token)
     api("PUT", "/onboarding/training", training, token)
     api("PUT", "/onboarding/nutrition", nutrition, token)
-    api("PUT", "/onboarding/health", health, token)
+    api("PUT", "/onboarding/health", {**health, "healthConsent": True}, token)
     api("PUT", "/onboarding/motivation", motivation, token)
     return api("POST", "/onboarding/complete", {}, token)
 

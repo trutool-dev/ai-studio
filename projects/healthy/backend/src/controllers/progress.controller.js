@@ -6,13 +6,15 @@ const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
 const aiService = require('../services/aiService');
+const { parseIntInRange } = require('../utils/query.util');
 
 /** GET /progress — Historial ordenado desc */
 const getProgress = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const limit = Math.min(parseInt(req.query.limit || '30', 10), 100);
-    const offset = parseInt(req.query.offset || '0', 10);
+    // SEC-52: paginación acotada (antes NaN o negativos provocaban 500)
+    const limit = parseIntInRange(req.query.limit, { def: 30, min: 1, max: 100 });
+    const offset = parseIntInRange(req.query.offset, { def: 0, min: 0, max: 100000 });
 
     const [logs, total] = await Promise.all([
       prisma.progressLog.findMany({ where: { user_id: userId }, orderBy: { log_date: 'desc' }, take: limit, skip: offset }),

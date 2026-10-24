@@ -231,6 +231,23 @@ const TABLE_DEFAULTS = {
   progressLog: { weight_kg: null, body_fat_percentage: null, muscle_mass_kg: null, waist_cm: null, hip_cm: null, chest_cm: null, notes: null, photo_url: null },
 };
 
+// Aplica `data` de un update soportando operadores atómicos de Prisma
+// ({ increment, decrement, set }) además de asignación directa.
+function applyUpdateData(record, data = {}) {
+  const out = { ...record };
+  for (const [key, val] of Object.entries(data)) {
+    if (val && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)
+      && ('increment' in val || 'decrement' in val || 'set' in val)) {
+      if ('set' in val) out[key] = val.set;
+      if ('increment' in val) out[key] = (Number(out[key]) || 0) + val.increment;
+      if ('decrement' in val) out[key] = (Number(out[key]) || 0) - val.decrement;
+    } else {
+      out[key] = val;
+    }
+  }
+  return out;
+}
+
 // ─── Generador de modelos ────────────────────────────────────────────────────
 
 function makeModel(table) {
@@ -327,7 +344,7 @@ function makeModel(table) {
       if (idx === -1) {
         throw new Error(`[prisma mock] ${table}.update: registro no encontrado con where=${JSON.stringify(where)}`);
       }
-      db[table][idx] = { ...db[table][idx], ...data, updated_at: new Date() };
+      db[table][idx] = { ...applyUpdateData(db[table][idx], data), updated_at: new Date() };
       let result = { ...db[table][idx] };
       if (include) result = applyInclude(result, include, db);
       if (select) result = applySelect(result, select);
@@ -340,7 +357,7 @@ function makeModel(table) {
       db[table] = db[table].map((r) => {
         if (matchesWhere(r, where)) {
           count++;
-          return { ...r, ...data, updated_at: new Date() };
+          return { ...applyUpdateData(r, data), updated_at: new Date() };
         }
         return r;
       });

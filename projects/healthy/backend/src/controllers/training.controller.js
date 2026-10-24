@@ -5,6 +5,9 @@
 const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
 const logger = require('../utils/logger.util');
+const { parseDateParam } = require('../utils/query.util');
+
+const SESSION_STATUSES = ['scheduled', 'completed', 'skipped'];
 
 /** Formatea una sesión de BD al formato que espera el frontend */
 function formatSession(session) {
@@ -56,13 +59,21 @@ const getTodaySession = async (req, res, next) => {
 const getSessions = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const { date, status } = req.query;
+    const { status } = req.query;
+
+    // SEC-52: los query params solo pueden ser cadenas de una lista blanca / fechas
+    // válidas (antes un objeto ?status[not]=x llegaba como operador de Prisma)
+    if (status !== undefined && status !== '' && !SESSION_STATUSES.includes(status)) {
+      return sendError(res, 'VALIDATION_ERROR', `status debe ser uno de: ${SESSION_STATUSES.join(', ')}`, 400);
+    }
+    const parsed = parseDateParam(req.query.date);
+    if (!parsed.ok) return sendError(res, 'VALIDATION_ERROR', 'date debe ser una fecha ISO 8601 (YYYY-MM-DD)', 400);
 
     const where = { user_id: userId };
     if (status) where.status = status;
 
-    if (date) {
-      const d = new Date(date);
+    if (parsed.date) {
+      const d = parsed.date;
       where.scheduled_date = {
         gte: new Date(d.setHours(0, 0, 0, 0)),
         lte: new Date(d.setHours(23, 59, 59, 999)),
@@ -104,6 +115,15 @@ const completeSession = async (req, res, next) => {
     const userId = req.user.userId;
     const { id } = req.params;
     const { duration_minutes, calories_burned, notes } = req.body;
+    // SEC-52: validación también en el controlador (las reglas de la ruta ya lo filtran)
+    const intOrNull = (v, min, max) => (v === undefined || v === null || v === '' ? null
+      : (Number.isInteger(Number(v)) && Number(v) >= min && Number(v) <= max ? Number(v) : undefined));
+    const duration = intOrNull(duration_minutes, 1, 600);
+    const calories = intOrNull(calories_burned, 0, 10000);
+    if (duration === undefined || calories === undefined
+      || (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > 1000))) {
+      return sendError(res, 'VALIDATION_ERROR', 'Datos de la sesión no válidos', 400);
+    }
 
     const session = await prisma.trainingSession.findFirst({ where: { id, user_id: userId } });
     if (!session) return sendError(res, 'NOT_FOUND', 'Sesión no encontrada', 404);
@@ -111,7 +131,7 @@ const completeSession = async (req, res, next) => {
 
     const updated = await prisma.trainingSession.update({
       where: { id },
-      data: { status: 'completed', completed_at: new Date(), duration_minutes: duration_minutes || null, calories_burned: calories_burned || null, notes: notes || null },
+      data: { status: 'completed', completed_at: new Date(), duration_minutes: duration || null, calories_burned: calories || null, notes: notes || null },
     });
 
     return sendSuccess(res, { session: updated }, 'Sesión completada correctamente');

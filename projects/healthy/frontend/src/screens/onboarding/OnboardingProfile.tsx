@@ -10,6 +10,7 @@ import { colors }    from '@/theme/colors';
 import { textStyles } from '@/theme/typography';
 import { spacing }   from '@/theme/spacing';
 import api from '@/services/api';
+import { extractApiError } from '@/utils/errors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingProfile'>;
 
@@ -23,6 +24,7 @@ export function OnboardingProfile({ navigation }: Props) {
   const [bodyType, setBodyType] = useState<BodyType | undefined>(prev?.bodyType);
   const [errors,   setErrors]   = useState<Record<string,string>>({});
   const [loading,  setLoading]  = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const validate = () => {
     const e: Record<string,string> = {};
@@ -38,6 +40,7 @@ export function OnboardingProfile({ navigation }: Props) {
     if (!validate()) return;
     const profileData = { gender: gender!, age: +age, weight: +weight, height: +height, bodyType: bodyType! };
     setLoading(true);
+    setSaveError(null);
     try {
       await api.put('/onboarding/profile', {
         goal:       data.goal,
@@ -49,10 +52,9 @@ export function OnboardingProfile({ navigation }: Props) {
       });
       setProfile(profileData);
       navigation.navigate('OnboardingLifestyle');
-    } catch {
-      // Si falla la llamada, guardamos localmente y continuamos
-      setProfile(profileData);
-      navigation.navigate('OnboardingLifestyle');
+    } catch (err) {
+      // SEC-35 (JB-03): si el guardado falla no avanzamos; mostramos el error y el usuario reintenta
+      setSaveError(extractApiError(err, 'No se pudieron guardar tus datos físicos. Inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -65,6 +67,8 @@ export function OnboardingProfile({ navigation }: Props) {
       subtitle="Lo usaremos para calcular tus necesidades calóricas y de entrenamiento"
       onBack={() => navigation.goBack()}
       onContinue={handleContinue}
+      errorMessage={saveError}
+      onDismissError={() => setSaveError(null)}
       canContinue={!!(gender && age && weight && height && bodyType)}
       loading={loading}
     >
