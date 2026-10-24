@@ -96,6 +96,9 @@ interface PlanState {
   // Acciones de API — Logs
   fetchTodayLog:       () => Promise<void>;
   submitLog:           (log: Partial<DayLog>) => Promise<void>;
+
+  /** Vacía el estado en memoria (tras borrar la cuenta o retirar el consentimiento) */
+  reset:               () => void;
 }
 
 // ── Datos mock (fallback offline) ────────────────────────────────────────────
@@ -169,7 +172,8 @@ function unwrap<T>(response: { data: { data?: T } & T }): T {
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
-export const usePlanStore = create<PlanState>((set, get) => ({
+// Estado inicial (también lo restaura reset())
+const INITIAL_PLAN_DATA = {
   todayWorkout:  MOCK_WORKOUT,
   todayMeals:    MOCK_MEALS,
   targets:       MOCK_TARGETS,
@@ -177,6 +181,12 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   weightHistory: MOCK_WEIGHT_HISTORY,
   progressStats: null,
   log: { waterMl: 750, steps: 3240, sleepHours: 7.5 },
+};
+
+export const usePlanStore = create<PlanState>((set, get) => ({
+  ...INITIAL_PLAN_DATA,
+
+  reset: () => set({ ...INITIAL_PLAN_DATA }),
 
   isLoadingTraining:  false,
   isLoadingNutrition: false,

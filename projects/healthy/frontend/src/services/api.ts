@@ -81,9 +81,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Solo intentar refresco en 401 y si no es ya el endpoint de refresh
+    // Solo intentar refresco en 401 de token (no de credenciales) y si no es ya el endpoint
+    // de refresh. INVALID_CREDENTIALS = contraseña incorrecta (login, DELETE /user/me): el
+    // token sigue siendo válido y reintentar gastaría otro intento del limitador (SEC-48).
     if (
       error.response?.status === 401 &&
+      error.response?.data?.error !== 'INVALID_CREDENTIALS' &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/auth/refresh')
     ) {

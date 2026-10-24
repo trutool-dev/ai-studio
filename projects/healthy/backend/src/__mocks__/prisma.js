@@ -14,7 +14,7 @@
 
 'use strict';
 
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto'); // SEC-53: sin dependencia de uuid
 
 // ─── Base de datos en memoria ────────────────────────────────────────────────
 

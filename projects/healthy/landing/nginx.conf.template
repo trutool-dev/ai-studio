@@ -18,12 +18,21 @@ server {
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header Strict-Transport-Security "max-age=31536000" always;
 
-    # robots.txt servido directamente desde public/
+    # robots.txt y sitemap.xml (A-26): el Dockerfile copia public/ a la raíz del html,
+    # así que están en /usr/share/nginx/html/. El tipo MIME lo pone mime.types
+    # (text/plain y text/xml); un add_header Content-Type duplicaría la cabecera.
+    # Sin fallback a index4.html: si faltan, 404 (no HTML con 200).
     location = /robots.txt {
-        alias /usr/share/nginx/html/public/robots.txt;
+        try_files /robots.txt =404;
         expires 1d;
         add_header Cache-Control "public, max-age=86400" always;
-        add_header Content-Type "text/plain" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    location = /sitemap.xml {
+        try_files /sitemap.xml =404;
+        expires 1d;
+        add_header Cache-Control "public, max-age=86400" always;
         add_header X-Content-Type-Options "nosniff" always;
     }
 

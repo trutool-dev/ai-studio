@@ -655,7 +655,7 @@ function normalizeRegenerationReason(reason) {
  * @param {Array} progressLogs
  * @param {Array} exercises - catálogo de ejercicios filtrado (SEC-54)
  */
-async function regeneratePlan(userId, onboardingData, reason, progressLogs = [], exercises = []) {
+async function regeneratePlan(userId, onboardingData, reason, _progressLogs = [], exercises = []) {
   const contextLines = ['REGENERACIÓN DE PLAN — Actualización solicitada por:'];
 
   switch (normalizeRegenerationReason(reason)) {

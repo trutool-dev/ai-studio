@@ -4,7 +4,6 @@
 
 const { sendSuccess, sendError } = require('../utils/response.util');
 const prisma = require('../prisma/client');
-const logger = require('../utils/logger.util');
 const aiService = require('../services/aiService');
 const { parseIntInRange } = require('../utils/query.util');
 

@@ -15,6 +15,10 @@ import { colors }              from '@/theme/colors';
 import { textStyles }          from '@/theme/typography';
 import { spacing, borderRadius, shadows } from '@/theme/spacing';
 import api                     from '@/services/api';
+import { apiErrorCode, PRIVACY_ERRORS } from '@/services/privacyService';
+import { useNavigation }       from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 // ── Mapas de etiquetas ───────────────────────────────────────────────────────
 
@@ -37,6 +41,7 @@ const DIET_LABELS: Record<string, string> = {
 // ── Pantalla ─────────────────────────────────────────────────────────────────
 
 export function ProfileScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, logout }                              = useAuthStore();
   const { todayWorkout, streak, progressStats,
           isLoadingProgress, fetchProgress,
@@ -87,8 +92,20 @@ export function ProfileScreen() {
             try {
               await regeneratePlan();
               Alert.alert('¡Plan regenerado!', 'Tu nuevo plan personalizado está listo. Revisa el inicio para ver los cambios.');
-            } catch {
-              Alert.alert('Error', 'No se pudo regenerar el plan. Inténtalo de nuevo.');
+            } catch (err) {
+              if (apiErrorCode(err) === PRIVACY_ERRORS.HEALTH_CONSENT_REQUIRED) {
+                // SEC-47: consentimiento retirado → hay que volver a darlo en el paso de salud
+                Alert.alert(
+                  'Falta tu consentimiento',
+                  'Para generar un plan con IA necesitamos tu consentimiento para tratar tus datos de salud.',
+                  [
+                    { text: 'Ahora no', style: 'cancel' },
+                    { text: 'Dar consentimiento', onPress: () => navigation.navigate('OnboardingHealth') },
+                  ],
+                );
+              } else {
+                Alert.alert('Error', 'No se pudo regenerar el plan. Inténtalo de nuevo.');
+              }
             } finally {
               setRegenerating(false);
             }
@@ -187,7 +204,7 @@ export function ProfileScreen() {
           <Divider />
           <ToggleRow icon="🌙" label="Modo oscuro"    value={darkMode}      onToggle={() => setDarkMode((v) => !v)} soon />
           <Divider />
-          <SettingRow icon="🔒" label="Privacidad y datos" />
+          <SettingRow icon="🔒" label="Privacidad y datos" onPress={() => navigation.navigate('Privacy')} />
           <Divider />
           <SettingRow icon="❓" label="Ayuda y soporte" />
           <Divider />
@@ -273,7 +290,7 @@ function ToggleRow({
   );
 }
 
-function SettingRow({ icon, label }: { icon: string; label: string }) {
+function SettingRow({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const cfg = { duration: 120, easing: Easing.bezier(0.23, 1, 0.32, 1) };
@@ -281,6 +298,9 @@ function SettingRow({ icon, label }: { icon: string; label: string }) {
     <Animated.View style={animStyle}>
       <Pressable
         style={sStyles.row}
+        onPress={onPress}
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={label}
         onPressIn={() => { scale.value = withTiming(0.98, cfg); }}
         onPressOut={() => { scale.value = withTiming(1, cfg); }}
       >

@@ -10,6 +10,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
 // SEC-62 (SA-27): cliente Prisma compartido (antes se creaba un Pool + PrismaClient por petición)
 const prisma = require('../prisma/client');
+const logger = require('../utils/logger.util');
 const { parseIntInRange, parseOptionalString } = require('../utils/query.util');
 
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
@@ -80,7 +81,7 @@ router.get('/', authenticate, async (req, res) => {
       message: 'Ejercicios obtenidos correctamente',
     });
   } catch (error) {
-    console.error('[exercises] Error fetching exercises:', error);
+    logger.error(`[exercises] Error al listar ejercicios: ${error && error.message}`);
     return res.status(500).json({
       success: false,
       error: 'INTERNAL_ERROR',
@@ -115,7 +116,7 @@ router.get('/:id', authenticate, async (req, res) => {
       message: 'Ejercicio obtenido correctamente',
     });
   } catch (error) {
-    console.error('[exercises] Error fetching exercise:', error);
+    logger.error(`[exercises] Error al obtener el ejercicio: ${error && error.message}`);
     return res.status(500).json({
       success: false,
       error: 'INTERNAL_ERROR',

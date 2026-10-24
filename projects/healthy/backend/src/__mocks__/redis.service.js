@@ -10,7 +10,7 @@ const store = new Map();
 const redisMock = {
   get: jest.fn(async (key) => store.get(key) ?? null),
 
-  set: jest.fn(async (key, value, ...args) => {
+  set: jest.fn(async (key, value, ..._args) => {
     store.set(key, value);
     // Soporta EX <segundos> para TTL (ignoramos TTL en el mock)
     return 'OK';

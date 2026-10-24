@@ -37,6 +37,8 @@ interface WorkoutCardProps {
   completed?:   boolean;
   calsBurned?:  string;
   onPress?:     () => void;
+  /** Etiqueta de accesibilidad; por defecto «título, tipo, N minutos» */
+  accessibilityLabel?: string;
   style?:       ViewStyle;
 }
 
@@ -76,6 +78,7 @@ export function WorkoutCard({
   completed   = false,
   calsBurned,
   onPress,
+  accessibilityLabel,
   style,
 }: WorkoutCardProps) {
   const scale = useSharedValue(1);
@@ -159,7 +162,7 @@ export function WorkoutCard({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         accessibilityRole="button"
-        accessibilityLabel={`${title}, ${type}, ${durationMin} minutos`}
+        accessibilityLabel={accessibilityLabel ?? `${title}, ${type}, ${durationMin} minutos`}
       >
         {inner}
       </Pressable>

@@ -30,7 +30,6 @@ function buildErrorLog(err, req) {
  * Manejador global de errores de Express.
  * Captura cualquier error no controlado y devuelve una respuesta estándar.
  */
-// eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, _next) => {
   logger.error(buildErrorLog(err || {}, req));
 

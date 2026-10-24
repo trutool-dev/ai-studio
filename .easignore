@@ -1,0 +1,49 @@
+# .easignore — qué se sube a EAS Build (sesión 2026-10-21).
+#
+# eas-cli lee este archivo SOLO en la raíz del repositorio git (`git rev-parse --show-toplevel`),
+# no en projects/healthy/frontend/. Cuando existe, los .gitignore dejan de aplicarse al
+# archivo que se sube, así que aquí hay que excluir también secretos y artefactos locales.
+#
+# Estrategia: lista blanca. Se ignora todo y solo se reincluye la app Expo.
+# Antes se subía el monorepo entero (~1,7 GB, con .claude/settings*.json, landing, backend…).
+# Comprobación local sin subir nada: node projects/healthy/devops/scripts/check-eas-archive.js
+# OJO: sin barra final en los patrones de carpeta (el paquete `ignore` de eas-cli no casa
+# `dir/` con la ruta `dir` al copiar el directorio de trabajo).
+
+# 1) Todo lo de la raíz fuera (incluye .git: su clon superficial lleva los blobs de todo el repo)
+/*
+
+# 2) Reincluir solo projects/healthy/frontend
+!/projects
+/projects/*
+!/projects/healthy
+/projects/healthy/*
+!/projects/healthy/frontend
+
+# 3) Dentro del frontend, fuera lo que no necesita el build
+/projects/healthy/frontend/node_modules
+/projects/healthy/frontend/.expo
+/projects/healthy/frontend/dist
+/projects/healthy/frontend/web-build
+/projects/healthy/frontend/android
+/projects/healthy/frontend/ios
+/projects/healthy/frontend/coverage
+/projects/healthy/frontend/.claude
+/projects/healthy/frontend/CLAUDE.md
+/projects/healthy/frontend/.easignore
+# Secretos y entorno local: la URL de la API la fija eas.json por perfil
+/projects/healthy/frontend/.env
+/projects/healthy/frontend/.env.*
+/projects/healthy/frontend/google-service-account.json
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+# Tests y basura
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+*.log
+npm-debug.*
+.DS_Store

@@ -15,9 +15,10 @@
  *   RETENTION_IP_DAYS      = 90  → las sesiones duran como máx. 30 días; las IPs de sesiones
  *                                   más antiguas que 90 días se anonimizan si siguieran vivas
  *
- * NO está programado: debe lanzarse a diario desde un cron externo (Railway cron o
- * GitHub Actions) — tarea de devops. Ejecución manual: `node src/jobs/retention.js`
- * (conecta a la BD de DATABASE_URL; no ejecutar contra producción sin aprobación).
+ * Programación: `src/jobs/scheduler.js` lo ejecuta a diario dentro del backend si
+ * RETENTION_SCHEDULER_ENABLED=true (hora en RETENTION_SCHEDULER_HOUR_UTC, por defecto 3).
+ * Ejecución manual o desde un cron externo: `npm run retention` (= `node src/jobs/retention.js`;
+ * conecta a la BD de DATABASE_URL; no ejecutar contra producción sin aprobación).
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -91,11 +92,8 @@ module.exports = { runRetention, getRetentionConfig, DEFAULT_RETENTION_DAYS };
 
 /* istanbul ignore next -- punto de entrada CLI, no se ejecuta en tests */
 if (require.main === module) {
-  // eslint-disable-next-line global-require
   require('dotenv').config();
-  // eslint-disable-next-line global-require
   const prisma = require('../prisma/client');
-  // eslint-disable-next-line global-require
   const logger = require('../utils/logger.util');
   runRetention({ prisma, logger })
     .then(() => prisma.$disconnect())

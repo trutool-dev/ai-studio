@@ -42,6 +42,7 @@ const { hashPassword } = require('../../backend/src/utils/crypto.util');
 const {
   deleteAccount,
   exportData,
+  getProfile,
   EXPORTED_USER_MODELS,
   EXCLUDED_USER_MODELS,
   purgeUserFromRedis,
@@ -68,6 +69,51 @@ beforeEach(() => {
   mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
   mockPrisma.authSession.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
   mockPrisma.user.delete.mockResolvedValue({});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /user/me/profile — estado del consentimiento art. 9 (SEC-47)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('getProfile — health_consent', () => {
+  const GIVEN_AT = new Date('2026-10-01T10:00:00Z');
+
+  beforeEach(() => {
+    delete process.env.HEALTH_CONSENT_VERSION;
+    mockPrisma.profile.findUnique.mockResolvedValue({ birthdate: '1990-01-01', weight_kg: '70', height_cm: '175', gender: 'male', goal: 'lose_weight' });
+    mockPrisma.trainingPreferences.findUnique.mockResolvedValue({ available_days_per_week: 3 });
+    mockPrisma.nutritionPreferences.findUnique.mockResolvedValue({ diet_type: 'omnivore' });
+  });
+
+  async function callProfile() {
+    const res = makeRes();
+    const next = jest.fn();
+    await getProfile({ user: { userId: USER_ID } }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    return { status: res.status.mock.calls[0][0], body: res.json.mock.calls[0][0] };
+  }
+
+  it('consentimiento vigente → valid true con su fecha', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ health_consent_given_at: GIVEN_AT, health_consent_version: '1.0' });
+    const { status, body } = await callProfile();
+    expect(status).toBe(200);
+    expect(body.data.health_consent).toEqual({ valid: true, given_at: GIVEN_AT });
+    expect(body.data.sessions_per_week).toBe(3);
+  });
+
+  it('consentimiento retirado → valid false y sin fecha', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ health_consent_given_at: null, health_consent_version: 'withdrawn:1.0:2026-10-20T00:00:00.000Z' });
+    const { body } = await callProfile();
+    expect(body.data.health_consent).toEqual({ valid: false, given_at: null });
+  });
+
+  it('versión antigua del consentimiento → valid false', async () => {
+    process.env.HEALTH_CONSENT_VERSION = '2.0';
+    mockPrisma.user.findUnique.mockResolvedValue({ health_consent_given_at: GIVEN_AT, health_consent_version: '1.0' });
+    const { body } = await callProfile();
+    expect(body.data.health_consent.valid).toBe(false);
+    delete process.env.HEALTH_CONSENT_VERSION;
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

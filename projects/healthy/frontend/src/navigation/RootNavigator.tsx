@@ -33,6 +33,7 @@ import { OnboardingComplete }   from '@/screens/onboarding/OnboardingComplete';
 
 // App principal
 import { MainTabNavigator }     from './MainTabNavigator';
+import { PrivacyScreen }        from '@/screens/app/PrivacyScreen';
 
 export type RootStackParamList = {
   // Auth
@@ -54,6 +55,7 @@ export type RootStackParamList = {
   OnboardingComplete:   undefined;
   // App
   MainTabs: undefined;
+  Privacy:  undefined; // SEC-47/48: consentimiento de salud y borrado de cuenta
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -89,6 +91,7 @@ export function RootNavigator() {
             // Ya tiene plan activo → ir directo a la app
             <>
               <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+              <Stack.Screen name="Privacy"  component={PrivacyScreen} />
               {/* Onboarding accesible por si se redirige desde SetPassword con plan nuevo */}
               <Stack.Screen name="OnboardingWelcome"    component={OnboardingWelcome} />
               <Stack.Screen name="OnboardingGoal"       component={OnboardingGoal} />
@@ -115,6 +118,7 @@ export function RootNavigator() {
               <Stack.Screen name="OnboardingComplete"   component={OnboardingComplete}
                 options={{ gestureEnabled: false }} />
               <Stack.Screen name="MainTabs"             component={MainTabNavigator} />
+              <Stack.Screen name="Privacy"              component={PrivacyScreen} />
             </>
           )
         ) : (
